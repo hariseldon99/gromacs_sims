@@ -1,17 +1,17 @@
 ;
 ;	File 'mdout.mdp' was generated
-;	By user: daneel (1000)
-;	On host: sudarshan
-;	At date: Tue Mar 14 00:20:35 2023
+;	By user: unknown (1001)
+;	On host: shavak-DIT400TR-55L
+;	At date: Tue Mar 14 11:15:23 2023
 ;
 ;	Created by:
-;	             :-) GROMACS - gmx grompp, 2021.4-Ubuntu-2021.4-2 (-:
+;	             :-) GROMACS - gmx grompp, 2020.1-Ubuntu-2020.1-1 (-:
 ;	
 ;	Executable:   /usr/bin/gmx
 ;	Data prefix:  /usr
-;	Working dir:  /home/daneel/gitrepos/gromacs_sims/lysozyme
+;	Working dir:  /home/admin/gitrepos/gromacs_sims/lysozyme
 ;	Command line:
-;	  gmx grompp -f ions.mdp -c 1AKI_solv.gro -p topol.top -o ions.tpr
+;	  gmx grompp -f minim.mdp -c 1AKI_solv_ions.gro -p topol.top -o em.tpr
 
 ; VARIOUS PREPROCESSING OPTIONS
 ; Preprocessor information: use cpp syntax.
@@ -30,8 +30,6 @@ nsteps                   = 50000
 init-step                = 0
 ; Part index is updated automatically on checkpointing (keeps files separate)
 simulation-part          = 1
-; Multiple time-stepping
-mts                      = no
 ; mode for center of mass motion removal
 comm-mode                = Linear
 ; number of steps for center of mass motion removal
@@ -95,7 +93,7 @@ rlist                    = 1
 
 ; OPTIONS FOR ELECTROSTATICS AND VDW
 ; Method for doing electrostatics
-coulombtype              = cutoff
+coulombtype              = PME
 coulomb-modifier         = Potential-shift-Verlet
 rcoulomb-switch          = 0
 rcoulomb                 = 1.0
@@ -153,8 +151,28 @@ refcoord-scaling         = No
 
 ; OPTIONS FOR QMMM calculations
 QMMM                     = no
-; Groups treated with MiMiC
+; Groups treated Quantum Mechanically
 QMMM-grps                = 
+; QM method             
+QMmethod                 = 
+; QMMM scheme           
+QMMMscheme               = normal
+; QM basisset           
+QMbasis                  = 
+; QM charge             
+QMcharge                 = 
+; QM multiplicity       
+QMmult                   = 
+; Surface Hopping       
+SH                       = 
+; CAS space options     
+CASorbitals              = 
+CASelectrons             = 
+SAon                     = 
+SAoff                    = 
+SAsteps                  = 
+; Scale factor for MM charges
+MMChargeScaleFactor      = 1
 
 ; SIMULATED ANNEALING  
 ; Type of annealing for each temperature group (no/single/periodic)
