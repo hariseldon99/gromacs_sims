@@ -1,11 +1,11 @@
 #!/bin/bash
 #----------------------------------------------------------
 # Job name
-#PBS -N lysozyme-EM
+#PBS -N mpi
 # queue select
 #PBS -q workq
 # Name of stdout output file (default)
-#PBS -o gromacs_em_ku.out 
+#PBS -o mpi.out 
 # stdout output file
 #PBS -j oe
 # Total number of nodes and MPI tasks/node requested
@@ -13,10 +13,26 @@
 #PBS -l place=scatter
 #PBS -l walltime=00:55:00 
 #----------------------------------------------------------
-export OMP_NUM_THREADS=1
+
+#Suppress spurious infiniband-related errors
+export MPI_MCA_mca_base_component_show_load_errors=0
+export PMIX_MCA_mca_base_component_show_load_errors=0
+
+#Use openmp. Set to false to switch to MPI
+export USE_OPENMP=false
+
+#Start time
+start=`date +%s.%N`
+
+#Load basic OHPC tools
+module load ohpc
+
 # Change to submission directory
 cd $PBS_O_WORKDIR
+
+#Activate GROMACS
 source /opt/gromacs-2022.4/bin/GMXRC
+
 echo starting
 echo '---------------------------------------------'
 num_proc=`wc -l $PBS_NODEFILE | awk '{print $1}'`
@@ -24,7 +40,6 @@ echo 'num_proc='$num_proc
 echo '---------------------------------------------'
 cat $PBS_NODEFILE
 echo '---------------------------------------------'
-export OMP_NUM_THREADS=1
 
 export GROFILE=1AKI_solv_ions.gro
 export MDPFILE=minim.mdp
@@ -33,8 +48,25 @@ export TOPOL_FILE=topol.top
 export EMFILE=em
 
 #Preprocessing 
-gmx_mpi grompp -f $MDPFILE -c $GROFILE -p $TOPOL_FILE -o ${EMFILE}.tpr
+#gmx_mpi grompp -f $MDPFILE -c $GROFILE -p $TOPOL_FILE -o ${EMFILE}.tpr
 
-#Actual EM
-mpirun -np $num_proc -hostfile $PBS_NODEFILE gmx_mpi mdrun -v -deffnm $EMFILE
+if [ "$USE_OPENMP" = true ]
+then
+    export OMP_NUM_THREADS=$num_proc
+    export MPI_NUM_PROCS=1
+else
+    export OMP_NUM_THREADS=1
+    export MPI_NUM_PROCS=$num_proc
+fi
 
+#Actual EM: Note that, in ku cluster, gmx is compiled such that mpirun needs to be called explicitly
+mpirun -np $MPI_NUM_PROCS -hostfile $PBS_NODEFILE gmx_mpi mdrun -pin on -ntomp $OMP_NUM_THREADS -v -deffnm $EMFILE
+
+#End time
+end=`date +%s.%N`
+
+echo "OMP_NUM_THREADS= "$OMP_NUM_THREADS", MPI_NUM_PROCS= "$MPI_NUM_PROCS
+export RUNTIME=$( echo "$end - $start" | bc -l )
+echo '---------------------------------------------'
+echo "Runtime: "$RUNTIME" sec"
+echo '---------------------------------------------'
