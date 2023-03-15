@@ -13,6 +13,7 @@
 #PBS -l place=scatter
 #PBS -l walltime=00:55:00 
 #----------------------------------------------------------
+export OMP_NUM_THREADS=1
 # Change to submission directory
 cd $PBS_O_WORKDIR
 source /opt/gromacs-2022.4/bin/GMXRC
@@ -35,5 +36,5 @@ export EMFILE=em
 gmx_mpi grompp -f $MDPFILE -c $GROFILE -p $TOPOL_FILE -o ${EMFILE}.tpr
 
 #Actual EM
-gmx_mpi mdrun -v -deffnm $EMFILE
+mpirun -np $num_proc -hostfile $PBS_NODEFILE gmx_mpi mdrun -v -deffnm $EMFILE
 
