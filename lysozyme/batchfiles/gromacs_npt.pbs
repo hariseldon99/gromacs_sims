@@ -33,7 +33,7 @@ cd $PBS_O_WORKDIR
 #Activate GROMACS
 source /opt/gromacs-2022.4/bin/GMXRC
 
-echo "Starting"
+echo starting
 echo '---------------------------------------------'
 num_proc=`wc -l $PBS_NODEFILE | awk '{print $1}'`
 echo 'num_proc='$num_proc
@@ -41,14 +41,16 @@ echo '---------------------------------------------'
 cat $PBS_NODEFILE
 echo '---------------------------------------------'
 
-export GROFILE=1AKI_solv_ions.gro
-export MDPFILE=minim.mdp
+export NPT=npt
+# Output from NVT
+export GROFILE=nvt.gro
+export MDPFILE=npt.mdp
+# Checkpoint from NVT 
+export CPTFILE=nvt.cpt
 export TOPOL_FILE=topol.top
 
-export EMFILE=em
-
 #Preprocessing 
-#gmx_mpi grompp -f $MDPFILE -c $GROFILE -p $TOPOL_FILE -o ${EMFILE}.tpr
+#gmx_mpi grompp -f $MDPFILE -c $GROFILE -r $GROFILE -t $CPTFILE -p $TOPOL_FILE -o ${NPT}.tpr
 
 if [ "$USE_OPENMP" = true ]
 then
@@ -59,8 +61,8 @@ else
     export MPI_NUM_PROCS=$num_proc
 fi
 
-#Actual EM: Note that, in ku cluster, gmx is compiled such that mpirun needs to be called explicitly
-mpirun -np $MPI_NUM_PROCS -hostfile $PBS_NODEFILE gmx_mpi mdrun -pin on -ntomp $OMP_NUM_THREADS -v -deffnm $EMFILE
+#Actual NPT Dynamics: Note that, in ku cluster, gmx is compiled such that mpirun needs to be called explicitly
+mpirun -np $MPI_NUM_PROCS -hostfile $PBS_NODEFILE gmx_mpi mdrun -pin on -ntomp $OMP_NUM_THREADS -v -deffnm $NPT
 
 #End time
 end=`date +%s.%N`

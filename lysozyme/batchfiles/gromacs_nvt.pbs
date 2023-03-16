@@ -41,14 +41,13 @@ echo '---------------------------------------------'
 cat $PBS_NODEFILE
 echo '---------------------------------------------'
 
-export GROFILE=1AKI_solv_ions.gro
-export MDPFILE=minim.mdp
+export NVT=nvt
+export GROFILE=em.gro
+export MDPFILE=nvt.mdp
 export TOPOL_FILE=topol.top
 
-export EMFILE=em
-
 #Preprocessing 
-#gmx_mpi grompp -f $MDPFILE -c $GROFILE -p $TOPOL_FILE -o ${EMFILE}.tpr
+#gmx_mpi grompp -f $MDPFILE -c $GROFILE -r $GROFILE -p $TOPOL_FILE -o ${NVT}.tpr
 
 if [ "$USE_OPENMP" = true ]
 then
@@ -59,8 +58,8 @@ else
     export MPI_NUM_PROCS=$num_proc
 fi
 
-#Actual EM: Note that, in ku cluster, gmx is compiled such that mpirun needs to be called explicitly
-mpirun -np $MPI_NUM_PROCS -hostfile $PBS_NODEFILE gmx_mpi mdrun -pin on -ntomp $OMP_NUM_THREADS -v -deffnm $EMFILE
+#Actual NVT Dynamics: Note that, in ku cluster, gmx is compiled such that mpirun needs to be called explicitly
+mpirun -np $MPI_NUM_PROCS -hostfile $PBS_NODEFILE gmx_mpi mdrun -pin on -ntomp $OMP_NUM_THREADS -v -deffnm $NVT
 
 #End time
 end=`date +%s.%N`
