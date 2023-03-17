@@ -1,21 +1,21 @@
 #!/bin/bash
 #----------------------------------------------------------
 # This sets the name of the job
-#SBATCH --job-name=lysozyme-NVT
+#SBATCH --job-name=openmp
 #SBATCH --partition=CPU
 # This sets the number of processes to 16
-#SBATCH --ntasks=16
+#SBATCH --ntasks=24
 # This allocates the number of cpus per tasks.
 #SBATCH --cpus-per-task=1
 # This allocates the walltime to 1/2 day. The program will not run for longer.
 #SBATCH --time=12:00:00 
 # This sets the quality of service to 'normal'
-#SBATCH --qos=normal 
+#SBATCH --qos=elevated 
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=telegram:-1001215703472
 #----------------------------------------------------------
 #Use openmp. Set to false to switch to MPI
-export USE_OPENMP=false
+export USE_OPENMP=true
 
 #Start time
 start=`date +%s.%N`
@@ -44,7 +44,7 @@ else
 fi
 
 #Actual NVT Dynamics
-gmx mdrun -ntmpi ${SLURM_NTASKS} -pin on -ntomp 1 -v -deffnm $NVT
+gmx mdrun -ntmpi $MPI_NUM_PROCS -pin on -ntomp $OMP_NUM_THREADS -v -deffnm $NVT
 #DO NOT USE 'srun' as it launches multiple independent jobs
 #End time
 end=`date +%s.%N`
