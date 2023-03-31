@@ -1,35 +1,37 @@
 ;
 ;	File 'mdout.mdp' was generated
-;	By user: unknown (1001)
-;	On host: shavak-DIT400TR-55L
-;	At date: Tue Mar 14 18:35:36 2023
+;	By user: arunima (528)
+;	On host: kuhpcgn2
+;	At date: Fri Mar 31 14:16:35 2023
 ;
 ;	Created by:
-;	             :-) GROMACS - gmx grompp, 2020.1-Ubuntu-2020.1-1 (-:
+;	   :-) GROMACS - gmx grompp, 2022.3-dev-20220902-47c9856-dirty-unknown (-:
 ;	
-;	Executable:   /usr/bin/gmx
-;	Data prefix:  /usr
-;	Working dir:  /home/admin/gitrepos/gromacs_sims/lysozyme
+;	Executable:   /usr/local/gromacs/avx2_256/bin/gmx
+;	Data prefix:  /usr/local/gromacs/avx2_256
+;	Working dir:  /host_pwd
 ;	Command line:
-;	  gmx grompp -f npt.mdp -c nvt.gro -r nvt.gro -t nvt.cpt -p topol.top -o npt.tpr
+;	  gmx grompp -f md.mdp -c npt.gro -t npt.cpt -p topol.top -o md_0_1.tpr
 
 ; VARIOUS PREPROCESSING OPTIONS
 ; Preprocessor information: use cpp syntax.
 ; e.g.: -I/home/joe/doe -I/home/mary/roe
 include                  = 
 ; e.g.: -DPOSRES -DFLEXIBLE (note these variable names are case sensitive)
-define                   = -DPOSRES
+define                   = 
 
 ; RUN CONTROL PARAMETERS
 integrator               = md
 ; Start time and timestep in ps
 tinit                    = 0
 dt                       = 0.002
-nsteps                   = 50000
+nsteps                   = 500000
 ; For exact run continuation or redoing part of a run
 init-step                = 0
 ; Part index is updated automatically on checkpointing (keeps files separate)
 simulation-part          = 1
+; Multiple time-stepping
+mts                      = no
 ; mode for center of mass motion removal
 comm-mode                = Linear
 ; number of steps for center of mass motion removal
@@ -59,20 +61,20 @@ rtpi                     = 0.05
 
 ; OUTPUT CONTROL OPTIONS
 ; Output frequency for coords (x), velocities (v) and forces (f)
-nstxout                  = 500
-nstvout                  = 500
+nstxout                  = 0
+nstvout                  = 0
 nstfout                  = 0
 ; Output frequency for energies to log file and energy file
-nstlog                   = 500
+nstlog                   = 5000
 nstcalcenergy            = 100
-nstenergy                = 500
+nstenergy                = 5000
 ; Output frequency and precision for .xtc file
-nstxout-compressed       = 0
+nstxout-compressed       = 5000
 compressed-x-precision   = 1000
 ; This selects the subset of atoms for the compressed
 ; trajectory file. You can select multiple groups. By
 ; default, all atoms will be written.
-compressed-x-grps        = 
+compressed-x-grps        = System
 ; Selection of energy groups
 energygrps               = 
 
@@ -147,32 +149,12 @@ tau_p                    = 2.0
 compressibility          = 4.5e-5
 ref_p                    = 1.0
 ; Scaling of reference coordinates, No, All or COM
-refcoord_scaling         = com
+refcoord-scaling         = No
 
 ; OPTIONS FOR QMMM calculations
 QMMM                     = no
-; Groups treated Quantum Mechanically
+; Groups treated with MiMiC
 QMMM-grps                = 
-; QM method             
-QMmethod                 = 
-; QMMM scheme           
-QMMMscheme               = normal
-; QM basisset           
-QMbasis                  = 
-; QM charge             
-QMcharge                 = 
-; QM multiplicity       
-QMmult                   = 
-; Surface Hopping       
-SH                       = 
-; CAS space options     
-CASorbitals              = 
-CASelectrons             = 
-SAon                     = 
-SAoff                    = 
-SAsteps                  = 
-; Scale factor for MM charges
-MMChargeScaleFactor      = 1
 
 ; SIMULATED ANNEALING  
 ; Type of annealing for each temperature group (no/single/periodic)
@@ -187,7 +169,7 @@ annealing-temp           =
 ; GENERATE VELOCITIES FOR STARTUP RUN
 gen_vel                  = no
 gen-temp                 = 300
-gen-seed                 = -1
+gen-seed                 = 2113920851
 
 ; OPTIONS FOR BONDS    
 constraints              = h-bonds
@@ -277,11 +259,15 @@ temperature-lambdas      =
 calc-lambda-neighbors    = 1
 init-lambda-weights      = 
 dhdl-print-energy        = no
+sc-function              = beutler
 sc-alpha                 = 0
 sc-power                 = 1
 sc-r-power               = 6
 sc-sigma                 = 0.3
 sc-coul                  = no
+sc-gapsys-scale-linpoint-lj = 0.85
+sc-gapsys-scale-linpoint-q = 0.3
+sc-gapsys-sigma-lj       = 0.3
 separate-dhdl-file       = yes
 dhdl-derivatives         = yes
 dh_hist_size             = 0
@@ -328,3 +314,6 @@ electric-field-z         = 0 0 0 0
 
 ; Density guided simulation
 density-guided-simulation-active = false
+
+; QM/MM with CP2K
+qmmm-cp2k-active         = false
