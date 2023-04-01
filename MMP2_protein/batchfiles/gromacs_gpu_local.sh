@@ -21,9 +21,9 @@ echo "Starting"
 echo '---------------------------------------------'
 
 export MDNAME=md_0_1
+export MDPFILE=md.mdp
 export GROFILE=npt.gro
 export CPTFILE=npt.cpt
-export MDPFILE=md.mdp
 export TOPOL_FILE=topol.top
 
 #Preprocessing 
@@ -39,7 +39,7 @@ else
 fi
 
 #Actual MD Dynamics: 
-LD_LIBRARY_PATH="" singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG gmx mdrun -ntmpi $MPI_NUM_PROCS -nb gpu -pin on -v -deffnm -ntomp $OMP_NUM_THREADS $MDNAME
+LD_LIBRARY_PATH="" singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG gmx mdrun -ntmpi $MPI_NUM_PROCS -nb gpu -pin on -v -ntomp $OMP_NUM_THREADS -deffnm $MDNAME
 
 
 #End time
