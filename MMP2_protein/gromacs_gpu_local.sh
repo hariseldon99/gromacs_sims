@@ -20,6 +20,12 @@ export SIFIMG=gromacs_2022.3.sif
 echo "Starting"
 echo '---------------------------------------------'
 
+export MDNAME=nvt
+export GROFILE=em.gro
+export TOPOL_FILE=topol.top
+
+#Preprocessing 
+LD_LIBRARY_PATH="" singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG gmx grompp -f ${MDNAME}.mdp -c $GROFILE -r $GROFILE -p $TOPOL_FILE -o ${MDNAME}.tpr
 
 if [ "$USE_OPENMP" = true ]
 then
@@ -31,7 +37,7 @@ else
 fi
 
 #Actual MD Dynamics: 
-LD_LIBRARY_PATH="" singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG gmx mdrun -ntmpi $MPI_NUM_PROCS -nb gpu -pin on -v -deffnm em -ntomp $OMP_NUM_THREADS
+LD_LIBRARY_PATH="" singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG gmx mdrun -ntmpi $MPI_NUM_PROCS -nb gpu -pin on -v -ntomp $OMP_NUM_THREADS -deffnm $MDNAME
 
 
 #End time
