@@ -2,8 +2,8 @@
 
 # Test: Lysozyme in Water
 
-Tutorial: [Lysozyme](http://www.mdtutorials.com/gmx/lysozyme/01_pdb2gmx.html)
-
+Tutorial: [Lysozyme](http://www.mdtutorials.com/gmx/lysozyme/index.html)
+Another Tutorial: [Extend or continue a GROMACS simulation] (https://www.compchems.com/extend-or-continue-a-gromacs-simulation/)
 
 ## Steps:
 
@@ -252,3 +252,8 @@ gmx mdrun -ntmpi ${SLURM_NTASKS} -pin on -ntomp 1 -v -deffnm $EMFILE
 ```
 
 Ran in a few seconds.
+
+# TODO
+
+1. Add logs for dynamics
+2. Add logs for resuming/extending from checkpoints
