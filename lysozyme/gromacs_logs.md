@@ -3,7 +3,7 @@
 # Test: Lysozyme in Water
 
 Tutorial: [Lysozyme](http://www.mdtutorials.com/gmx/lysozyme/index.html)
-Another Tutorial: [Extend or continue a GROMACS simulation] (https://www.compchems.com/extend-or-continue-a-gromacs-simulation/)
+Another Tutorial: [GROMACS Tutorial: Molecular Dynamics simulation of a protein in water environment](https://www.compchems.com/gromacs-tutorial-molecular-dynamics-simulation-of-a-protein-in-water-environment/#protein-selection-and-initial-setup)
 
 ## Steps:
 
@@ -80,7 +80,7 @@ $ diff topol.top \#topol.top.2\#
 ### Neutralize spurious charges by adding ions @ 20230314:0030
 
 Last line of [atoms] directive in 'topol.top' reads
-```bash
+```json
 ; residue 129 LEU rtp LEU  q -1.0
   1941   opls_238    129    LEU      N    677       -0.5    14.0067
   1942   opls_241    129    LEU      H    677        0.3      1.008
@@ -136,7 +136,7 @@ NOTE 3 [file ions.mdp]:
 
 ```
 
-The grompp is the GROMACS pre-processor, reads a molecular topology file, checks the validity of the file, expands the topology from a molecular description to an atomic description.
+The grompp is the GROMACS pre-processor, reads a molecular topology file, checks the validity of the file, expands the topology from a molecular description to an atomic description. This goes into the tpr file.
 
 
 Now, use the 'genion' command
@@ -210,7 +210,7 @@ gmx grompp -f minim.mdp -c 1AKI_solv_ions.gro -p topol.top -o em.tpr
    - 1AKI_solv_ions.gro 1aki + ions gro file
    - topol.top latest topology file
    
-- Output: em.tpr is binary file for running EM
+- Output: em.tpr is binary topology file with all the Initial Condition data for running EM
 2. Did actual EM (INCL PREV STEP) using SLURM batch script
 
 ```bash
@@ -248,12 +248,176 @@ gmx grompp -f $MDPFILE -c $GROFILE -p $TOPOL_FILE -o ${EMFILE}.tpr
 
 #Actual EM
 gmx mdrun -ntmpi ${SLURM_NTASKS} -pin on -ntomp 1 -v -deffnm $EMFILE
-#DO NOT USE 'srun' as it launches multiple independent jobs
+# -deffnm means "Default filename", GROMACS looks for files with this name and
+# chooses the right extension for the right data
 ```
 
-Ran in a few seconds.
+Ran in a few seconds. Output files are
 
-# TODO
+1. em.edr - Portable energy file. The energies are stored here.
+2. em.log - Text log files of the whole NVT simulation.
+3. em.trr - Full trajectory of the run, all Coordinates and velocities, forces and energies in binary form.
+4. em.gro - Final structure at end of sim
 
-1. Add logs for dynamics
-2. Add logs for resuming/extending from checkpoints
+### Actual Molecular Dynamics (MD)
+
+####  Equilibriation
+
+Now, the initial conditions are set from the energy minimizing position by randomly choosing velocities drawn from a Maxwell-Boltzmann distribution at T=300K. Now, all the topology data needs to be put into the .tpr binary.
+
+The first stage is to reach thermal equilibrium in the standard canonical ensemble (NVT - isothermal-isochoric). The corresponding [mdp parameter file is here](http://www.mdtutorials.com/gmx/lysozyme/Files/nvt.mdp).
+
+```bash
+gmx grompp -f nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr
+```
+
+MDP options:
+
+1. gen_vel = yes: Initiates velocity generation.
+2. tcoupl = V-rescale: The velocity rescaling thermostat.
+3. pcoupl = no: Pressure coupling is not applied. Pressure evolves dynamically. Volume and temp are pre-set.
+
+Once the tpr file is pre-processed, the MD can be run from script (the batch file above can be adapted):
+
+```bash
+gmx mdrun -deffnm nvt
+```
+
+This is for a short sim time - 100 ps (see mdp file). Output files are:
+
+1.  nvt.cpt - Checkpoint file of coordinates and velocities and topology at the time when sim ended.
+2.  nvt.edr - Energy data for the full simulation
+3.  nvt.gro - The final structure
+4.  nvt.trr - The full phase space trajectory of the simulation, frame by frame, stored in binary to machine precision
+5.  nvt.log - Simulation log in text
+
+Check for equilibriation by extracting temperature-time data (temp is computed from avg. KE) from edr file
+
+```bash
+gmx energy -f nvt.edr -o temperature.xvg
+```
+
+Type "16 0" at the prompt to select the temperature. Result is a 'xvg' file (text file with column data).
+
+
+Technically, equilibriation should be done if temp stabilizes dynamically. However, since experimental conditions are at constant pressure rather than volume, pressure and density are what should also be stabilized. Thus, make another run from the current sim time in a NPT ensemble. Start another mdrun from the previous NVT checkpoint. As before, generate the tpr initcond file with pre-processing and launch another mdrun, this time with a [new mdp file for NPT ensemble](http://www.mdtutorials.com/gmx/lysozyme/Files/npt.mdp). Do this in the batch script:
+
+```bash
+gmx grompp -f npt.mdp -c nvt.gro -r nvt.gro -t nvt.cpt -p topol.top -o npt.tpr
+
+gmx mdrun -deffnm npt
+```
+
+This is also for a short sim time - 100 ps (see mdp file). Output files are:
+
+1.  npt.cpt - Checkpoint file of coordinates and velocities and topology at the time when sim ended.
+2.  npt.edr - Energy data for the full simulation
+3.  npt.gro - The final structure
+4.  npt.trr - The full phase space trajectory of the simulation, frame by frame, stored in binary to machine precision
+5.  npt.log - Simulation log in text
+
+Check for equilibriation by extracting pressure-time data and density-time from edr file:
+
+```bash
+printf "18 0" | gmx_mpi energy -f npt.edr -o npt_pressure.xvg
+printf "24 0" |gmx energy -f npt.edr -o density.xvg
+```
+Select 18 0 for pressure and 24 0 for density.
+
+####  Production MD Run
+
+Now that the equilibriation coordinates have been checkpointed, together with potentials, constraints etc., running an actual MD is straightforward as long as the mdp file is given. [Get it from here](http://www.mdtutorials.com/gmx/lysozyme/Files/md.mdp). First, prepare the tpr file for the MD run from the npt checkpoint and final config. This is for a 1 nanosecond simulation.
+
+
+```bash
+gmx grompp -f md.mdp -c npt.gro -t npt.cpt -p topol.top -o md_0_1.tpr
+```
+
+Once the .tpr file is ready, just run the mdrun command with the tpr file name as the default filename. Convention is to set is as 'md_\<init-time\>_\<final-time\>'.
+
+```bash
+gmx mdrun -deffnm md_0_1
+```
+
+For parallel systems with GPU, we have benchmarked that OpenMP threads are faster than thread-MPI for a single node computation. No benchmarks have been done for multinode runs. The mdrun script contains:  
+
+```bash
+Load basic OHPC tools
+module load ohpc
+#Load cuda
+module load cuda
+#Load singularity
+module load singularity
+export SIFPATH=$HOME/images
+export SIFIMG=gromacs_2022.3.sif
+
+echo "Starting"
+echo '---------------------------------------------'
+
+export MDNAME=md_0_1
+export MPI_NUM_PROCS=1
+export OMP_NUM_THREADS=<whatever>
+
+LD_LIBRARY_PATH="" singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG gmx mdrun -ntmpi $MPI_NUM_PROCS -nb gpu -pin on -v -ntomp $OMP_NUM_THREADS -deffnm $MDNAME
+```
+
+GROMACS for GPU is installed in a singularity container [prepared from the docker image @ the nvidia ngc catalog](https://catalog.ngc.nvidia.com/orgs/hpc/containers/gromacs).
+
+**Note for long sims** The .trr binary trajectory files will be very large. Instead, you can put parameters in the mdp file that outputs the trajectories (co-ordinates only) in lower precision floats as a .xtc file. The params in mdp are:
+
+```json
+nstxout                 = 0         ; suppress bulky .trr file by specifying 
+nstvout                 = 0         ; 0 for output frequency of nstxout,
+nstfout                 = 0         ; nstvout, and nstfout
+nstenergy               = 5000      ; save energies every 10.0 ps
+nstlog                  = 5000      ; update log file every 10.0 ps
+nstxout-compressed      = 5000      ; save compressed coordinates every 10.0 ps
+```
+
+Similar the sims above, the output files are:
+
+1.  md_0_1.cpt - Checkpoint file of coordinates and velocities and topology at the time when sim ended.
+2.  md_0_1.edr - Energy data for the full simulation
+3.  md_0_1.gro - The final structure
+4.  md_0_1.xtc - The frame-by-frame coordinates for trajectory of the simulation stored in lower precision floats
+5.  md_0_1.log - Simulation log in text
+
+
+### Post-Processing
+
+The first is trjconv, which is used as a post-processing tool to strip out coordinates, correct for periodicity, or manually alter the trajectory (time units, frame frequency, etc). For this exercise, we will use trjconv to account for any periodicity in the system. The protein will diffuse through the unit cell, and may appear "broken" or may "jump" across to the other side of the box. To account for such behaviors, issue the following:
+
+```bash
+printf "1 0" |gmx trjconv -s md_0_1.tpr -f md_0_1.xtc -o md_0_1_noPBC.xtc -pbc mol -center
+```
+
+The choice of 1 0 selects the protein to be centered and the full system as output. The modified trajectories are saved to 'md_0_1_noPBC.xtc'. 
+
+Let's look at structural stability first. GROMACS has a built-in utility for RMSD calculations called rms. To use rms, issue this command:
+
+```bash
+printf "4 4" | gmx rms -s md_0_1.tpr -f md_0_1_noPBC.xtc -o rmsd.xvg -tu ns
+```
+Choose 4 ("Backbone") for both the least-squares fit and the group for RMSD calculation. The -tu flag will output the results in terms of ns, even though the trajectory was written in ps. This is done for clarity of the output (especially if you have a long simulation - 1e+05 ps does not look as nice as 100 ns). The output plot will show the RMSD relative to the structure present in the minimized, equilibrated system:
+
+If we wish to calculate RMSD relative to the crystal structure, we could issue the following:
+
+```bash
+gmx rms -s em.tpr -f md_0_1_noPBC.xtc -o rmsd_xtal.xvg -tu ns
+```
+
+To obtain radius of gyration of the molecule as a function of time, do:
+
+```bash
+printf "1" | gmx gyrate -s md_0_1.tpr -f md_0_1_noPBC.xtc -o gyrate.xvg
+```
+ The choice of 1 puts out data for the protein only.
+ 
+ ### Index of files:
+ 
+1. Lysozyme protein PDB file: https://files.rcsb.org/view/1AKI.pdb
+2. MDP file for generating ions tpr: http://www.mdtutorials.com/gmx/lysozyme/Files/ions.mdp
+3. MDP file for energy minimization: http://www.mdtutorials.com/gmx/lysozyme/Files/minim.mdp
+4. MDP file for NVT equilibriation: http://www.mdtutorials.com/gmx/lysozyme/Files/nvt.mdp
+5. MDP file for NPT equilibriation: http://www.mdtutorials.com/gmx/lysozyme/Files/npt.mdp
+6. MDP file for actual production MD: http://www.mdtutorials.com/gmx/lysozyme/Files/md.mdp
