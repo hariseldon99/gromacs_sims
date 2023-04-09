@@ -5,14 +5,14 @@
 1. [Simulation Logs](lysozyme/gromacs_logs.md)
 2. [Results](lysozyme/post-processing/EM_pp.ipynb)
 
-## Control Sim: MMP2 Protein in Water
+## Control Simulations: 
+
+There are two control Molecular Dynamics simulations, that of MMP2 in SPC water,
+and that of Rolipram in SPC water (separately).
  
-1. [Simulation Logs](MMP2_protein/gromacs_logs.md)
-2. [Results](MMP2_protein/post-processing/EM_pp.ipynb)
-
-## Control Sim: Rolypram Ligand in Water
-
-**Coming soon**
+1. [MMP2 Simulation Logs](MMP2_Rolipram/MMP2_Protein/gromacs_logs.md)
+2. [Rolipram Simulation Logs](MMP2_Rolipram/Rolipram/gromacs_logs.md)
+3. [Results](MMP2_Rolipram/post-processing/EM_pp.ipynb)
 
 ## Production Sim: MMP2 + RolyPram (Docked) in water
 
