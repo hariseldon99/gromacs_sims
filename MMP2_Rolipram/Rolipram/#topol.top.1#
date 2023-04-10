@@ -1,0 +1,20 @@
+; Include forcefield parameters
+#include "oplsaa.ff/forcefield.itp"
+; Include drug topologies
+#include "UNL_F78916.itp"
+; Include water topology
+#include "oplsaa.ff/spc.itp"
+#ifdef POSRES_WATER
+; Position restraint for each water oxygen
+[ position_restraints ]
+; i funct fcx fcy fcz
+1 1 1000 1000 1000
+#endif
+; Include topology for ions
+#include "oplsaa.ff/ions.itp"
+[ system ]
+; Name
+System
+[ molecules ]
+; Compound #mols
+UNL 1
