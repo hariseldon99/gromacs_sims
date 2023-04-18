@@ -1,17 +1,17 @@
 ;
 ;	File 'mdout.mdp' was generated
-;	By user: unknown (1001)
-;	On host: shavak-DIT400TR-55L
-;	At date: Tue Apr 11 13:35:33 2023
+;	By user: daneel (1000)
+;	On host: sudarshan
+;	At date: Tue Apr 18 11:25:56 2023
 ;
 ;	Created by:
-;	             :-) GROMACS - gmx grompp, 2020.1-Ubuntu-2020.1-1 (-:
+;	             :-) GROMACS - gmx grompp, 2021.4-Ubuntu-2021.4-2 (-:
 ;	
 ;	Executable:   /usr/bin/gmx
 ;	Data prefix:  /usr
-;	Working dir:  /home/admin/gitrepos/gromacs_sims/MMP2_Rolipram/Rolipram
+;	Working dir:  /home/daneel/gitrepos/gromacs_sims/MMP2_Rolipram/Rolipram
 ;	Command line:
-;	  gmx grompp -f nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr
+;	  gmx grompp -f nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr -maxwarn 2
 
 ; VARIOUS PREPROCESSING OPTIONS
 ; Preprocessor information: use cpp syntax.
@@ -30,6 +30,8 @@ nsteps                   = 50000
 init-step                = 0
 ; Part index is updated automatically on checkpointing (keeps files separate)
 simulation-part          = 1
+; Multiple time-stepping
+mts                      = no
 ; mode for center of mass motion removal
 comm-mode                = Linear
 ; number of steps for center of mass motion removal
@@ -134,10 +136,10 @@ nsttcouple               = -1
 nh-chain-length          = 10
 print-nose-hoover-chain-variables = no
 ; Groups to couple separately
-tc-grps                  = Protein Non-Protein
+tc-grps                  = System
 ; Time constant (ps) and reference temperature (K)
-tau_t                    = 0.1     0.1
-ref_t                    = 300     300
+tau_t                    = 0.1
+ref_t                    = 300
 ; pressure coupling     
 pcoupl                   = no
 pcoupltype               = Isotropic
@@ -151,28 +153,8 @@ refcoord-scaling         = No
 
 ; OPTIONS FOR QMMM calculations
 QMMM                     = no
-; Groups treated Quantum Mechanically
+; Groups treated with MiMiC
 QMMM-grps                = 
-; QM method             
-QMmethod                 = 
-; QMMM scheme           
-QMMMscheme               = normal
-; QM basisset           
-QMbasis                  = 
-; QM charge             
-QMcharge                 = 
-; QM multiplicity       
-QMmult                   = 
-; Surface Hopping       
-SH                       = 
-; CAS space options     
-CASorbitals              = 
-CASelectrons             = 
-SAon                     = 
-SAoff                    = 
-SAsteps                  = 
-; Scale factor for MM charges
-MMChargeScaleFactor      = 1
 
 ; SIMULATED ANNEALING  
 ; Type of annealing for each temperature group (no/single/periodic)
