@@ -90,23 +90,23 @@ In addition, running mdrun without position restraints results in average CM vel
 
 * Now, we need to include this information in our topology. Add the following lines to your topology **in the location indicated**:
 
-   ```diff
-    diff --git a/MMP2_Rolipram/Rolipram/topol.top b/MMP2_Rolipram/Rolipram/topol.top
-    index b199128..6912c2a 100644
-    --- a/MMP2_Rolipram/Rolipram/topol.top
-    +++ b/MMP2_Rolipram/Rolipram/topol.top
-    @@ -2,6 +2,10 @@
-     #include "oplsaa.ff/forcefield.itp"
-     ; Include drug topologies
-     #include "UNL_F78916.itp"
-    +; Ligand position restraints
-    +#ifdef POSRES
-    +#include "posre_rol.itp"
-    +#endif
-     ; Include water topology
-     #include "oplsaa.ff/spc.itp"
-     #ifdef POSRES_WATER
-    ```
+```diff
+diff --git a/MMP2_Rolipram/Rolipram/topol.top b/MMP2_Rolipram/Rolipram/topol.top
+index b199128..6912c2a 100644
+--- a/MMP2_Rolipram/Rolipram/topol.top
++++ b/MMP2_Rolipram/Rolipram/topol.top
+@@ -2,6 +2,10 @@
+ #include "oplsaa.ff/forcefield.itp"
+ ; Include drug topologies
+ #include "UNL_F78916.itp"
++; Ligand position restraints
++#ifdef POSRES
++#include "posre_rol.itp"
++#endif
+ ; Include water topology
+ #include "oplsaa.ff/spc.itp"
+ #ifdef POSRES_WATER
+```
 
 
 * Finally, pre-process for nvt with:
