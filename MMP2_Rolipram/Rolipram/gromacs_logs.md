@@ -70,7 +70,7 @@ index 17881f8..3c64f2e 100644
 ```
 
 
-In addition, running mdrun without position restraints results in average CM velocities of like 1mm/s, which is rather large, so we restrain the heavier atoms as follows:
+In addition, running mdrun without position restraints results in rather large Center-of-mass motion (as seen with [VMD Visualizer](https://www.ks.uiuc.edu/Research/vmd/) on the gro/trr files), so we restrain the heavier atoms as follows:
 
 * First, create an index group for Rolipram that contains only its non-hydrogen atoms:
 
@@ -116,13 +116,6 @@ index b199128..6912c2a 100644
    ```
 
 * And run the mdrun the usual way, then get pressure, temperature and total energy just like in the lysozyme tutorial.
-
-* Additional: CM velocities (x,y & z) were obtained with 
-
-   ```bash
-   $ gmx traj -f nvt.trr -s nvt.tpr -com -ov ../post-processing/Rolipram/nvt_comvel.xvg
-   ```
-    and plotted with numpy/matplotlib. For velocity units (nm/ps), see [definitions page in manual](https://manual.gromacs.org/documentation/2019/reference-manual/definitions.html) 
 
 
 
