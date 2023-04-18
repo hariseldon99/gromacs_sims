@@ -113,15 +113,14 @@ In addition, running mdrun without position restraints results in average CM vel
 
    ```bash
     $ gmx grompp -f nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr -maxwarn 2
-    
    ```
 
-* And run the mdrun the usual way.
+* And run the mdrun the usual way, then get pressure, temperature and total energy just like in the lysozyme tutorial.
 
 * Additional: CM velocities (x,y & z) were obtained with 
 
    ```bash
-   $ gmx traj -f nvt.trr -s nvt.tpr -com -ov ../post-processing/Rolipram/comvel.xvg
+   $ gmx traj -f nvt.trr -s nvt.tpr -com -ov ../post-processing/Rolipram/nvt_comvel.xvg
    ```
     and plotted with numpy/matplotlib. For velocity units (nm/ps), see [definitions page in manual](https://manual.gromacs.org/documentation/2019/reference-manual/definitions.html) 
 
@@ -132,7 +131,7 @@ In addition, running mdrun without position restraints results in average CM vel
 
 TODO:
 
-1. Ran NVT and NPT equilibriation
+1. Run NVT and NPT equilibriation
 2. Production MD from NPT equilibrium. 100 ns
 3. Post processing: Obtained RMSD and Radius of Gyration. New quantity (RMSF) as a function of residue number was also obtained.
 
