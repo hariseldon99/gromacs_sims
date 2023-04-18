@@ -120,7 +120,25 @@ index b199128..6912c2a 100644
 
 
 
-12. 
+12. Now, run the NPT equilibriation. The MMP2 mdp file for npt was modified thus:
+
+```diff
+1,2c1,2
+< title                   = OPLS Lysozyme NPT equilibration 
+< define                  = -DPOSRES  ; position restrain the protein
+---
+> title                   = OPLS Ligand NPT equilibration 
+> define                  = -DPOSRES  ; position restrain the ligand
+31,33c31,33
+< tc-grps                 = Protein Non-Protein   ; two coupling groups - more accurate
+< tau_t                   = 0.1     0.1           ; time constant, in ps
+< ref_t                   = 300     300           ; reference temperature, one for each group, in K
+---
+> tc-grps                 = System              ; The whole system is now coupled
+> tau_t                   = 0.1                   ; time constant, in ps
+> ref_t                   = 300                   ; reference temperature, one for each group, in K
+```
+Standard pre-processing and mdrun was run
 
 TODO:
 
