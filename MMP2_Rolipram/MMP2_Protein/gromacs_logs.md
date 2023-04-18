@@ -134,7 +134,11 @@ This procedure involved two steps:
     Thus, even though the filenames say 'md_0_30', the data that they contain are from a t=0-100 ns simulation. This took several hours (more than a day).
 
 #### Post-Processing
- In addition to plotting the RMSD and Radius of Gyration, we also obtained RMSF plots [based on this tutorial](https://www.compchems.com/how-to-compute-the-rmsf-using-gromacs/). This is different from RMSD in two ways.
+ During NVT equilibriation, the temperature-time data was obtained the same way as lysozyme. In addition, the 'gmx energy' command was used to obtain Total energy E(t). Although the actual equilibriation ***should*** be seen with the Helmholtz free energy  H(t) = E(t) - T S(t) where 'T' is the equilibriated (time-average) temperature and S(t) is the entropy, getting the entropy involces using [Schlitter’s Formula on the covariance matrix](https://doi.org/10.1021/jp046022f), and large cov matrices have to be diagonalized at each time frame. This is a slow memory intensive computation (see [This researchgate discussion](https://www.researchgate.net/post/How_can_I_calculate_configurational_entropy_along_the_complete_trajectory_of_gromacs)) that does not yield anything terribly interesting, as entropy equilibriates pretty fast. So equilibriation was seen with merely the total energy.
+
+During NPT equilibriation, the free energy is the enthalpy, easily computed since H = E + PV and pressure can already be obtained from 'gmx energy' and, in any case, 'gmx energy' has an option for enthalpy.
+
+For the full MD post equilibriation, In addition to plotting the RMSD and Radius of Gyration, we also obtained RMSF plots [based on this tutorial](https://www.compchems.com/how-to-compute-the-rmsf-using-gromacs/). This is different from RMSD in two ways.
  
  1. The RMSD is either the instantaneous RMS deviation of all the chosen atoms (usually just the backbone) from a reference configuration, either the initial configuration (after equilibriating) or from the crystal structure (after just EM). 
  2. The RMSF is the RMS of the **temporal** RMS deviation of a group of atoms from the **temporal** average.
