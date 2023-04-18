@@ -39,6 +39,96 @@ Main problem: Unknown ligand, gromacs cannot automatically make topology.
 8. Tried to neutralize spurious charges with Na and Cl ions: Didn't work, as the net charge is very small: 0.0003. Ignoring for now, but there may be artifacts.
 9. gmx grompp for EM gave warning and crashed as the system is not fulyl neutral. Reran with -maxwarn 2 flag.
 10. Ran steepest descent minimization of energy. Converged pretty well on my laptop with 12 openmp threads.
+11. Now, time for NVT equilibrium. Running with the standard mdp file for nvt from the protein simulation resulted in an error, since the tc-grps settings that govern which atom groups are to be coupled to the temperature bath were for "Protein" and "Non-protein" (there is no protein here, only the ligand). So changed it to "System" to couple everything (incl the water solvent-> may be slow). Also, no position restraints on protein (since there is no protein)
+```diff
+diff --git a/MMP2_Rolipram/Rolipram/nvt.mdp b/MMP2_Rolipram/Rolipram/nvt.mdp
+index 17881f8..3c64f2e 100644
+--- a/MMP2_Rolipram/Rolipram/nvt.mdp
++++ b/MMP2_Rolipram/Rolipram/nvt.mdp
+@@ -1,5 +1,5 @@
+-title                   = OPLS Lysozyme NVT equilibration 
+-define                  = -DPOSRES  ; position restrain the protein
++title                   = OPLS Rolipram NVT equilibration 
++define                  = -DPOSRES  ; position restrain the ligand
+ ; Run parameters
+ integrator              = md        ; leap-frog integrator
+ nsteps                  = 50000     ; 2 * 50000 = 100 ps
+@@ -28,9 +28,9 @@ pme_order               = 4         ; cubic interpolation
+ fourierspacing          = 0.16      ; grid spacing for FFT
+ ; Temperature coupling is on
+ tcoupl                  = V-rescale             ; modified Berendsen thermostat
+-tc-grps                 = Protein Non-Protein   ; two coupling groups - more accurate
+-tau_t                   = 0.1     0.1           ; time constant, in ps
+-ref_t                   = 300     300           ; reference temperature, one for each group, in K
++tc-grps                 = System               ; This couples all molecules (incl the water) to the bath
++tau_t                   = 0.1                   ; time constant, in ps
++ref_t                   = 300                   ; reference temperature, one for each group, in K
+ ; Pressure coupling is off
+ pcoupl                  = no        ; no pressure coupling in NVT
+ ; Periodic boundary conditions
+
+```
+
+
+In addition, running mdrun without position restraints results in average CM velocities of like 1mm/s, which is rather large, so we restrain the heavier atoms as follows:
+
+* First, create an index group for Rolipram that contains only its non-hydrogen atoms:
+
+   ```bash
+   $ gmx make_ndx -f rol.gro -o index_rol.ndx
+   ...
+   > 0 & ! a H*
+   > q
+   ```
+
+* Then, execute the genrestr module and select this newly created index group (which will be group 3 in the index_rol.ndx file)::
+
+    ```bash
+    $ gmx genrestr -f rol.gro -n index_rol.ndx -o posre_rol.itp -fc 1000 1000 1000
+    ```
+
+
+* Now, we need to include this information in our topology. Add the following lines to your topology **in the location indicated**:
+
+   ```diff
+    diff --git a/MMP2_Rolipram/Rolipram/topol.top b/MMP2_Rolipram/Rolipram/topol.top
+    index b199128..6912c2a 100644
+    --- a/MMP2_Rolipram/Rolipram/topol.top
+    +++ b/MMP2_Rolipram/Rolipram/topol.top
+    @@ -2,6 +2,10 @@
+     #include "oplsaa.ff/forcefield.itp"
+     ; Include drug topologies
+     #include "UNL_F78916.itp"
+    +; Ligand position restraints
+    +#ifdef POSRES
+    +#include "posre_rol.itp"
+    +#endif
+     ; Include water topology
+     #include "oplsaa.ff/spc.itp"
+     #ifdef POSRES_WATER
+    ```
+
+
+* Finally, pre-process for nvt with:
+
+   ```bash
+    $ gmx grompp -f nvt.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr -maxwarn 2
+    
+   ```
+
+* And run the mdrun the usual way.
+
+* Additional: CM velocities (x,y & z) were obtained with 
+
+   ```bash
+   $ gmx traj -f nvt.trr -s nvt.tpr -com -ov ../post-processing/Rolipram/comvel.xvg
+   ```
+    and plotted with numpy/matplotlib. For velocity units (nm/ps), see [definitions page in manual](https://manual.gromacs.org/documentation/2019/reference-manual/definitions.html) 
+
+
+
+
+12. 
 
 TODO:
 
