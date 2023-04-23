@@ -138,11 +138,10 @@ index b199128..6912c2a 100644
 > tau_t                   = 0.1                   ; time constant, in ps
 > ref_t                   = 300                   ; reference temperature, one for each group, in K
 ```
-Standard pre-processing and mdrun was run
+
+13. Standard pre-processing and mdrun was run along the same lines as the MMP2 protein and Lysozyme. The simulation was long, 100 ns with 50 million steps.
 
 TODO:
 
-1. Run NVT and NPT equilibriation
-2. Production MD from NPT equilibrium. 100 ns
 3. Post processing: Obtained RMSD and Radius of Gyration. New quantity (RMSF) as a function of residue number was also obtained.
 
