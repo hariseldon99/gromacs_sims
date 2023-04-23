@@ -141,7 +141,17 @@ index b199128..6912c2a 100644
 
 13. Standard pre-processing and mdrun was run along the same lines as the MMP2 protein and Lysozyme. The simulation was long, 100 ns with 50 million steps.
 
+14. Post-Processing: First , PBC effects were removed:
+	
+```bash
+gmx trjconv -s md_0_100.tpr -f md_0_100.xtc -o md_0_100_noPBC.xtc -pbc mol -center
+```
+	Select group for centering
+	Selected 2: 'UNL'
+	Select group for output
+	Selected 0: 'System'
+
 TODO:
 
-3. Post processing: Obtained RMSD and Radius of Gyration. New quantity (RMSF) as a function of residue number was also obtained.
+Post processing: Obtained RMSD and Radius of Gyration. New quantity (RMSF) as a function of residue number was also obtained.
 
