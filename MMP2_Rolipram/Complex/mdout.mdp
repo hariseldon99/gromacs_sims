@@ -1,15 +1,15 @@
 ;
 ;	File 'mdout.mdp' was generated
-;	By user: daneel (1000)
-;	On host: sudarshan
-;	At date: Sat Apr 29 22:22:47 2023
+;	By user: arunima (528)
+;	On host: kuhpcgn1
+;	At date: Sun Apr 30 00:19:40 2023
 ;
 ;	Created by:
-;	             :-) GROMACS - gmx grompp, 2021.4-Ubuntu-2021.4-2 (-:
+;	   :-) GROMACS - gmx grompp, 2022.3-dev-20220902-47c9856-dirty-unknown (-:
 ;	
-;	Executable:   /usr/bin/gmx
-;	Data prefix:  /usr
-;	Working dir:  /home/daneel/gitrepos/gromacs_sims/MMP2_Rolipram/Complex
+;	Executable:   /usr/local/gromacs/avx2_256/bin/gmx
+;	Data prefix:  /usr/local/gromacs/avx2_256
+;	Working dir:  /host_pwd
 ;	Command line:
 ;	  gmx grompp -f em.mdp -c solv_ions.gro -p topol.top -o em.tpr -maxwarn 2
 
@@ -169,7 +169,7 @@ annealing-temp           =
 ; GENERATE VELOCITIES FOR STARTUP RUN
 gen-vel                  = no
 gen-temp                 = 300
-gen-seed                 = -1
+gen-seed                 = -285225569
 
 ; OPTIONS FOR BONDS    
 constraints              = none
@@ -259,11 +259,15 @@ temperature-lambdas      =
 calc-lambda-neighbors    = 1
 init-lambda-weights      = 
 dhdl-print-energy        = no
+sc-function              = beutler
 sc-alpha                 = 0
 sc-power                 = 1
 sc-r-power               = 6
 sc-sigma                 = 0.3
 sc-coul                  = no
+sc-gapsys-scale-linpoint-lj = 0.85
+sc-gapsys-scale-linpoint-q = 0.3
+sc-gapsys-sigma-lj       = 0.3
 separate-dhdl-file       = yes
 dhdl-derivatives         = yes
 dh_hist_size             = 0
@@ -310,3 +314,6 @@ electric-field-z         = 0 0 0 0
 
 ; Density guided simulation
 density-guided-simulation-active = false
+
+; QM/MM with CP2K
+qmmm-cp2k-active         = false
