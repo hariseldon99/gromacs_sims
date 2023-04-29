@@ -25,7 +25,7 @@ After our [successful run for Lyzosyme](../lysozyme/gromacs_logs.md), we ran a s
 ## Steps:
 1. Downloaded pdb file
 2. Stripped out all the crystal water
-3. Added SPC water model force fields (OPLS-AA/L all-atom)
+3. Added SPCE water model force fields (OPLS-AA/L all-atom). 
 4. Added cubic box using 'gmx editconf'
 5. Solvated with water using 'gmx solvate'
 6. Neutralized spurious charges with Na and Cl ions.
