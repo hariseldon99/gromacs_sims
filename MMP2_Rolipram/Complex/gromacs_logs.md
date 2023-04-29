@@ -14,13 +14,13 @@ Now, we are running the Full Protein-Ligand Complex after running the Protein an
 ### Index of files:
  
 1. MMP2 protein PDB file: https://files.rcsb.org/view/1CK7.pdb
-2. MDP file for generating ions tpr: http://www.mdtutorials.com/gmx/lysozyme/Files/ions.mdp
+2. MDP file for generating ions tpr: http://www.mdtutorials.com/gmx/complex/Files/ions.mdp
 3. MDP file for energy minimization: 
-    * Original: http://www.mdtutorials.com/gmx/lysozyme/Files/minim.mdp
-    * Modified: [minim.mdp](minim.mdp)
-4. MDP file for NVT equilibriation: http://www.mdtutorials.com/gmx/lysozyme/Files/nvt.mdp
-5. MDP file for NPT equilibriation: http://www.mdtutorials.com/gmx/lysozyme/Files/npt.mdp
-6. MDP file for actual production MD: http://www.mdtutorials.com/gmx/lysozyme/Files/md.mdp
+    * Original: http://www.mdtutorials.com/gmx/complex/Files/em.mdp
+    * Modified: [em.mdp](em.mdp)
+4. MDP file for NVT equilibriation: http://www.mdtutorials.com/gmx/complex/Files/nvt.mdp
+5. MDP file for NPT equilibriation: http://www.mdtutorials.com/gmx/complex/Files/npt.mdp
+6. MDP file for actual production MD: http://www.mdtutorials.com/gmx/complex/Files/md.mdp
 
 ## Steps:
 1. Copied the original ['processed' GRO file](../MMP2_Protein/1ck7_processed.gro) of protein from the protein-only simulation to a new file called [complex.gro](complex.gro)
@@ -46,3 +46,21 @@ Now, we are running the Full Protein-Ligand Complex after running the Protein an
     #endif
     ```
     Now, to restrain both the protein and the ligand, we would need to specify define = -DPOSRES -DPOSRES_LIG in the .mdp file
+9.  Since Rolipram and the protein are physically linked very tightly, it is best to consider them as a single entity. That is, UNL is grouped with the protein for the purposes of temperature coupling. In the same way, the few ions we inserted are considered part of the solvent. To do this, we need a special index group that merges the protein and UNL. We accomplish this with:
+
+    ```bash
+    $ gmx make_ndx -f em.gro -o index.ndx
+    ```
+    At the prompt, merge the 'Protein' and 'UNL' groups by entering their numbers with a pipe "|" in between, like "1|13", then 'q' to quit
+10. Then, download [this mdp file](http://www.mdtutorials.com/gmx/complex/Files/nvt.mdp) and mod it to add our protein-unl group to temperature control groups, and two posres macros for restraining both protein and ligand.
+
+    ```diff
+    2c2
+    < define                  = -DPOSRES  ; position restrain the protein and ligand
+    ---
+    > define                  = -DPOSRES -DPOSRES_LIG  ; position restrain the protein and ligand
+    33c33
+    < tc-grps                 = Protein_JZ4 Water_and_ions    ; two coupling groups - more accurate
+    ---
+    > tc-grps                 = Protein_UNL Water_and_ions    ; two coupling groups - more accurate
+    ```
