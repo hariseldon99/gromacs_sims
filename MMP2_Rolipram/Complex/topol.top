@@ -23,6 +23,7 @@
 ;                Had to transclude the ligand topology before any definitions, as a ligand that introduces new [atomtypes] must be transcluded 
 ;                after the parent force field, and prior to any [moleculetype] definition. Force field-level directives must all appear before 
 ;                any molecule-level directives. If not, genion yields error: "Invalid order for directive atomtypes"
+;                Before running NVT sim, transcluded posre of ligand AFTER posre of protein
 
 ; Include forcefield parameters
 #include "oplsaa.ff/forcefield.itp"
@@ -90888,6 +90889,11 @@ Protein_chain_A     3
 ; Include Position restraint file
 #ifdef POSRES
 #include "posre.itp"
+#endif
+
+; Ligand position restraints
+#ifdef POSRES_LIG
+#include "../Rolipram/posre_rol.itp"
 #endif
 
 ; Include water topology

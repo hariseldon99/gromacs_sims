@@ -36,3 +36,13 @@ Now, we are running the Full Protein-Ligand Complex after running the Protein an
 4. Added dodecahedral box using 'gmx editconf'
 5. Solvated with water using 'gmx solvate'
 6. (Mostly) neutralized  spurious charges with Na and Cl ions.
+7. Ran Energy minimization with local mods to mdp: Manual addition of define DFLEXIBLE will use flexible water instead of rigid water. Reduces warnings
+8. Before running nvt, added posre of ligand to topol.top manually AFTER posre of protein with the command
+
+    ```bash
+    ; Ligand position restraints
+    #ifdef POSRES_LIG
+    #include "../Rolipram/posre_rol.itp"
+    #endif
+    ```
+    Now, to restrain both the protein and the ligand, we would need to specify define = -DPOSRES -DPOSRES_LIG in the .mdp file
