@@ -1,29 +1,21 @@
 ;
 ;	File 'topol.top' was generated
-;	By user: daneel (1000)
-;	On host: sudarshan
-;	At date: Sat Apr 29 20:42:08 2023
+;	By user: arunima (528)
+;	On host: kuhpchn
+;	At date: Fri May  5 00:23:52 2023
 ;
 ;	This is a standalone topology file
 ;
 ;	Created by:
-;	            :-) GROMACS - gmx pdb2gmx, 2021.4-Ubuntu-2021.4-2 (-:
+;	                    :-) GROMACS - gmx pdb2gmx, 2022.4 (-:
 ;	
-;	Executable:   /usr/bin/gmx
-;	Data prefix:  /usr
-;	Working dir:  /home/daneel/gitrepos/gromacs_sims/MMP2_Rolipram/Complex
+;	Executable:   /opt/gromacs-2022.4/bin/gmx_mpi
+;	Data prefix:  /opt/gromacs-2022.4
+;	Working dir:  /home/arunima/gitrepos/gromacs_sims/MMP2_Rolipram/Complex
 ;	Command line:
-;	  gmx pdb2gmx -f 1ck7_clean.pdb -o 1ck7_processed.gro
+;	  gmx_mpi pdb2gmx -f 1ck7_clean.pdb -o 1ck7_processed.gro
 ;	Force field was read from the standard GROMACS share directory.
-;       Manual additions to protein complex:
-;       By user: daneel
-;       On host: sudarshan
-;       At date: Sat Apr 29 21:00:00 2023
-;       Details: Include ligand topology after forcefield transclusion & updated "molecules" section with UNL
-;                Had to transclude the ligand topology before any definitions, as a ligand that introduces new [atomtypes] must be transcluded 
-;                after the parent force field, and prior to any [moleculetype] definition. Force field-level directives must all appear before 
-;                any molecule-level directives. If not, genion yields error: "Invalid order for directive atomtypes"
-;                Before running NVT sim, transcluded posre of ligand AFTER posre of protein
+;
 
 ; Include forcefield parameters
 #include "oplsaa.ff/forcefield.itp"
@@ -90917,5 +90909,5 @@ Protein in water
 ; Compound        #mols
 Protein_chain_A     1
 UNL                 1
-SOL         372388
+SOL         128793
 NA               14
