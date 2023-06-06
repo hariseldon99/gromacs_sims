@@ -5,13 +5,13 @@
 # queue select
 #PBS -q workq
 # Name of stdout output file (default)
-#PBS -o md10ns.out 
+#PBS -o md100ns.out 
 # stdout output file
 #PBS -j oe
 # Total number of nodes and MPI tasks/node requested
 #PBS -l select=3:mpiprocs=24
 #PBS -l place=scatter
-#PBS -l walltime=96:00:00 
+#PBS -l walltime=240:00:00 
 #----------------------------------------------------------
 
 #Suppress spurious infiniband-related errors
@@ -42,7 +42,7 @@ cat $PBS_NODEFILE
 echo '---------------------------------------------'
 
 # Change these to something relevant
-export MDNAME=md10ns
+export MDNAME=md100ns
 export MDP_FILE=md.mdp
 export GRO_FILE=npt.gro
 export CPT_FILE=npt.cpt

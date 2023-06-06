@@ -1,17 +1,17 @@
 ;
 ;	File 'mdout.mdp' was generated
-;	By user: unknown (532)
-;	On host: kuhpccn2
-;	At date: Wed May 24 15:51:58 2023
+;	By user: arka (532)
+;	On host: kuhpcgn2
+;	At date: Sat May 27 01:40:31 2023
 ;
 ;	Created by:
-;	                     :-) GROMACS - gmx grompp, 2022.4 (-:
+;	   :-) GROMACS - gmx grompp, 2022.3-dev-20220902-47c9856-dirty-unknown (-:
 ;	
-;	Executable:   /opt/gromacs-2022.4/bin/gmx_mpi
-;	Data prefix:  /opt/gromacs-2022.4
-;	Working dir:  /home/arka/GROMACS/sb3ct_mmp2
+;	Executable:   /usr/local/gromacs/avx2_256/bin/gmx
+;	Data prefix:  /usr/local/gromacs/avx2_256
+;	Working dir:  /host_pwd
 ;	Command line:
-;	  gmx_mpi grompp -f md.mdp -c npt.gro -t npt.cpt -r npt.gro -p topol.top -n index.ndx -o md10ns.tpr -maxwarn 3
+;	  gmx grompp -f md.mdp -c npt.gro -t npt.cpt -r npt.gro -p topol.top -n index.ndx -o md100ns.tpr -maxwarn 3
 
 ; VARIOUS PREPROCESSING OPTIONS
 ; Preprocessor information: use cpp syntax.
@@ -25,7 +25,7 @@ integrator               = md
 ; Start time and timestep in ps
 tinit                    = 0
 dt                       = 0.002
-nsteps                   = 5000000
+nsteps                   = 50000000
 ; For exact run continuation or redoing part of a run
 init-step                = 0
 ; Part index is updated automatically on checkpointing (keeps files separate)
@@ -169,7 +169,7 @@ annealing-temp           =
 ; GENERATE VELOCITIES FOR STARTUP RUN
 gen_vel                  = no
 gen-temp                 = 300
-gen-seed                 = -50345193
+gen-seed                 = 1034940190
 
 ; OPTIONS FOR BONDS    
 constraints              = h-bonds
