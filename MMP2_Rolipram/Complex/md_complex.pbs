@@ -8,7 +8,7 @@
 #PBS -o md_complex.out 
 # stdout output file
 #PBS -j oe
-#PBS -l walltime=48:00:00 
+#PBS -l walltime=168:00:00 
 #----------------------------------------------------------
 
 # Enter the name of the GPU host
@@ -34,17 +34,9 @@ export SIFIMG=gromacs_2022.3.sif
 echo "Starting"
 echo '---------------------------------------------'
 
-export GROFILE=npt.gro
-export CPTFILE=npt.cpt
-export MDNAME=md_0_10
-export MDPFILE=md.mdp
-export NDXFILE=index.ndx
-export TOPOL_FILE=topol.top
+export MDNAME=md_0_100
 
 SSHBIN=/usr/bin/ssh
-
-#Preprocessing: Need to mount the Rolipram dir for the ligand topology data
-$SSHBIN $GPUHOST LD_LIBRARY_PATH="" singularity run --nv -B ${PWD}/../Rolipram:/Rolipram -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG gmx grompp -f $MDPFILE -c $GROFILE -t $CPTFILE -p $TOPOL_FILE -n $NDXFILE -o ${MDNAME}.tpr -maxwarn 2
 
 export OMP_NUM_THREADS=$num_proc
 export MPI_NUM_PROCS=1
