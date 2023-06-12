@@ -3,7 +3,7 @@
 # This sets the name of the job
 #SBATCH --job-name=lysozyme-extend
 #SBATCH --partition=GPU
-#SBATCH --gres=mps:50
+#SBATCH --gres=mps:20
 # This sets the number of processes to 24
 #SBATCH --ntasks=24
 # This allocates the number of cpus per tasks.
@@ -35,7 +35,6 @@ export MPI_NUM_PROCS=1
 
 #Actual MD
 LD_LIBRARY_PATH="" singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG gmx mdrun -ntmpi $MPI_NUM_PROCS -nb gpu -pin on -v -ntomp $OMP_NUM_THREADS -deffnm $MDNAME -cpi ${CPTFILE}
-gmx mdrun -ntmpi ${MPI_NUM_PROCS} -pin on -ntomp ${OMP_NUM_THREADS} -v -deffnm $MDNAME -cpi $CPTFILE
 
 #End time
 end=`date +%s.%N`
