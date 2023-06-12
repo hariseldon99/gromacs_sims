@@ -2,7 +2,7 @@
 ;	File 'mdout.mdp' was generated
 ;	By user: arunima (528)
 ;	On host: kuhpcgn2
-;	At date: Sat May  6 22:31:48 2023
+;	At date: Thu Jun  8 21:17:43 2023
 ;
 ;	Created by:
 ;	   :-) GROMACS - gmx grompp, 2022.3-dev-20220902-47c9856-dirty-unknown (-:
@@ -11,7 +11,7 @@
 ;	Data prefix:  /usr/local/gromacs/avx2_256
 ;	Working dir:  /host_pwd
 ;	Command line:
-;	  gmx grompp -f md.mdp -c npt.gro -t npt.cpt -p topol.top -n index.ndx -o md_0_10.tpr -maxwarn 2
+;	  gmx grompp -f md.mdp -c npt.gro -t npt.cpt -p topol.top -n index.ndx -o md_0_100.tpr -maxwarn 3
 
 ; VARIOUS PREPROCESSING OPTIONS
 ; Preprocessor information: use cpp syntax.
@@ -141,7 +141,7 @@ tc-grps                  = Protein_UNL Water_and_ions
 tau_t                    = 0.1   0.1
 ref_t                    = 300   300
 ; pressure coupling     
-pcoupl                   = Berendsen
+pcoupl                   = C-rescale
 pcoupltype               = isotropic
 nstpcouple               = -1
 ; Time constant (ps), compressibility (1/bar) and reference P (bar)
@@ -169,7 +169,7 @@ annealing-temp           =
 ; GENERATE VELOCITIES FOR STARTUP RUN
 gen_vel                  = no
 gen-temp                 = 300
-gen-seed                 = -80224517
+gen-seed                 = -872485953
 
 ; OPTIONS FOR BONDS    
 constraints              = h-bonds
