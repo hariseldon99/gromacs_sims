@@ -33,7 +33,11 @@ echo "Starting"
 echo '---------------------------------------------'
 
 #Actual MD Dynamics: 
-LD_LIBRARY_PATH="" singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG gmx mdrun -nb gpu -gpu_id $GPUID -pin on -v -nt $OMP_NUM_THREADS -deffnm $MDNAME
+LD_LIBRARY_PATH="" \
+	singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG \
+	gmx mdrun -nb gpu -gpu_id $GPUID -pme gpu -pmefft gpu -pin on -v -nt $OMP_NUM_THREADS \
+	-deffnm $MDNAME
+
 
 #End time
 end=`date +%s.%N`
@@ -58,7 +62,11 @@ source ${HOME}/.config/telegram/telegram.conf
 LOGIN_NODE=kuhpchn
 SSHBIN=/usr/bin/ssh
 URL="https://api.telegram.org/bot${TOKEN}/sendMessage"
+
 # Generate the telegram message  text
-TEXT="${bell} Local Job launched on ${start} exiting @ ${HOSTNAME}:${PWD}"
-CMD='curl -s --max-time 10 --retry 5 --retry-delay 2 --retry-max-time 10  -d '\""chat_id=${CHATID}&text=${TEXT}&disable_web_page_preview=true&parse_mode=markdown"\"" ${URL}"
+
+TEXT="${bell} PBS job exiting now. Job name:${PBS_JOBNAME}. Job id:${PBS_JOBID}. Job dir: ${PBS_O_WORKDIR}. Job start-time:${start}"
+CMD='curl -s --max-time 10 --retry 5 --retry-delay 2 --retry-max-time 10  -d '\""chat_id=\
+	${CHATID}&text=${TEXT}&disable_web_page_preview=true&parse_mode=markdown"\"" ${URL}"
+
 $SSHBIN $LOGIN_NODE $CMD
