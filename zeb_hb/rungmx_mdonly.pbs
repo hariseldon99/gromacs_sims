@@ -25,9 +25,9 @@ module load ohpc
 module load cuda
 #Load singularity
 module load singularity
-export SIFPATH=$HOME/.config/sifdir
-export SIFIMG=gromacs_2022.3.sif
-export GPUID='0'
+SIFPATH=$HOME/.config/sifdir
+SIFIMG=gromacs_2022.3.sif
+GPUID='0'
 
 echo "Starting"
 echo '---------------------------------------------'
@@ -43,18 +43,20 @@ LD_LIBRARY_PATH="" \
 end=`date +%s.%N`
 
 echo "OMP_NUM_THREADS= "$OMP_NUM_THREADS"
-export RUNTIME=$( echo "$end - $start" | bc -l )
+
+RUNTIME=$( echo "$end - $start" | bc -l )
+
 echo '---------------------------------------------'
 echo "Runtime: "$RUNTIME" sec"
 echo '---------------------------------------------'
 #----------------------------------------------------------
 # Communicate job status to a telegram bot
 #----------------------------------------------------------
-# <-Create a telegram bot 
-# <-Get TOKEN, CHATID from botfather
-# <-See https://www.cytron.io/tutorial/how-to-create-a-telegram-bot-get-the-api-key-and-chat-id
-# <-Put them into two environment variables TOKEN and CHATID 
-# <-Store them in a config file and source it like below
+# Create a telegram bot 
+# Get TOKEN, CHATID from botfather
+# See https://www.cytron.io/tutorial/how-to-create-a-telegram-bot-get-the-api-key-and-chat-id
+# Put them into two environment variables TOKEN and CHATID 
+# Store them in a config file and source it like below
 #----------------------------------------------------------
 
 source ${HOME}/.config/telegram/telegram.conf
@@ -65,8 +67,16 @@ URL="https://api.telegram.org/bot${TOKEN}/sendMessage"
 
 # Generate the telegram message  text
 
-TEXT="${bell} PBS job exiting now. Job name:${PBS_JOBNAME}. Job id:${PBS_JOBID}. Job dir: ${PBS_O_WORKDIR}. Job start-time:${start}"
-CMD='curl -s --max-time 10 --retry 5 --retry-delay 2 --retry-max-time 10  -d '\""chat_id=\
-	${CHATID}&text=${TEXT}&disable_web_page_preview=true&parse_mode=markdown"\"" ${URL}"
+TEXT="${bell} PBS job exiting now. \
+	Job name : ${PBS_JOBNAME}. \
+	Job id : ${PBS_JOBID}. \
+	Job dir : ${PBS_O_WORKDIR}. \
+	Job start-time : ${start}. \
+	Job end-time : ${end}. \
+	Job runtime : ${RUNTIME} secs."
+
+CMD='curl -s --max-time 10 --retry 5 --retry-delay 2 --retry-max-time 10  -d '\
+	\""chat_id=${CHATID}&text=${TEXT}&disable_web_page_preview=true&parse_mode=markdown"\""\
+	${URL}"
 
 $SSHBIN $LOGIN_NODE $CMD
