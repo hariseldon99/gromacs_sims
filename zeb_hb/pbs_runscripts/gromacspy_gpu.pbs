@@ -1,18 +1,18 @@
 #!/bin/bash
 #----------------------------------------------------------
 # Job name
-#PBS -N md
+#PBS -N mdtest
 # queue select
 #PBS -q workq
-#PBS -l select=1:ncpus=24:host=kuhpcgn1
+#PBS -l select=1:ncpus=16:host=kuhpcgn1
 # Name of stdout output file (default)
-#PBS -o mdrun2.out 
+#PBS -o mdtest.out 
 # stdout output file
 #PBS -j oe
 #PBS -l walltime=48:00:00 
 #----------------------------------------------------------
 
-IPYNB="only_zeb_hb_Refined.ipynb"
+IPYNB="zeb_hb_test.ipynb"
 
 
 #Start time
@@ -25,21 +25,21 @@ module load ohpc
 module load cuda
 #Load singularity
 module load singularity
-export SIFPATH=$HOME/.config/sifdir
+export SIFPATH=$HOME/images
 export SIFIMG=gromacs_2024.2-GPU.sif
 
 echo "Starting"
 echo '---------------------------------------------'
-
+unset OMP_NUM_THREADS
 #Executing command
-LD_LIBRARY_PATH="" singularity exec --nv -B ${PWD}:/host_pwd --pwd /host_pwd \
-    $SIFPATH/$SIFIMG jupyter nbconvert --to notebook --execute $IPYNB
+LD_LIBRARY_PATH="" singularity exec --nv -B${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG \
+	jupyter nbconvert --to notebook --execute $IPYNB
 
 #End time
 end=`date +%s.%N`
 
-echo "OMP_NUM_THREADS= "$OMP_NUM_THREADS"
 
+echo "NUM_THREADS= ${PBS_NCPUS}"
 RUNTIME=$( echo "$end - $start" | bc -l )
 
 echo '---------------------------------------------'
