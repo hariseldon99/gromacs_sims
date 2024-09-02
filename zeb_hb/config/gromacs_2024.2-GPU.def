@@ -1,6 +1,6 @@
 Bootstrap: library   
-From: rstijerina/taccapps/jupyter-lab-hpc:1.1.1    
-Stage: final
+From: ubuntu:22.04
+Stage: build
 
 %labels
   APPLICATION GROMACS-GPU
@@ -37,7 +37,7 @@ Stage: final
   # Define the custom path for the Jupyter configuration file
   CONFIG_FILE_PATH="$HOME/.jupyter/singularity/jupyter_notebook_config.py"
 
-  # Create the directory if it doesn't exist
+  # Create the directory if it does not exist
   mkdir -p "$(dirname "$CONFIG_FILE_PATH")"
 
   # Generate Jupyter configuration file at the custom path
@@ -48,26 +48,28 @@ Stage: final
   echo "c.NotebookApp.port = 8888" >> "$CONFIG_FILE_PATH"
   echo "c.NotebookApp.open_browser = False" >> "$CONFIG_FILE_PATH"
   echo "c.NotebookApp.token = ''" >> "$CONFIG_FILE_PATH"
-  echo "c.NotebookApp.allow_origin = '*" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.allow_origin = '*'" >> "$CONFIG_FILE_PATH"
   echo "c.NotebookApp.disable_check_xsrf = True " >> "$CONFIG_FILE_PATH"
-  echo "Noteboook configuration updated successfully at $CONFIG_FILE_PATH!"
+  echo "Noteboook configuration updated successfully at $CONFIG_FILE_PATH."
 
   echo "Starting Notebook server on $HOSTNAME. To connect to it , best to SSH tunnel as follows:"
   echo "ssh -v -N $USER@$HOSTNAME -J $USER@<login-node> -L 8888:$HOSTNAME:8888"
   echo "  "
 
   #Run notebook
-  jupyter notebook
+  jupyter notebook 
 
 %post
   # Update, install and cleanup of system packages needed at run-time
   apt-get update -y
   apt-get upgrade -y
-  apt-get install build-essential -y
+  apt-get -y install build-essential wget ca-certificates git
   rm -rf /var/lib/apt/lists/*
   apt-get clean
-  conda config --add channels defaults
-  conda config --add channels conda-forge
-  conda config --add channels bioconda
+  wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
+  /bin/bash ./Miniforge3-Linux-x86_64.sh -bfp /usr/local
+  conda config --file /.condarc --add channels defaults
+  conda config --file /.condarc --add channels conda-forge
+  conda config --file /.condarc --add channels bioconda
   conda update conda -y
   conda install -c bioconda -c conda-forge nglview mdanalysis gromacs_py gromacs==2024.2=nompi_cuda_h5cb645a_4 -y
