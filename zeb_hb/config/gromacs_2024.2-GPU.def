@@ -37,9 +37,6 @@ Stage: build
   # Define the custom path for the Jupyter configuration file
   CONFIG_FILE_PATH="$HOME/.jupyter/singularity/jupyter_notebook_config.py"
 
-  # Create the directory if it does not exist
-  mkdir -p "$(dirname "$CONFIG_FILE_PATH")"
-
   # Generate Jupyter configuration file at the custom path
   jupyter notebook --generate-config -y --config="$CONFIG_FILE_PATH"
 
@@ -57,7 +54,7 @@ Stage: build
   echo "  "
 
   #Run notebook
-  jupyter notebook 
+  jupyter notebook --config="$CONFIG_FILE_PATH"
 
 %post
   # Update, install and cleanup of system packages needed at run-time
