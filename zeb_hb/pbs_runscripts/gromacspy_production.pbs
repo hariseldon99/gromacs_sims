@@ -73,16 +73,8 @@ URL="https://api.telegram.org/bot${TOKEN}/sendMessage"
 
 # Generate the telegram message  text
 
-TEXT="${bell} PBS job exiting now. \
-	Job name : ${PBS_JOBNAME}. \
-	Job id : ${PBS_JOBID}. \
-	Job dir : ${PBS_O_WORKDIR}. \
-	Job start-time : ${start}. \
-	Job end-time : ${end}. \
-	Job runtime : ${RUNTIME} secs."
+TEXT="${bell} PBS job exiting now. Job name : ${PBS_JOBNAME}. Job id : ${PBS_JOBID}. Job dir : ${PBS_O_WORKDIR}. Job start-time : ${start}. Job end-time : ${end}. Job runtime : ${RUNTIME} secs."
 
-CMD='curl -s --max-time 10 --retry 5 --retry-delay 2 --retry-max-time 10  -d '\
-	\""chat_id=${CHATID}&text=${TEXT}&disable_web_page_preview=true&parse_mode=markdown"\""\
-	${URL}"
+CMD='curl -s --max-time 10 --retry 5 --retry-delay 2 --retry-max-time 10  -d '\""chat_id=${CHATID}&text=${TEXT}&disable_web_page_preview=true&parse_mode=markdown"\"" ${URL}"
 
 $SSHBIN $LOGIN_NODE $CMD
