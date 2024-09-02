@@ -2,25 +2,6 @@ Bootstrap: library
 From: rstijerina/taccapps/jupyter-lab-hpc:1.1.1    
 Stage: final
 
-%environment
-  MPLCONFIGDIR=/host_pwd
-
-%runscript
-  exec echo "The runscript does not do anything! Use singularity exec instead."
-
-%post
-  # Update, install and cleanup of system packages needed at run-time
-  apt-get update -y
-  apt-get upgrade -y
-  apt-get install build-essential -y
-  rm -rf /var/lib/apt/lists/*
-  apt-get clean
-  conda config --add channels defaults
-  conda config --add channels conda-forge
-  conda config --add channels bioconda
-  conda update conda -y
-  conda install -c bioconda -c conda-forge nglview mdanalysis gromacs_py gromacs==2024.2=nompi_cuda_h5cb645a_4 -y
-
 %labels
   APPLICATION GROMACS-GPU
   AUTHOR Analabha Roy
@@ -28,7 +9,7 @@ Stage: final
   YEAR 2024
 
 %help
-  This container can do GROMACS-GPU + pp via:
+  This container can do MD with GROMACS on GPU via:
     Anaconda Python: 
       python
       acpype
@@ -44,3 +25,49 @@ Stage: final
       openbabel
       pdb2pqr
       seaborn
+
+%environment
+  export MPLCONFIGDIR=$HOME
+
+%runscript
+  #!/bin/bash
+
+  echo "Starting Jupyter Notebook Server in container"
+
+  # Define the custom path for the Jupyter configuration file
+  CONFIG_FILE_PATH="$HOME/.jupyter/singularity/jupyter_notebook_config.py"
+
+  # Create the directory if it doesn't exist
+  mkdir -p "$(dirname "$CONFIG_FILE_PATH")"
+
+  # Generate Jupyter configuration file at the custom path
+  jupyter notebook --generate-config -y --config="$CONFIG_FILE_PATH"
+
+  # Update the configuration file
+  echo "c.NotebookApp.ip = '0.0.0.0'" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.port = 8888" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.open_browser = False" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.token = ''" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.allow_origin = '*" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.disable_check_xsrf = True " >> "$CONFIG_FILE_PATH"
+  echo "Noteboook configuration updated successfully at $CONFIG_FILE_PATH!"
+
+  echo "Starting Notebook server on $HOSTNAME. To connect to it , best to SSH tunnel as follows:"
+  echo "ssh -v -N $USER@$HOSTNAME -J $USER@<login-node> -L 8888:$HOSTNAME:8888"
+  echo "  "
+
+  #Run notebook
+  jupyter notebook
+
+%post
+  # Update, install and cleanup of system packages needed at run-time
+  apt-get update -y
+  apt-get upgrade -y
+  apt-get install build-essential -y
+  rm -rf /var/lib/apt/lists/*
+  apt-get clean
+  conda config --add channels defaults
+  conda config --add channels conda-forge
+  conda config --add channels bioconda
+  conda update conda -y
+  conda install -c bioconda -c conda-forge nglview mdanalysis gromacs_py gromacs==2024.2=nompi_cuda_h5cb645a_4 -y
