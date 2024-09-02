@@ -3,40 +3,42 @@ From: ubuntu:22.04
 Stage: build
 
 %labels
-  APPLICATION GROMACS-GPU
+  APPLICATION GROMACS_2024.2-GPU
   AUTHOR Analabha Roy
   EMAIL daneel@utexas.edu
   YEAR 2024
 
 %help
-  This container can do MD with GROMACS on GPU via:
-    Anaconda Python: 
-      python
-      acpype
-      ambertools
-      biopython
-      cudatoolkit=11.8
-      gromacs=2024.2=nompi_cuda_h5cb645a_4
-      gromacs_py
-      h5py
-      nbconvert
-      mdanalysis
-      nglview
-      openbabel
-      pdb2pqr
-      seaborn
+  This container can do MD with GROMACS on nVidia GPU (cuda-11.8+).
+    1. Can also view molecular structures with nglview.
+    2. Post processing with mdanalysis is also possible.
+    3. To start interactive jupyter session, run:
+        'singularity run --nv -B${PWD}:/host_pwd --pwd /host_pwd <path-to-sif-image>'
+
+  Miniforge3 python packages installed: 
+    1.  python-3.10
+    2.  acpype
+    3.  ambertools
+    2.  biopython
+    3.  cudatoolkit=11.8
+    4.  gromacs=2024.2=nompi_cuda_h5cb645a_4
+    5.  gromacs_py
+    6.  h5py
+    7.  nbconvert
+    8.  mdanalysis
+    9.  nglview
+    10. openbabel
+    11. pdb2pqr
+    12. seaborn
 
 %environment
-  export MPLCONFIGDIR=$HOME
+  export MPLCONFIGDIR=$HOME/.matplotlib
 
 %runscript
   #!/bin/bash
 
-  echo "Starting Jupyter Notebook Server in container"
-
   # Define the custom path for the Jupyter configuration file
   CONFIG_FILE_PATH="$HOME/.jupyter/singularity/jupyter_notebook_config.py"
-
   # Generate Jupyter configuration file at the custom path
   jupyter notebook --generate-config -y --config="$CONFIG_FILE_PATH"
 
@@ -47,16 +49,21 @@ Stage: build
   echo "c.NotebookApp.token = ''" >> "$CONFIG_FILE_PATH"
   echo "c.NotebookApp.allow_origin = '*'" >> "$CONFIG_FILE_PATH"
   echo "c.NotebookApp.disable_check_xsrf = True " >> "$CONFIG_FILE_PATH"
-  echo "Noteboook configuration updated successfully at $CONFIG_FILE_PATH."
-
-  echo "Starting Notebook server on $HOSTNAME. To connect to it , best to SSH tunnel as follows:"
-  echo "ssh -v -N $USER@$HOSTNAME -J $USER@<login-node> -L 8888:$HOSTNAME:8888"
-  echo "  "
+  echo "Notebook configuration updated successfully at $CONFIG_FILE_PATH."
+  echo "==========================================================================================="
+  echo "Starting Notebook server on $HOSTNAME. To connect to it thru an HPC, SSH tunnel as follows:"
+  echo "$ ssh -v -N $USER@$HOSTNAME -J $USER@<login-node> -L 8888:$HOSTNAME:8888"
+  echo "For direct connection, SSH tunnel as follows:"
+  echo "$ ssh -v -N $USER@$HOSTNAME -L 8888:$HOSTNAME:8888"
+  echo "If running locally, just fire up a browser and follow the instructions below"
+  echo "==========================================================================================="
 
   #Run notebook
-  jupyter notebook --config="$CONFIG_FILE_PATH"
+  jupyter notebook -y --config="$CONFIG_FILE_PATH"
 
 %post
+  export MPLCONFIGDIR=$HOME/.matplotlib
+  mkdir -p $MPLCONFIGDIR
   # Update, install and cleanup of system packages needed at run-time
   apt-get update -y
   apt-get upgrade -y
