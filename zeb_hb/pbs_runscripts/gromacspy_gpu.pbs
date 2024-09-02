@@ -4,7 +4,7 @@
 #PBS -N mdtest
 # queue select
 #PBS -q workq
-#PBS -l select=1:ncpus=16:host=kuhpcgn1
+#PBS -l select=1:mpiprocs=24:host=kuhpcgn1
 # Name of stdout output file (default)
 #PBS -o mdtest.out 
 # stdout output file
@@ -14,6 +14,7 @@
 
 IPYNB="zeb_hb_test.ipynb"
 
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
 
 #Start time
 start=`date +%s.%N`

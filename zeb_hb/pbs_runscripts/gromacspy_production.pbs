@@ -4,13 +4,15 @@
 #PBS -N md_prod
 # queue select
 #PBS -q workq
-#PBS -l select=1:ncpus=16:host=kuhpcgn1
+#PBS -l select=1:ncpus=24:host=kuhpcgn1
 # Name of stdout output file (default)
 #PBS -o md_prod.out 
 # stdout output file
 #PBS -j oe
 #PBS -l walltime=48:00:00 
 #----------------------------------------------------------
+
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
 
 export SIMDIR="zeb_hb_only_sim"
 export MD_NAME="zeb_hb"
