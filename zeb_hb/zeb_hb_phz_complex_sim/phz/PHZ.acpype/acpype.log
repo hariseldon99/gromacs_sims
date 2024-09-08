@@ -1,0 +1,74 @@
+============================================================================
+| ACPYPE: AnteChamber PYthon Parser interfacE v. 2023.10.27 (c) 2024 AWSdS |
+============================================================================
+DEBUG: CLI: -i PHZ_h_unique.pdb -b PHZ -c bcc -a gaff -o gmx -n 0
+DEBUG: Python Version 3.12.5 | packaged by conda-forge | (main, Aug 8 2024, 18:36:51) [GCC 12.4.0]
+DEBUG: Max execution time tolerance is 3h
+DEBUG: setResNameCheckCoords done
+DEBUG: Net charge drift '0.000000'
+==> ... charge set to 0
+==> ... converting pdb input file to mol2 input file
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/obabel -ipdb PHZ_h_unique.pdb -omol2 -O PHZ.mol2
+==> * Babel OK *
+==> Executing Antechamber...
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/antechamber -dr no -i PHZ.mol2 -fi mol2 -o PHZ_bcc_gaff.mol2 -fo mol2 -c bcc -nc 0 -m 1 -s 2 -df 2 -at gaff -pf n 
+DEBUG: No file left to be removed
+==> * Antechamber OK *
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/parmchk2 -i PHZ_bcc_gaff.mol2 -f mol2 -o PHZ_AC.frcmod
+==> * Parmchk OK *
+DEBUG: No crd or prm files left to be removed
+==> Executing Tleap...
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/tleap -f tleap.in
+DEBUG: ++++++++++start_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DEBUG: Checking 'PHZ'....
+Checking parameters for unit 'PHZ'.
+Checking for bond parameters.
+Checking for angle parameters.
+Unit is OK.
+DEBUG: ++++++++++end_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+==> * Tleap OK *
+==> Removing temporary files...
+DEBUG: prmtop and inpcrd files loaded
+DEBUG: basename defined = 'PHZ'
+DEBUG: getCoords done
+DEBUG: getABCOEFs done
+DEBUG: charge to be balanced: total 0.0019999989
+DEBUG: balanceCharges done
+DEBUG: Balanced TotalCharge -0.0000000000
+DEBUG: PBC = None
+DEBUG: getAtoms done
+DEBUG: getBonds done
+DEBUG: getAngles done
+DEBUG: getDihedrals done
+==> Using OpenBabel v.3.1.0
+
+==> Writing GROMACS files
+
+==> Disambiguating lower and uppercase atomtypes in GMX top file, even if identical.
+
+DEBUG: writing GRO file
+DEBUG: Box size estimated
+DEBUG: writing POSRE file
+DEBUG: atomTypes 5
+DEBUG: GMX atomtypes done
+DEBUG: atoms 16
+DEBUG: GMX atoms done
+DEBUG: bonds 16
+DEBUG: GMX bonds done
+DEBUG: atomPairs 29
+DEBUG: GMX pairs done
+DEBUG: angles 24
+DEBUG: GMX angles done
+DEBUG: setProperDihedralsCoef done
+DEBUG: properDihedralsCoefRB 32
+DEBUG: properDihedralsAlphaGamma 0
+DEBUG: properDihedralsGmx45 32
+==> Writing GMX dihedrals for GMX 4.5 and higher.
+
+DEBUG: GMX special proper dihedrals done
+DEBUG: improperDihedrals 7
+DEBUG: GMX improper dihedrals done
+==> Writing pickle file PHZ.pkl
+==> Removing temporary files...
+Total time of execution: 4s
+DEBUG: No tmp folder left to be removed
