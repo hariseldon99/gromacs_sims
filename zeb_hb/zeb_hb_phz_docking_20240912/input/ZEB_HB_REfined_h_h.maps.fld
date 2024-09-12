@@ -1,0 +1,38 @@
+# AVS field file
+#
+# AutoDock Atomic Affinity and Electrostatic Grids
+#
+# Created by /usr/local/miniforge3/envs/AMDock/lib/python3.9/site-packages/AMDock/data/autogrid4.
+#
+#SPACING 1.000
+#NELEMENTS 54 44 50
+#CENTER 52.824 54.056 50.538
+#MACROMOLECULE ZEB_HB_REfined_h_h.pdbqt
+#GRID_PARAMETER_FILE ZEB_HB_REfined_h_autolig.gpf
+#
+ndim=3			# number of dimensions in the field
+dim1=55			# number of x-elements
+dim2=45			# number of y-elements
+dim3=51			# number of z-elements
+nspace=3		# number of physical coordinates per point
+veclen=6		# number of affinity values at each point
+data=float		# data type (byte, integer, float, double)
+field=uniform		# field type (uniform, rectilinear, irregular)
+coord 1 file=ZEB_HB_REfined_h_h.maps.xyz filetype=ascii offset=0
+coord 2 file=ZEB_HB_REfined_h_h.maps.xyz filetype=ascii offset=2
+coord 3 file=ZEB_HB_REfined_h_h.maps.xyz filetype=ascii offset=4
+label=A-affinity	# component label for variable 1
+label=NA-affinity	# component label for variable 2
+label=HD-affinity	# component label for variable 3
+label=N-affinity	# component label for variable 4
+label=Electrostatics	# component label for variable 4
+label=Desolvation	# component label for variable 5
+#
+# location of affinity grid files and how to read them
+#
+variable 1 file=ZEB_HB_REfined_h_h.A.map filetype=ascii skip=6
+variable 2 file=ZEB_HB_REfined_h_h.NA.map filetype=ascii skip=6
+variable 3 file=ZEB_HB_REfined_h_h.HD.map filetype=ascii skip=6
+variable 4 file=ZEB_HB_REfined_h_h.N.map filetype=ascii skip=6
+variable 5 file=ZEB_HB_REfined_h_h.e.map filetype=ascii skip=6
+variable 6 file=ZEB_HB_REfined_h_h.d.map filetype=ascii skip=6
