@@ -1,0 +1,91 @@
+============================================================================
+| ACPYPE: AnteChamber PYthon Parser interfacE v. 2023.10.27 (c) 2024 AWSdS |
+============================================================================
+DEBUG: CLI: -i ./phz_docked_complex.pdb -a gaff2 -o gmx -l
+DEBUG: Python Version 3.12.5 | packaged by conda-forge | (main, Aug 8 2024, 18:36:51) [GCC 12.4.0]
+DEBUG: Max execution time tolerance is 3h
+DEBUG: setResNameCheckCoords done
+WARNING: no charge value given, trying to guess one...
+DEBUG: guessCharge: /usr/local/miniforge3/envs/mdanalysis/bin/obabel -ipdb phz_docked_complex.pdb -omol2 -O phz_docked_complex.mol2
+DEBUG: 1 molecule converted
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/antechamber -dr no -i /home/daneel/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_docking_20240912/final_pdbs/.acpype_tmp_phz_docked_complex/phz_docked_complex.mol2 -fi mol2 -o tmp -fo mol2 -c gas -pf n
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/antechamber -dr no -i tmp -fi mol2 -o tmp -fo mol2 -c wc -cf tmp.crg -pf n
+DEBUG: ++++++++++start_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DEBUG: 
+Welcome to antechamber 22.0: molecular input file processor.
+
+Info: The atom type is set to gaff; the options available to the -at flag are
+ gaff, gaff2, amber, bcc, and sybyl.
+
+
+DEBUG: ++++++++++end_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DEBUG: readMol2TotalCharge: -9.999999999732445e-07
+DEBUG: Net charge drift '0.000001'
+==> ... charge set to 0
+==> ... converting pdb input file to mol2 input file
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/obabel -ipdb phz_docked_complex.pdb -omol2 -O phz_docked_complex.mol2
+==> * Babel OK *
+==> Executing Antechamber...
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/antechamber -dr no -i phz_docked_complex.mol2 -fi mol2 -o phz_docked_complex_bcc_gaff2.mol2 -fo mol2 -c bcc -nc 0 -m 1 -s 2 -df 2 -at gaff2 -pf n 
+DEBUG: No file left to be removed
+==> * Antechamber OK *
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/parmchk2 -i phz_docked_complex_bcc_gaff2.mol2 -f mol2 -o phz_docked_complex_AC.frcmod -s 2
+==> * Parmchk OK *
+DEBUG: No crd or prm files left to be removed
+==> Executing Tleap...
+DEBUG: /usr/local/miniforge3/envs/mdanalysis/bin/tleap -f tleap.in
+DEBUG: ++++++++++start_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DEBUG: Checking 'HZ'....
+Checking parameters for unit 'HZ'.
+Checking for bond parameters.
+Checking for angle parameters.
+Unit is OK.
+DEBUG: ++++++++++end_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+==> * Tleap OK *
+==> Removing temporary files...
+DEBUG: prmtop and inpcrd files loaded
+DEBUG: basename defined = 'phz_docked_complex'
+DEBUG: getCoords done
+DEBUG: getABCOEFs done
+DEBUG: charge to be balanced: total 0.0019999989
+DEBUG: balanceCharges done
+DEBUG: Balanced TotalCharge -0.0000000000
+DEBUG: PBC = None
+DEBUG: getAtoms done
+DEBUG: getBonds done
+DEBUG: getAngles done
+DEBUG: getDihedrals done
+==> Using OpenBabel v.3.1.0
+
+==> Sorting atoms for gromacs ordering.
+
+==> Writing GROMACS files
+
+==> Disambiguating lower and uppercase atomtypes in GMX top file, even if identical.
+
+DEBUG: writing GRO file
+DEBUG: Box size estimated
+DEBUG: writing POSRE file
+DEBUG: atomTypes 5
+DEBUG: GMX atomtypes done
+DEBUG: atoms 16
+DEBUG: GMX atoms done
+DEBUG: bonds 16
+DEBUG: GMX bonds done
+DEBUG: atomPairs 29
+DEBUG: GMX pairs done
+DEBUG: angles 24
+DEBUG: GMX angles done
+DEBUG: setProperDihedralsCoef done
+DEBUG: properDihedralsCoefRB 32
+DEBUG: properDihedralsAlphaGamma 0
+DEBUG: properDihedralsGmx45 32
+==> Writing GMX dihedrals for GMX 4.5 and higher.
+
+DEBUG: GMX special proper dihedrals done
+DEBUG: improperDihedrals 7
+DEBUG: GMX improper dihedrals done
+==> Writing pickle file phz_docked_complex.pkl
+==> Removing temporary files...
+Total time of execution: 2s
+DEBUG: No tmp folder left to be removed
