@@ -1,0 +1,28 @@
+; Topologie file created by gromacs_py.gmx.topsys
+; Forcefield: 
+#include "amber99sb-ildn.ff/forcefield.itp"
+
+; Include phz_docked_complex_GMX.itp topology
+#include "phz_docked_complex.acpype/phz_docked_complex_GMX.itp"
+
+; Ligand position restraints
+#ifdef POSRES_LIG
+#include "phz_docked_complex.acpype/posre_phz_docked_complex.itp"
+#endif
+
+; Itp to include: 
+#include "zeb_hb_phz_complex_pdb2gmx.itp"
+#include "tip3p.itp"
+#include "ions.itp"
+
+[ system ]
+; Name
+Protein in water
+
+[ molecules ]
+; Compound        #mols
+Protein_chain_A 	1
+phz_docked_complex 1
+SOL         10155
+NA               28
+CL               29
