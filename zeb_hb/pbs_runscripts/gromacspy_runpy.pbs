@@ -32,8 +32,6 @@ export SIFIMG=gromacs_2024.2-GPU.sif
 echo "Starting"
 echo '---------------------------------------------'
 unset OMP_NUM_THREADS #PBS sets this and it creates problems with GROMACS
-export PROD_DIR = $SIMDIR/${MD_NAME}+"_prod"
-mkdir -p $PROD_DIR
 # Production run
 LD_LIBRARY_PATH="" singularity exec --nv -B${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG $PYFILE 
 
