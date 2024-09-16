@@ -18,6 +18,7 @@ sys_top_folder = os.path.join(DATA_OUT, 'sys_top')
 # Equillibration
 equi_folder = os.path.join(DATA_OUT, 'sys_equi')
 vsite='none'
+em_step_number = 10000
 HA_time = 0.5
 CA_time = 1.0
 CA_LOW_time = 4.0

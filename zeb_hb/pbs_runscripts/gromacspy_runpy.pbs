@@ -33,7 +33,7 @@ echo "Starting"
 echo '---------------------------------------------'
 unset OMP_NUM_THREADS #PBS sets this and it creates problems with GROMACS
 # Production run
-LD_LIBRARY_PATH="" singularity exec --nv -B${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG $PYFILE 
+LD_LIBRARY_PATH="" singularity exec --nv -B${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG python $PYFILE 
 
 #End time
 end=`date +%s.%N`
