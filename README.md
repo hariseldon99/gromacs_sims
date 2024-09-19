@@ -1,4 +1,4 @@
-# Logs for GROMACS Simulations - Protein-ligand Complexes
+# Logs for GROMACS Simulations - Protein-ligand Complexes:
 
 ## Test: Lysozyme in Water
 
