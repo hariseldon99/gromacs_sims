@@ -14,9 +14,13 @@ and that of Rolipram in SPC water (separately).
 2. [Rolipram Simulation Logs](MMP2_Rolipram/Rolipram/gromacs_logs.md)
 3. [Results](MMP2_Rolipram/post-processing/EM_pp.ipynb)
 
-## Zebrafish Hemoglobin:
-TODO
 
 ## Misc: Sim of MMP9 Protein in Water
 
 1. [Simulation Logs](MMP9_protein/gromacs_logs.md)
+
+## Zebrafish Hemoglobin and Phenyl Hydrazine
+
+New Simulations performed using conda-forge version of GROMACS compiled for nVidia-GPUs (version 2024.2) and [gromacs_py](https://gromacs-py.readthedocs.io/en/latest/index.html)
+
+See [README for zeb_hb](zeb_hb/README.md)
