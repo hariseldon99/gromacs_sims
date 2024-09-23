@@ -1,12 +1,11 @@
 #!/bin/bash
 #----------------------------------------------------------
 # Job name
-#PBS -N rclone_sync
+#PBS -N zebhb_sync
 # queue select
 #PBS -q workq
-#PBS -l select=1:mpiprocs=12
 # Name of stdout output file (default)
-#PBS -o rclone_sync.out 
+#PBS -o zebhb_sync.out 
 # stdout output file
 #PBS -j oe
 #PBS -l walltime=48:00:00 
@@ -15,7 +14,7 @@
 # Enter the name of the Login host
 
 export LOGIN_NODE=kuhpchn
-export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
+
 
 #Start time
 start=`date +%s.%N`
@@ -23,8 +22,8 @@ start=`date +%s.%N`
 cd $PBS_O_WORKDIR
 #Load basic OHPC tools
 module load ohpc
-export SRC=gdrive://data/GROMACS/gromacs_sims
-export DEST=$HOME/gitrepos/gromacs_sims
+export DEST=gdrive://data/
+export SRC=$HOME/gitrepos/gromacs_sims/zeb_hb/zeb_hb_only_20240902.tar.gz
 export OUTFILE=sync_out.log
 
 echo "Starting"
@@ -33,7 +32,7 @@ echo '---------------------------------------------'
 RCLONEBIN=$HOME/.local/bin/rclone
 SSHBIN=/usr/bin/ssh
 
-$SSHBIN $LOGIN_NODE $RCLONEBIN --checkers 1 --transfers ${PBS_NCPUS} sync -P $SRC $DEST 2>&1 | tee ${PBS_O_WORKDIR}/${OUTFILE}
+$SSHBIN $LOGIN_NODE $RCLONEBIN sync -P $SRC $DEST 2>&1 | tee ${PBS_O_WORKDIR}/${OUTFILE}
 
 #End time
 end=`date +%s.%N`
