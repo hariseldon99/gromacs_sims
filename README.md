@@ -24,3 +24,16 @@ and that of Rolipram in SPC water (separately).
 New Simulations performed using conda-forge version of GROMACS compiled for nVidia-GPUs (version 2024.2) and [gromacs_py](https://gromacs-py.readthedocs.io/en/latest/index.html)
 
 See [README for zeb_hb](zeb_hb/README.md)
+
+## Docs
+
+1. https://gromacs.bioexcel.eu/t/rmsf-analysis-of-protein-ligand-md-simulation/4919/4
+2. https://www.researchgate.net/post/how_to_calculated_RMSD_of_protein-ligand_complex_in_gromacs
+3. http://www.mdtutorials.com/
+4. https://www.compchems.com/categories/gromacs/
+5. https://www.gromacs.org/about.html
+6. https://github.com/DweipayanG/GROMACS-Protein-Ligand/blob/main/Gromacs%20Codes
+7. https://gromacs-py.readthedocs.io/en/latest/index.html
+8. https://angeloraymondrossi.github.io/workshop/charmm-gromacs-small-organic-molecules-new.html
+9. https://github.com/leelasd/ligpargen/wiki/Gromacs-Protein-Ligand-Complex-Simulations
+10. http://swissparam.ch/howto_gromacs.php
