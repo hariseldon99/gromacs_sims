@@ -295,11 +295,7 @@ display aodirect 0.300000
 display dof off
 display dof_fnumber 64.000000
 display dof_focaldist 0.700000
-mol new /home/daneel/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/em/Init_em_zeb_hb_phz_complex.gro type gro first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
-mol addfile /home/daneel/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_equi/sys_equi/00_equi_HA/equi_HA_zeb_hb_phz_complex.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
-mol addfile /home/daneel/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_equi/sys_equi/01_equi_CA/equi_CA_zeb_hb_phz_complex.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
-mol addfile /home/daneel/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_equi/sys_equi/02_equi_CA_LOW/equi_CA_LOW_zeb_hb_phz_complex.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
-mol addfile /home/daneel/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_prod/prod_zeb_hb_phz_complex.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol new /home/daneel/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_prod/start.pdb type pdb first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol delrep 0 top
 mol representation CPK
 mol color Name
@@ -369,11 +365,11 @@ mol clipplane center 5 1 top {0.0 0.0 0.0}
 mol clipplane color  5 1 top {0.5 0.5 0.5 }
 mol clipplane normal 5 1 top {0.0 0.0 1.0}
 mol clipplane status 5 1 top {0}
-mol rename top Init_em_zeb_hb_phz_complex.gro
-set viewpoints([molinfo top]) {{{1 0 0 -41.4708} {0 1 0 -35.2522} {0 0 1 -28.8564} {0 0 0 1}} {{0.920134 -0.35764 0.159527 0} {0.390201 0.802854 -0.450739 0} {0.0331256 0.476988 0.878286 0} {0 0 0 1}} {{0.0276227 0 0 0} {0 0.0276227 0 0} {0 0 0.0276227 0} {0 0 0 1}} {{1 0 0 -0.37} {0 1 0 -0.34} {0 0 1 0} {0 0 0 1}}}
+mol rename top start.pdb
+set viewpoints([molinfo top]) {{{1 0 0 -58.0258} {0 1 0 -58.0501} {0 0 1 -27.3363} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}} {{0.0129612 0 0 0} {0 0.0129612 0 0} {0 0 0.0129612 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 set topmol [molinfo top]
-# done with molecule 1
+# done with molecule 0
 foreach v $viewplist {
   molinfo $v set {center_matrix rotate_matrix scale_matrix global_matrix} $viewpoints($v)
 }
@@ -423,12 +419,9 @@ color scale colors turbo {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
 color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
   color scale method RWB
   set colorcmds {
-    {color Display {Background} white}
-    {color Display {BackgroundTop} white}
+    {color Display {BackgroundTop} black}
     {color Display {BackgroundBot} blue2}
-    {color Display {Foreground} black}
-    {color Display {FPS} black}
-    {color Axes {Labels} black}
+    {color Display {FPS} white}
     {color Name {LPA} green}
     {color Name {LPB} green}
     {color Type {LP} green}
@@ -549,7 +542,6 @@ color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
     {color Conformation {all} blue}
     {color Molecule {0} blue}
     {color Molecule {start.pdb} blue}
-    {color Molecule {1} gray}
     {color Structure {3_10_Helix} blue}
     {color Surface {Grasp} gray}
     {color Labels {Springs} orange}
