@@ -278,7 +278,7 @@ display eyesep       0.065000
 display focallength  2.000000
 display height       6.000000
 display distance     -2.000000
-display projection   Orthographic
+display projection   Perspective
 display nearclip set 0.500000
 display farclip  set 10.000000
 display depthcue   on
@@ -295,10 +295,13 @@ display aodirect 0.300000
 display dof off
 display dof_fnumber 64.000000
 display dof_focaldist 0.700000
-mol new /home/daneel/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_prod/start.pdb type pdb first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
-mol addfile /home/daneel/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_prod/prod_zeb_hb_phz_complex_compact_compact.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol new /home/admin/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_equi/sys_em/zeb_hb_phz_complex.gro type gro first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol addfile /home/admin/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_equi/sys_equi/00_equi_HA/equi_HA_zeb_hb_phz_complex_compact_compact_compact.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol addfile /home/admin/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_equi/sys_equi/01_equi_CA/equi_CA_zeb_hb_phz_complex_compact_compact_compact.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol addfile /home/admin/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_equi/sys_equi/02_equi_CA_LOW/equi_CA_LOW_zeb_hb_phz_complex_compact_compact.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol addfile /home/admin/gitrepos/gromacs_sims/zeb_hb/zeb_hb_phz_complex_sim/sys_prod/prod_zeb_hb_phz_complex_compact_compact.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol delrep 0 top
-mol representation Licorice 0.300000 12.000000 12.000000
+mol representation CPK 1.000000 0.300000 12.000000 12.000000
 mol color Name
 mol selection {resname PHZ}
 mol material Glossy
@@ -340,7 +343,7 @@ mol addrep top
 mol selupdate 1 top 0
 mol colupdate 1 top 0
 mol scaleminmax top 1 0.000000 0.000000
-mol smoothrep top 1 0
+mol smoothrep top 1 5
 mol drawframes top 1 {now}
 mol clipplane center 0 1 top {0.0 0.0 0.0}
 mol clipplane color  0 1 top {0.5 0.5 0.5 }
@@ -366,8 +369,42 @@ mol clipplane center 5 1 top {0.0 0.0 0.0}
 mol clipplane color  5 1 top {0.5 0.5 0.5 }
 mol clipplane normal 5 1 top {0.0 0.0 1.0}
 mol clipplane status 5 1 top {0}
-mol rename top start.pdb
-set viewpoints([molinfo top]) {{{1 0 0 -48.4} {0 1 0 -62.06} {0 0 1 -37.25} {0 0 0 1}} {{0.871195 -0.122511 0.475406 0} {-0.0472285 0.942958 0.329545 0} {-0.488661 -0.309551 0.815714 0} {0 0 0 1}} {{0.0512588 0 0 0} {0 0.0512588 0 0} {0 0 0.0512588 0} {0 0 0 1}} {{1 0 0 -0.648337} {0 1 0 0.0476379} {0 0 1 0.181723} {0 0 0 1}}}
+mol representation CPK 1.000000 0.300000 12.000000 12.000000
+mol color Name
+mol selection {resid 85}
+mol material Glossy
+mol addrep top
+mol selupdate 2 top 0
+mol colupdate 2 top 0
+mol scaleminmax top 2 0.000000 0.000000
+mol smoothrep top 2 25
+mol drawframes top 2 {now}
+mol clipplane center 0 2 top {0.0 0.0 0.0}
+mol clipplane color  0 2 top {0.5 0.5 0.5 }
+mol clipplane normal 0 2 top {0.0 0.0 1.0}
+mol clipplane status 0 2 top {0}
+mol clipplane center 1 2 top {0.0 0.0 0.0}
+mol clipplane color  1 2 top {0.5 0.5 0.5 }
+mol clipplane normal 1 2 top {0.0 0.0 1.0}
+mol clipplane status 1 2 top {0}
+mol clipplane center 2 2 top {0.0 0.0 0.0}
+mol clipplane color  2 2 top {0.5 0.5 0.5 }
+mol clipplane normal 2 2 top {0.0 0.0 1.0}
+mol clipplane status 2 2 top {0}
+mol clipplane center 3 2 top {0.0 0.0 0.0}
+mol clipplane color  3 2 top {0.5 0.5 0.5 }
+mol clipplane normal 3 2 top {0.0 0.0 1.0}
+mol clipplane status 3 2 top {0}
+mol clipplane center 4 2 top {0.0 0.0 0.0}
+mol clipplane color  4 2 top {0.5 0.5 0.5 }
+mol clipplane normal 4 2 top {0.0 0.0 1.0}
+mol clipplane status 4 2 top {0}
+mol clipplane center 5 2 top {0.0 0.0 0.0}
+mol clipplane color  5 2 top {0.5 0.5 0.5 }
+mol clipplane normal 5 2 top {0.0 0.0 1.0}
+mol clipplane status 5 2 top {0}
+mol rename top zeb_hb_phz_complex.gro
+set viewpoints([molinfo top]) {{{1 0 0 -38.6725} {0 1 0 -38.8445} {0 0 1 -27.6166} {0 0 0 1}} {{0.894134 -0.447463 -0.0172677 0} {-0.175523 -0.314739 -0.932808 0} {0.411963 0.837087 -0.35996 0} {0 0 0 1}} {{0.050132 0 0 0} {0 0.050132 0 0} {0 0 0.050132 0} {0 0 0 1}} {{1 0 0 5.58794e-09} {0 1 0 0.19} {0 0 1 0} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 set topmol [molinfo top]
 # done with molecule 0
@@ -535,9 +572,7 @@ color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
     {color Resname {HID} silver}
     {color Resname {HIE} green}
     {color Resname {PHZ} white}
-    {color Chain {A} blue}
-    {color Chain {B} red}
-    {color Chain {X} gray}
+    {color Chain {X} blue}
     {color Segname {} blue}
     {color Conformation {all} blue}
     {color Molecule {0} blue}
