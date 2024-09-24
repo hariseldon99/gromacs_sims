@@ -20,11 +20,6 @@ let nprocs=${SLURM_NTASKS}*${SLURM_CPUS_PER_TASK}
 
 #Start time
 start=`date +%s.%N`
-# Change to submission directory
-cd $PBS_O_WORKDIR
-#Load basic OHPC tools
-module load ohpc
-#Load cuda
 export SRC=$HOME/gitrepos/gromacs_sims
 export DEST=gdrive://data/GROMACS/gromacs_sims
 
