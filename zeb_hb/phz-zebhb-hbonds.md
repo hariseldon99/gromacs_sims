@@ -47,3 +47,21 @@ Here is a table summarizing the possible hydrogen bonds between phenylhydrazine 
 (3) Exploring the Composition of Protein-Ligand Binding Sites on a Large .... https://journals.plos.org/ploscompbiol/article?id=10.1371/journal.pcbi.1003321.
 (4) Secondary Structure: α-Helices - Chemistry LibreTexts. https://chem.libretexts.org/Bookshelves/Biological_Chemistry/Supplemental_Modules_%28Biological_Chemistry%29/Proteins/Protein_Structure/Secondary_Structure%3A_-Helices.
 (5) undefined. https://doi.org/10.1371/journal.pcbi.1003321.
+
+# However
+
+This reference [Magnusson et. al. J Biol Chem. 2004](https://doi.org/10.1074/jbc.m311890200) says that Leucine CAN form h-bonds (leucine and phenylalanine), but here leucine is in the ligand (I think).
+
+Copilot suggests the following bond table
+
+| **Donor Group**          | **Acceptor Group**       | **Hydrogen Bond**       |
+|--------------------------|--------------------------|-------------------------|
+| Phenylhydrazine - NH2    | Leucine - CO (carbonyl)  | NH2 (phenylhydrazine) - CO (leucine) |
+| Phenylhydrazine - NH     | Leucine - CO (carbonyl)  | NH (phenylhydrazine) - CO (leucine)  |
+| Leucine - NH (amide)     | Phenylhydrazine - NH2    | NH (leucine) - NH2 (phenylhydrazine) |
+| Leucine - NH (amide)     | Phenylhydrazine - NH     | NH (leucine) - NH (phenylhydrazine)  |
+
+### Additional Refs supporting leucine bonds
+
+
+1. Caballero D, Smith WW, O’Hern CS, Regan L. Equilibrium transitions between side-chain conformations in leucine and isoleucine: Leucine and Isoleucine Transitions. Proteins. 2015;83(8):1488-1499. [doi:10.1002/prot.24837](https://onlinelibrary.wiley.com/doi/10.1002/prot.24837)
