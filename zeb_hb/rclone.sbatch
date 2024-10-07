@@ -27,7 +27,7 @@ export DEST=gdrive://data/GROMACS/gromacs_sims
 echo "Starting"
 echo '---------------------------------------------'
 
-rclone --checkers ${SLURM_NTASKS} --transfers ${SLURM_CPUS_PER_TASK} copy -P $SRC $DEST --exclude ".git/"
+rclone --checkers ${SLURM_NTASKS} --transfers ${SLURM_CPUS_PER_TASK} sync -P $SRC $DEST --exclude ".git/"
 
 #End time
 end=`date +%s.%N`
