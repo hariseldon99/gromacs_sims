@@ -1,20 +1,21 @@
 #!/bin/bash
 #----------------------------------------------------------
 # Job name
-#PBS -N md
+#PBS -N zebhb_phz_ext
 # queue select
 #PBS -q workq
-#PBS -l select=1:ncpus=24:host=kuhpcgn2
+#PBS -l select=1:ncpus=24:mpiprocs=24:host=kuhpcgn2
 # Name of stdout output file (default)
-#PBS -o mdrun2.out 
+#PBS -o zebhb_phz_ext.out 
 # stdout output file
 #PBS -j oe
-#PBS -l walltime=48:00:00 
+#PBS -l walltime=192:00:00 
 #----------------------------------------------------------
 
-export OMP_NUM_THREADS=24
-export MDNAME=md_0_1
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
 
+
+export MDNAME=prod_zeb_hb_phz_complex
 #Start time
 start=`date +%s.%N`
 # Change to submission directory
@@ -25,24 +26,27 @@ module load ohpc
 module load cuda
 #Load singularity
 module load singularity
-SIFPATH=$HOME/.config/sifdir
-SIFIMG=gromacs_2022.3.sif
+SIFPATH=$HOME/images
+
+SIFIMG=gromacs_2024.2-GPU.sif
+
 GPUID='0'
 
 echo "Starting"
 echo '---------------------------------------------'
+unset OMP_NUM_THREADS #PBS sets this and it creates problems with GROMACS
 
 #Actual MD Dynamics: 
 LD_LIBRARY_PATH="" \
-	singularity run --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG \
-	gmx mdrun -nb gpu -gpu_id $GPUID -pme gpu -pmefft gpu -pin on -v -nt $OMP_NUM_THREADS \
-	-deffnm $MDNAME
+	singularity exec --nv -B ${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG \
+	gmx mdrun -nb gpu -gpu_id $GPUID -pme gpu -pmefft gpu -pin on -v -nt $PBS_NCPUS \
+	-deffnm $MDNAME -cpi ${MDNAME}.cpt
 
 
 #End time
 end=`date +%s.%N`
 
-echo "OMP_NUM_THREADS=" "$OMP_NUM_THREADS"
+echo "OMP_NUM_THREADS=" "$PBS_NCPUS"
 
 RUNTIME=$( echo "$end - $start" | bc -l )
 
