@@ -11,7 +11,7 @@ Stage: build
 %help
   This container can do MD with GROMACS on nVidia GPU (cuda-11.8+).
     1. Can also view molecular structures with nglview.
-    2. Post processing with mdanalysis and pmda are also possible.
+    2. Post processing with mdanalysis and mdtraj are also possible.
     3. To start interactive jupyter session, run:
         'singularity run --nv -B${PWD}:/host_pwd --pwd /host_pwd <path-to-sif-image>'
 
@@ -32,14 +32,22 @@ Stage: build
     12. scienceplots
     13. NetworkX==2.3
     14. nglview==3.1.4
-    15. pmda
+    15. mdtraj
   Extra python packages installed:
     1.  cgenff_charmm2gmx_py3_nx2.py from https://github.com/Lemkul-Lab/cgenff_charmm2gmx
 %environment
+  TZ=UTC
+  DEBIAN_FRONTEND=noninteractive
+  MPLCONFIGDIR=$HOME/.matplotlib
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
   export MPLCONFIGDIR=$HOME/.matplotlib
 
 %runscript
   #!/bin/bash
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
+  export MPLCONFIGDIR=$HOME/.matplotlib
 
   # Define the custom path for the Jupyter configuration file
   CONFIG_FILE_PATH="$HOME/.jupyter/singularity/jupyter_notebook_config.py"
@@ -67,11 +75,14 @@ Stage: build
 
 %post
   export MPLCONFIGDIR=$HOME/.matplotlib
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
   mkdir -p $MPLCONFIGDIR
   # Update, install and cleanup of system packages needed at run-time
   apt-get update -y
   apt-get upgrade -y
   apt-get -y install build-essential wget ca-certificates git dos2unix zsh
+  apt-get -y install dvipng texlive-latex-extra texlive-fonts-recommended cm-super
   rm -rf /var/lib/apt/lists/*
   apt-get clean
   wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
@@ -79,8 +90,9 @@ Stage: build
   conda config --file /.condarc --add channels defaults
   conda config --file /.condarc --add channels conda-forge
   conda config --file /.condarc --add channels bioconda
+  conda config --file /.condarc --add channels salilab
   conda update conda -y
-  conda install -c bioconda -c conda-forge gromacs_py gromacs==2024.4=nompi_cuda_h5cb645a_0 mdanalysis==2.8.0 scienceplots networkx==3.4 ambertools acpype openbabel pdb2pqr nglview==3.1.4 pmda -y
+  conda install -c bioconda -c conda-forge -c salilab gromacs_py gromacs==2024.4=nompi_cuda_h5cb645a_0 mdanalysis==2.8.0 scienceplots networkx==3.4 ambertools acpype openbabel pdb2pqr nglview==3.1.4 mdtraj dssp -y
   git clone https://github.com/Lemkul-Lab/cgenff_charmm2gmx 
   dos2unix cgenff_charmm2gmx/cgenff_charmm2gmx_py3_nx2.py
   cp cgenff_charmm2gmx/cgenff_charmm2gmx_py3_nx2.py /usr/local/bin/
