@@ -3,10 +3,8 @@
  [General Post-Processing](pp_all.ipynb)
 
 ## MMP Protein Simulations: 
- 
-1. [MMP9-SB3CT Simulation](MMP9_SB3CT_20241209/gromacs_logs.md)
-2. [MMP2-only](MMP2_Tadalafil/mmp2_only.ipynb)
-3. [MMP2-Tadalafil](MMP2_Tadalafil/complex_mmp2_and_tdl.ipynb)
+1. [Lysozyme Simulation](lysozyme/gromacs_logs.md)
+2. [MMP9-SB3CT Simulation](MMP9_SB3CT_20241209/gromacs_logs.md)
 
 ## Zebrafish Hemoglobin and Phenyl Hydrazine
 
