@@ -1,24 +1,12 @@
 # Logs for GROMACS Simulations - Protein-ligand Complexes:
 
-## Test: Lysozyme in Water
-
-1. [Simulation Logs](lysozyme/gromacs_logs.md)
-2. [Results](lysozyme/post-processing/EM_pp.ipynb)
-
-
-## MMP9 Protein in Water
-
-1. [Simulation Logs](MMP9_protein/gromacs_logs.md)
+ [General Post-Processing](pp_all.ipynb)
 
 ## MMP Protein Simulations: 
-
-There are two control Molecular Dynamics simulations, that of MMP2 in SPC water,
-and that of Rolipram in SPC water (separately).
  
-1. [MMP2 Simulation Logs](MMP2_Rolipram/MMP2_Protein/gromacs_logs.md)
-2. [Rolipram Simulation Logs](MMP2_Rolipram/Rolipram/gromacs_logs.md)
-3. [Results](MMP2_Rolipram/post-processing/EM_pp.ipynb)
-
+1. [MMP9-SB3CT Simulation](MMP9_SB3CT_20241209)
+2. [MMP2-only](MMP2_Tadalafil/mmp2_only.ipynb)
+3. [MMP2-Tadalafil](MMP2_Tadalafil/complex_mmp2_and_tdl.ipynb)
 
 ## Zebrafish Hemoglobin and Phenyl Hydrazine
 
