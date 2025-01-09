@@ -1,0 +1,106 @@
+============================================================================
+| ACPYPE: AnteChamber PYthon Parser interfacE v. 2023.10.27 (c) 2025 AWSdS |
+============================================================================
+DEBUG: CLI: -i pyc_h.pdb -n 1
+DEBUG: Python Version 3.12.8 | packaged by conda-forge | (main, Dec 5 2024, 14:24:40) [GCC 13.3.0]
+DEBUG: Max execution time tolerance is 3h
+DEBUG: setResNameCheckCoords done
+DEBUG: Net charge drift '0.000000'
+==> ... charge set to 1
+==> ... converting pdb input file to mol2 input file
+DEBUG: /usr/local/miniforge3/envs/gromacs_compiled/bin/obabel -ipdb pyc_h.pdb -omol2 -O pyc_h.mol2
+==> * Babel OK *
+==> Executing Antechamber...
+DEBUG: /usr/local/miniforge3/envs/gromacs_compiled/bin/antechamber -dr no -i pyc_h.mol2 -fi mol2 -o pyc_h_bcc_gaff2.mol2 -fo mol2 -c bcc -nc 1 -m 1 -s 2 -df 2 -at gaff2 -pf n 
+DEBUG: No file left to be removed
+==> * Antechamber OK *
+DEBUG: /usr/local/miniforge3/envs/gromacs_compiled/bin/parmchk2 -i pyc_h_bcc_gaff2.mol2 -f mol2 -o pyc_h_AC.frcmod -s 2
+==> * Parmchk OK *
+DEBUG: No crd or prm files left to be removed
+==> Executing Tleap...
+DEBUG: /usr/local/miniforge3/envs/gromacs_compiled/bin/tleap -f tleap.in
+DEBUG: ++++++++++start_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DEBUG: Checking 'PYC'....
+
+/usr/local/miniforge3/envs/gromacs_compiled/bin/teLeap: Warning!
+The unperturbed charge of the unit (1.000999) is not zero.
+Checking parameters for unit 'PYC'.
+Checking for bond parameters.
+Checking for angle parameters.
+check: Warnings: 1
+Unit is OK.
+DEBUG: ++++++++++end_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+==> * Tleap OK *
+==> Removing temporary files...
+DEBUG: prmtop and inpcrd files loaded
+DEBUG: basename defined = 'pyc_h'
+DEBUG: getCoords done
+DEBUG: getABCOEFs done
+DEBUG: charge to be balanced: total 1.0009990007
+DEBUG: balanceCharges done
+DEBUG: Balanced TotalCharge 1.0000000000
+DEBUG: PBC = None
+DEBUG: getAtoms done
+DEBUG: getBonds done
+DEBUG: getAngles done
+DEBUG: getDihedrals done
+==> Using OpenBabel v.3.1.0
+
+==> Writing NEW PDB file
+
+==> Writing CNS/XPLOR files
+
+DEBUG: chiralGroups 0
+==> Writing GROMACS files
+
+==> Disambiguating lower and uppercase atomtypes in GMX top file, even if identical.
+
+DEBUG: writing GRO file
+DEBUG: Box size estimated
+DEBUG: writing POSRE file
+DEBUG: atomTypes 12
+DEBUG: GMX atomtypes done
+DEBUG: atoms 27
+DEBUG: GMX atoms done
+DEBUG: bonds 29
+DEBUG: GMX bonds done
+DEBUG: atomPairs 61
+DEBUG: GMX pairs done
+DEBUG: angles 49
+DEBUG: GMX angles done
+DEBUG: setProperDihedralsCoef done
+DEBUG: properDihedralsCoefRB 70
+DEBUG: properDihedralsAlphaGamma 0
+DEBUG: properDihedralsGmx45 72
+==> Writing GMX dihedrals for GMX 4.5 and higher.
+
+DEBUG: GMX special proper dihedrals done
+DEBUG: improperDihedrals 12
+DEBUG: GMX improper dihedrals done
+==> Writing CHARMM files
+
+DEBUG: /usr/local/miniforge3/envs/gromacs_compiled/bin/antechamber -dr no -i pyc_h_bcc_gaff2.mol2 -fi mol2 -o pyc_h_CHARMM -fo charmm -s 2 -at gaff2 -pf n -rn PYC
+DEBUG: ++++++++++start_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DEBUG: 
+Welcome to antechamber 22.0: molecular input file processor.
+
+Info: The atom type is set to gaff2; the options available to the -at flag are
+ gaff, gaff2, amber, bcc, and sybyl.
+
+Info: Ignoring Mol2 record type (@<TRIPOS>SUBSTRUCTURE).
+Info: Finished reading file (pyc_h_bcc_gaff2.mol2); atoms read (27), bonds read (29).
+Info: Determining atomic numbers from atomic symbols which are case sensitive.
+Running: /usr/local/miniforge3/envs/gromacs_compiled/bin/bondtype -j full -i ANTECHAMBER_BOND_TYPE.AC0 -o ANTECHAMBER_BOND_TYPE.AC -f ac
+Info: Bond types are assigned for valence state (2) with penalty (1).
+
+Running: /usr/local/miniforge3/envs/gromacs_compiled/bin/atomtype -i ANTECHAMBER_AC.AC0 -o ANTECHAMBER_AC.AC -p gaff2
+
+Running: /usr/local/miniforge3/envs/gromacs_compiled/bin/atomtype -i ANTECHAMBER_PREP.AC0 -o ANTECHAMBER_PREP.AC -p gaff2
+
+Running: /usr/local/miniforge3/envs/gromacs_compiled/bin/charmmgen -i ANTECHAMBER_PREP.AC -f ac -o pyc_h_CHARMM -r PYC
+
+DEBUG: ++++++++++end_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+==> Writing pickle file pyc_h.pkl
+==> Removing temporary files...
+Total time of execution: 30s
+DEBUG: No tmp folder left to be removed
