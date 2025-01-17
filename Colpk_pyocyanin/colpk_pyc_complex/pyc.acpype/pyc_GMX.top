@@ -1,0 +1,20 @@
+; pyc_GMX.top created by acpype (v: 2023.10.27) on Thu Jan 16 19:26:23 2025
+
+[ defaults ]
+; nbfunc        comb-rule       gen-pairs       fudgeLJ fudgeQQ
+1               2               yes             0.5     0.8333333333
+
+; Include pyc_GMX.itp topology
+#include "pyc_GMX.itp"
+
+; Ligand position restraints
+#ifdef POSRES_LIG
+#include "posre_pyc.itp"
+#endif
+
+[ system ]
+ pyc
+
+[ molecules ]
+; Compound        nmols
+ pyc              1     
