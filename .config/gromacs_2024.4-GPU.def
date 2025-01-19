@@ -92,12 +92,26 @@ Stage: build
   conda config --file /.condarc --add channels bioconda
   conda config --file /.condarc --add channels salilab
   conda update conda -y
-  conda install -c bioconda -c conda-forge -c salilab gromacs_py gromacs==2024.4=nompi_cuda_h5cb645a_0 mdanalysis==2.8.0 scienceplots networkx==3.4 ambertools acpype openbabel pdb2pqr nglview==3.1.4 mdtraj dssp -y
-  git clone https://github.com/Lemkul-Lab/cgenff_charmm2gmx 
+  conda install -c bioconda -c conda-forge -c salilab gromacs_py gromacs==2024.4=nompi_cuda_h5cb645a_0 mdanalysis==2.8.0 scienceplots ambertools acpype openbabel pdb2pqr nglview==3.1.4 mdtraj seaborn dssp ipyparallel -y
+  conda create --name cgenff python==3.5.2 networkx==2.3 -y
+  git clone https://github.com/hariseldon99/cgenff_charmm2gmx 
   dos2unix cgenff_charmm2gmx/cgenff_charmm2gmx_py3_nx2.py
-  cp cgenff_charmm2gmx/cgenff_charmm2gmx_py3_nx2.py /usr/local/bin/
-  chmod +x "/usr/local/bin/cgenff_charmm2gmx_py3_nx2.py"
-  ln -s /usr/local/bin/cgenff_charmm2gmx_py3_nx2.py /usr/local/bin/cgenff_charmm2gmx
+  cp cgenff_charmm2gmx/cgenff_charmm2gmx_py3_nx2.py /usr/local/envs/cgenff/bin/
+  chmod +x "/usr/local/envs/cgenff/bin/cgenff_charmm2gmx_py3_nx2.py"
+  # Initialize conda
+  /usr/local/condabin/conda init bash
+
+  # Create the script that can run cgenff_charmm2gmx_py3_nx2 inside the conda environment
+  cat > /usr/local/bin/cgenff_charmm2gmx << 'EOF'
+#!/bin/bash
+/usr/local/bin/conda init bash
+source /usr/local/bin/activate cgenff
+python /usr/local/envs/cgenff/bin/cgenff_charmm2gmx_py3_nx2.py "$@"
+EOF
+
+  # Make the script executable
+  chmod +x /usr/local/bin/cgenff_charmm2gmx
+
   rm -rf cgenff_charmm2gmx Miniforge3-Linux-x86_64.sh
 
 
