@@ -33,8 +33,6 @@ Stage: build
     13. NetworkX==2.3
     14. nglview==3.1.4
     15. mdtraj
-  Extra python packages installed:
-    1.  cgenff_charmm2gmx_py3_nx2.py from https://github.com/Lemkul-Lab/cgenff_charmm2gmx
 %environment
   TZ=UTC
   DEBIAN_FRONTEND=noninteractive
@@ -100,38 +98,15 @@ Stage: build
   conda install -c bioconda -c conda-forge -c salilab gromacs_py gromacs==2024.4=nompi_cuda_h5cb645a_0 mdanalysis==2.8.0 scienceplots ambertools acpype openbabel pdb2pqr nglview==3.1.4 mdtraj seaborn dssp ipyparallel -y
 
   # Download the latest CHARMM force field and replace the outdated 2017 one
-  wget "https://mackerell.umaryland.edu/download.php?filename=CHARMM_ff_params_files/charmm36-jul2022.ff.tgz" -O charmm36-jul2017.ff.tgz
+  wget "https://mackerell.umaryland.edu/download.php?filename=CHARMM_ff_params_files/charmm36-jul2022.ff.tgz" -O charmm36-jul2022.ff.tgz
 
   # Remove the outdated CHARMM force field
-  rm -rf /usr/local/lib/python3.12/site-packages/gromacs_py/gmx/template/charmm36-jul2017
+  rm -rf /usr/local/lib/python3.12/site-packages/gromacs_py/gmx/template/charmm36-jul2017.ff
   # Extract the downloaded tarball
-  tar -xzf charmm36-jul2017.ff.tgz
-  # Move the extracted CHARMM force field to the appropriate directory
-  mv charmm36-jul2017.ff /usr/local/lib/python3.12/site-packages/gromacs_py/gmx/template/
+  tar -xzf charmm36-jul2022.ff.tgz
+  # Move the extracted CHARMM force field to the appropriate directory. This is done to fool the buggy gromacs_py module
+  mv charmm36-jul2022.ff /usr/local/lib/python3.12/site-packages/gromacs_py/gmx/template/charmm36-jul2017.ff
   # Clean up
-  rm charmm36-jul2017.ff.tgz
-
-  # Install cgenff_charmm2gmx_py3_nx2.py
-  conda create --name cgenff python==3.5.2 networkx==2.3 -y
-  git clone https://github.com/hariseldon99/cgenff_charmm2gmx 
-  dos2unix cgenff_charmm2gmx/cgenff_charmm2gmx_py3_nx2.py
-  cp cgenff_charmm2gmx/cgenff_charmm2gmx_py3_nx2.py /usr/local/envs/cgenff/bin/
-  chmod +x "/usr/local/envs/cgenff/bin/cgenff_charmm2gmx_py3_nx2.py"
-
-  # Initialize conda
-  /usr/local/condabin/conda init bash
-
-  # Create the script that can run cgenff_charmm2gmx_py3_nx2 inside the conda environment
-  cat > /usr/local/bin/cgenff_charmm2gmx << 'EOF'
-#!/bin/bash
-/usr/local/bin/conda init bash
-source /usr/local/bin/activate cgenff
-python /usr/local/envs/cgenff/bin/cgenff_charmm2gmx_py3_nx2.py "$@"
-EOF
-
-  # Make the script executable
-  chmod +x /usr/local/bin/cgenff_charmm2gmx
-
-  rm -rf cgenff_charmm2gmx Miniforge3-Linux-x86_64.sh
+  rm charmm36-jul2022.ff.tgz Miniforge3-Linux-x86_64.sh
 
 
