@@ -1,13 +1,13 @@
 #!/bin/bash
 #----------------------------------------------------------
 # This sets the name of the job
-#SBATCH --job-name=colpm_pyc_eq
+#SBATCH --job-name=colpm_pyc_prod
 #SBATCH --partition=GPU
 #SBATCH --gres=gpu
 #This allocates 1 GPU as a Global Resource (gres). Important for GPU jobs
 #SBATCH --ntasks=32
 #SBATCH --cpus-per-task=1
-# This allocates the walltime to 1/2 day. The program will not run for longer.
+# This allocates the walltime to 4  days. The program will not run for longer.
 #SBATCH --time=96:00:00
 # This sets the quality of service to 'elevated'
 #SBATCH --qos=elevated
