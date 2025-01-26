@@ -1,18 +1,18 @@
 #!/bin/bash
 #----------------------------------------------------------
 # Job name
-#PBS -N md_ext
+#PBS -N mdtraj
 # queue select
 #PBS -q workq
-#PBS -l select=1:mpiprocs=32:host=kuhpcgn2
+#PBS -l select=1:mpiprocs=8:host=kuhpcgn1
 # Name of stdout output file (default)
-#PBS -o md_ext.out 
+#PBS -o mdtraj.out 
 # stdout output file
 #PBS -j oe
 #PBS -l walltime=96:00:00 
 #----------------------------------------------------------
 
-IPYNB="colpmpyocynanin.ipynb"
+IPYNB="colpmpyc_hbond_mdtraj.ipynb"
 export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
 
 #Start time
