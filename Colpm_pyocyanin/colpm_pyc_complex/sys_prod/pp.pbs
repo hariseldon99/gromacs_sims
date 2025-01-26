@@ -1,0 +1,44 @@
+#!/bin/bash
+#----------------------------------------------------------
+# Job name
+#PBS -N md_pp
+# queue select
+#PBS -q workq
+#PBS -l select=1:mpiprocs=1:host=kuhpcgn2
+# Name of stdout output file (default)
+#PBS -o md_pp.out 
+# stdout output file
+#PBS -j oe
+#PBS -l walltime=12:00:00 
+#----------------------------------------------------------
+
+
+#Start time
+start=`date +%s.%N`
+# Change to submission directory
+cd $PBS_O_WORKDIR
+#Load basic OHPC tools
+module load ohpc
+#Load singularity
+module load singularity
+export SIFPATH=$HOME/images
+export SIFIMG=gromacs_2024.4-GPU.sif
+export MDNAME=prod_colpm_pyc_complex
+
+echo "Starting"
+echo '---------------------------------------------'
+unset OMP_NUM_THREADS #PBS sets this and it creates problems with GROMACS
+#Executing command
+LD_LIBRARY_PATH="" echo 1 0 | singularity exec -B${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG \
+	gmx trjconv -s ${MDNAME}.tpr -f ${MDNAME}.xtc -o ${MDNAME}_compact.xtc -center -pbc mol -ur compact
+LD_LIBRARY_PATH="" echo 4 0 | singularity exec -B${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG \
+	gmx trjconv -s ${MDNAME}.tpr -f ${MDNAME}_compact.xtc -o ${MDNAME}_compact_compact.xtc -fit rot+trans
+#End time
+end=`date +%s.%N`
+
+
+RUNTIME=$( echo "$end - $start" | bc -l )
+
+echo '---------------------------------------------'
+echo "Runtime: "$RUNTIME" sec"
+echo '---------------------------------------------'
