@@ -1,0 +1,25 @@
+; Topologie file created by gromacs_py.gmx.topsys
+; Forcefield: 
+#include "amber99sb-ildn.ff/forcefield.itp"
+
+; Include pgl_GMX.itp topology
+#include "pgl.acpype/pgl_GMX.itp"
+
+; Ligand position restraints
+#ifdef POSRES_LIG
+#include "pgl.acpype/posre_pgl.itp"
+#endif
+
+; Itp to include: 
+#include "colpk_pgl_complex_pdb2gmx.itp"
+#include "tip3p.itp"
+#include "ions.itp"
+
+[ system ]
+; Name
+Protein
+
+[ molecules ]
+; Compound        #mols
+Protein_chain_A 	1
+pgl              1
