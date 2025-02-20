@@ -1,0 +1,20 @@
+; pgl_GMX.top created by acpype (v: 2023.10.27) on Thu Feb 20 17:53:07 2025
+
+[ defaults ]
+; nbfunc        comb-rule       gen-pairs       fudgeLJ fudgeQQ
+1               2               yes             0.5     0.8333333333
+
+; Include pgl_GMX.itp topology
+#include "pgl_GMX.itp"
+
+; Ligand position restraints
+#ifdef POSRES_LIG
+#include "posre_pgl.itp"
+#endif
+
+[ system ]
+ pgl
+
+[ molecules ]
+; Compound        nmols
+ pgl              1     
