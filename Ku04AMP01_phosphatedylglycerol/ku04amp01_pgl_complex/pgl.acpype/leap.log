@@ -1,4 +1,4 @@
-log started: Thu Feb 20 17:54:20 2025
+log started: Fri Feb 21 11:35:01 2025
 
 Log file: ./leap.log
 >> #
@@ -82,11 +82,11 @@ Log file: ./leap.log
 >> #	Load the main parameter set.
 >> #
 >> parm10 = loadamberparams parm10.dat
-Loading parameters: /usr/local/miniforge3/envs/mdanalysis-dev/dat/leap/parm/parm10.dat
+Loading parameters: /usr/local/miniforge3/envs/gromacs_compiled/dat/leap/parm/parm10.dat
 Reading title:
 PARM99 + frcmod.ff99SB + frcmod.parmbsc0 + OL3 for RNA
 >> frcmod14SB = loadamberparams frcmod.ff14SB
-Loading parameters: /usr/local/miniforge3/envs/mdanalysis-dev/dat/leap/parm/frcmod.ff14SB
+Loading parameters: /usr/local/miniforge3/envs/gromacs_compiled/dat/leap/parm/frcmod.ff14SB
 Reading force field modification type file (frcmod)
 Reading title:
 ff14SB protein backbone and sidechain parameters
@@ -94,7 +94,7 @@ ff14SB protein backbone and sidechain parameters
 >> #	Load main chain and terminating amino acid libraries
 >> #
 >> loadOff amino12.lib
-Loading library: /usr/local/miniforge3/envs/mdanalysis-dev/dat/leap/lib/amino12.lib
+Loading library: /usr/local/miniforge3/envs/gromacs_compiled/dat/leap/lib/amino12.lib
 Loading: ALA
 Loading: ARG
 Loading: ASH
@@ -124,7 +124,7 @@ Loading: TRP
 Loading: TYR
 Loading: VAL
 >> loadOff aminoct12.lib
-Loading library: /usr/local/miniforge3/envs/mdanalysis-dev/dat/leap/lib/aminoct12.lib
+Loading library: /usr/local/miniforge3/envs/gromacs_compiled/dat/leap/lib/aminoct12.lib
 Loading: CALA
 Loading: CARG
 Loading: CASN
@@ -152,7 +152,7 @@ Loading: CVAL
 Loading: NHE
 Loading: NME
 >> loadOff aminont12.lib
-Loading library: /usr/local/miniforge3/envs/mdanalysis-dev/dat/leap/lib/aminont12.lib
+Loading library: /usr/local/miniforge3/envs/gromacs_compiled/dat/leap/lib/aminont12.lib
 Loading: ACE
 Loading: NALA
 Loading: NARG
@@ -217,10 +217,10 @@ Loading: NVAL
 >> CHIS = CHIE
 > 
 > source leaprc.gaff2
------ Source: /usr/local/miniforge3/envs/mdanalysis-dev/dat/leap/cmd/leaprc.gaff2
------ Source of /usr/local/miniforge3/envs/mdanalysis-dev/dat/leap/cmd/leaprc.gaff2 done
+----- Source: /usr/local/miniforge3/envs/gromacs_compiled/dat/leap/cmd/leaprc.gaff2
+----- Source of /usr/local/miniforge3/envs/gromacs_compiled/dat/leap/cmd/leaprc.gaff2 done
 >> logFile leap.log
-log started: Thu Feb 20 17:54:20 2025
+log started: Fri Feb 21 11:35:01 2025
 
 Log file: ./leap.log
 >> #
@@ -334,7 +334,7 @@ Log file: ./leap.log
 >> #	Load the general force field parameter set.
 >> #
 >> gaff = loadamberparams gaff2.dat
-Loading parameters: /usr/local/miniforge3/envs/mdanalysis-dev/dat/leap/parm/gaff2.dat
+Loading parameters: /usr/local/miniforge3/envs/gromacs_compiled/dat/leap/parm/gaff2.dat
 Reading title:
 AMBER General Force Field for organic molecules (Version 2.2.20, March 2021)
 (UNKNOWN ATOM TYPE: c6)
@@ -344,33 +344,16 @@ Loading parameters: ./pgl_AC.frcmod
 Reading force field modification type file (frcmod)
 Reading title:
 Remark line goes here
-> PGL = loadmol2 pgl_bcc_gaff2.mol2
+> GL = loadmol2 pgl_bcc_gaff2.mol2
 Loading Mol2 file: ./pgl_bcc_gaff2.mol2
-Reading MOLECULE named PGL
-> check PGL
-Checking 'PGL'....
-
-/usr/local/miniforge3/envs/mdanalysis-dev/bin/teLeap: Warning!
-Close contact of 0.581 angstroms between nonbonded atoms O1 and H8
--------  .R<PGL 1>.A<O1 7> and .R<PGL 1>.A<H8 28>
-
-/usr/local/miniforge3/envs/mdanalysis-dev/bin/teLeap: Warning!
-Close contact of 1.453 angstroms between nonbonded atoms O3 and H13
--------  .R<PGL 1>.A<O3 10> and .R<PGL 1>.A<H13 33>
-
-/usr/local/miniforge3/envs/mdanalysis-dev/bin/teLeap: Warning!
-Close contact of 1.447 angstroms between nonbonded atoms O6 and H18
--------  .R<PGL 1>.A<O6 15> and .R<PGL 1>.A<H18 38>
-
-/usr/local/miniforge3/envs/mdanalysis-dev/bin/teLeap: Warning!
-Close contact of 1.133 angstroms between nonbonded atoms H and H18
--------  .R<PGL 1>.A<H 16> and .R<PGL 1>.A<H18 38>
-Checking parameters for unit 'PGL'.
+Reading MOLECULE named pgl.pdb
+> check GL
+Checking 'GL'....
+Checking parameters for unit 'GL'.
 Checking for bond parameters.
 Checking for angle parameters.
-check:  Warnings: 4
 Unit is OK.
-> saveamberparm PGL pgl_AC.prmtop pgl_AC.inpcrd
+> saveamberparm GL pgl_AC.prmtop pgl_AC.inpcrd
 Checking Unit.
 Building topology.
 Building atom parameters.
@@ -378,7 +361,10 @@ Building bond parameters.
 Building angle parameters.
 Building proper torsion parameters.
 Building improper torsion parameters.
- total 0 improper torsions applied
+--Impropers:
+  1	O2<GL1> - C1<GL1> - C2<GL1> - O1<GL1>
+  1	O7<GL1> - O8<GL1> - C8<GL1> - C9<GL1>
+ total 2 improper torsions applied
 Building H-Bond parameters.
 Incorporating Non-Bonded adjustments.
 Not Marking per-residue atom chain types.
@@ -388,15 +374,15 @@ Marking per-residue atom chain types.
 
 	res	total affected
 
-	PGL	1
+	GL1	1
   )
  (no restraints)
-> saveoff PGL pgl_AC.lib
+> saveoff GL pgl_AC.lib
  Creating pgl_AC.lib
-Saving PGL.
+Saving GL.
 Building topology.
 Building atom parameters.
 > quit
 	Quit
 
-Exiting LEaP: Errors = 0; Warnings = 4; Notes = 0.
+Exiting LEaP: Errors = 0; Warnings = 0; Notes = 0.
