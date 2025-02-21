@@ -1,121 +1,0 @@
-Starting
----------------------------------------------
-num_procs=32
----------------------------------------------
-                      :-) GROMACS - gmx grompp, 2024.4 (-:
-
-Executable:   /usr/local/gromacs/bin/gmx
-Data prefix:  /usr/local/gromacs
-Working dir:  /home/admin/MMP2_SB3CT_20241209/1l6j_run2
-Command line:
-  gmx grompp -f md.mdp -c npt.gro -t npt.cpt -r npt.gro -n index.ndx -p topol.top -o md500.tpr -maxwarn 3
-
-Ignoring obsolete mdp entry 'title'
-Ignoring obsolete mdp entry 'ns_type'
-Generating 1-4 interactions: fudge = 1
-
-NOTE 1 [file topol.top, line 54]:
-  In moleculetype 'Other_chain_A2' 2 atoms are not bound by a potential or
-  constraint to any other atom in the same moleculetype. Although
-  technically this might not cause issues in a simulation, this often means
-  that the user forgot to add a bond/potential/constraint or put multiple
-  molecules in the same moleculetype definition by mistake. Run with -v to
-  get information for each atom.
-
-Number of degrees of freedom in T-Coupling group Protein_LIG_ZN2 is 15543.61
-Number of degrees of freedom in T-Coupling group Water_and_ions is 104595.39
-Last frame         -1 time  100.000   
-
-NOTE 2 [file md.mdp]:
-  This run will generate roughly 14135 Mb of data
-
-
-There were 2 NOTEs
-
-GROMACS reminds you: "Everybody's Good Enough For Some Change" (LIVE)
-
-Setting the LD random seed to -70263825
-
-Generated 21945 of the 21945 non-bonded parameter combinations
-
-Generated 18831 of the 21945 1-4 parameter combinations
-
-Excluding 3 bonded neighbours molecule type 'Protein_chain_A'
-
-turning H bonds into constraints...
-
-Excluding 3 bonded neighbours molecule type 'Other_chain_A2'
-
-turning H bonds into constraints...
-
-Excluding 3 bonded neighbours molecule type 'LIG'
-
-turning H bonds into constraints...
-
-Excluding 2 bonded neighbours molecule type 'SOL'
-
-turning H bonds into constraints...
-
-Excluding 1 bonded neighbours molecule type 'NA'
-
-turning H bonds into constraints...
-
-Excluding 1 bonded neighbours molecule type 'CL'
-
-turning H bonds into constraints...
-
-The largest distance between excluded atoms is 0.454 nm between atom 2935 and 3317
-
-Determining Verlet buffer for a tolerance of 0.005 kJ/mol/ps at 300 K
-
-Calculated rlist for 1x1 atom pair-list as 1.293 nm, buffer size 0.093 nm
-
-Set rlist, assuming 4x4 atom pair-list, to 1.220 nm, buffer size 0.020 nm
-
-Note that mdrun will redetermine rlist based on the actual pair-list setup
-
-Reading Coordinates, Velocities and Box size from old trajectory
-
-Will read whole trajectory
-
-Using frame at t = 100 ps
-
-Starting time for run is 0 ps
-Calculating fourier grid dimensions for X Y Z
-Using a fourier grid of 44x64x56, spacing 0.154 0.155 0.156
-
-Estimate for the relative computational load of the PME mesh part: 0.19
-                      :-) GROMACS - gmx mdrun, 2024.4 (-:
-
-Executable:   /usr/local/gromacs/bin/gmx
-Data prefix:  /usr/local/gromacs
-Working dir:  /home/admin/MMP2_SB3CT_20241209/1l6j_run2
-Command line:
-  gmx mdrun -ntmpi 0 -nb gpu -pme gpu -bonded gpu -update gpu -gpu_id 0 -pin on -v -ntomp 32 -deffnm md500 -nstlist 400
-
-Reading file md500.tpr, VERSION 2024.4 (single precision)
-Changing nstlist from 20 to 400, rlist from 1.22 to 2.459
-
-Update groups can not be used for this system because atoms that are (in)directly constrained together are interdispersed with other atoms
-
-1 GPU selected for this run.
-Mapping of GPU IDs to the 2 GPU tasks in the 1 rank on this node:
-  PP:0,PME:0
-PP tasks will do (non-perturbed) short-ranged and most bonded interactions on the GPU
-PP task will update and constrain coordinates on the GPU
-PME tasks will do all aspects on the GPU
-Using 1 MPI thread
-Using 32 OpenMP threads 
-
-
-Overriding thread affinity set outside gmx mdrun
-
-WARNING: This run will generate roughly 14038 Mb of data
-
-starting mdrun 'Protein in water'
-250000000 steps, 500000.0 ps.
-step 0step 100step 200step 300step 400, will finish Fri May 30 12:58:25 2025step 500, will finish Wed May 28 14:19:24 2025step 600, will finish Thu May 22 05:33:19 2025step 700, will finish Fri May 16 15:36:55 2025step 800, will finish Fri May 16 05:33:01 2025step 900, will finish Thu May 15 14:48:46 2025step 1000, will finish Wed May 14 21:41:19 2025step 1100, will finish Tue May 13 06:40:38 2025step 1200, will finish Tue May 13 06:46:30 2025step 1300, will finish Mon May 12 10:47:13 2025step 1400, will finish Mon May 12 04:45:20 2025step 1500, will finish Mon May 12 03:02:39 2025step 1600, will finish Sun May 11 21:12:29 2025step 1700, will finish Sun May 11 17:02:22 2025step 1800, will finish Sun May 11 05:09:42 2025step 1900, will finish Sun May 11 01:14:56 2025step 2400: timed with pme grid 44 64 56, coulomb cutoff 1.200: 53459.1 M-cycles
-step 3200: timed with pme grid 40 60 52, coulomb cutoff 1.269: 56718.4 M-cycles
-step 4000: timed with pme grid 36 56 48, coulomb cutoff 1.410: 56567.7 M-cycles
-step 4800: timed with pme grid 36 48 42, coulomb cutoff 1.559: 57164.7 M-cycles
-slurmstepd-shavak-DIT400TR-55L: error: *** JOB 4917 ON shavak-DIT400TR-55L CANCELLED AT 2024-12-17T10:54:43 ***
