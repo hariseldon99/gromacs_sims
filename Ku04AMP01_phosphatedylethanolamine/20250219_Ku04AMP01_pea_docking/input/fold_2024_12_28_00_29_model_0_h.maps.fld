@@ -1,0 +1,40 @@
+# AVS field file
+#
+# AutoDock Atomic Affinity and Electrostatic Grids
+#
+# Created by /usr/local/miniforge3/envs/AMDock/lib/python3.9/site-packages/AMDock/data/autogrid4.
+#
+#SPACING 1.000
+#NELEMENTS 44 66 40
+#CENTER -5.514 -2.254 1.514
+#MACROMOLECULE fold_2024_12_28_00_29_model_0_h.pdbqt
+#GRID_PARAMETER_FILE fold_2024_12_28_00_29_model_0_autolig.gpf
+#
+ndim=3			# number of dimensions in the field
+dim1=45			# number of x-elements
+dim2=67			# number of y-elements
+dim3=41			# number of z-elements
+nspace=3		# number of physical coordinates per point
+veclen=7		# number of affinity values at each point
+data=float		# data type (byte, integer, float, double)
+field=uniform		# field type (uniform, rectilinear, irregular)
+coord 1 file=fold_2024_12_28_00_29_model_0_h.maps.xyz filetype=ascii offset=0
+coord 2 file=fold_2024_12_28_00_29_model_0_h.maps.xyz filetype=ascii offset=2
+coord 3 file=fold_2024_12_28_00_29_model_0_h.maps.xyz filetype=ascii offset=4
+label=P-affinity	# component label for variable 1
+label=N-affinity	# component label for variable 2
+label=OA-affinity	# component label for variable 3
+label=C-affinity	# component label for variable 4
+label=HD-affinity	# component label for variable 5
+label=Electrostatics	# component label for variable 5
+label=Desolvation	# component label for variable 6
+#
+# location of affinity grid files and how to read them
+#
+variable 1 file=fold_2024_12_28_00_29_model_0_h.P.map filetype=ascii skip=6
+variable 2 file=fold_2024_12_28_00_29_model_0_h.N.map filetype=ascii skip=6
+variable 3 file=fold_2024_12_28_00_29_model_0_h.OA.map filetype=ascii skip=6
+variable 4 file=fold_2024_12_28_00_29_model_0_h.C.map filetype=ascii skip=6
+variable 5 file=fold_2024_12_28_00_29_model_0_h.HD.map filetype=ascii skip=6
+variable 6 file=fold_2024_12_28_00_29_model_0_h.e.map filetype=ascii skip=6
+variable 7 file=fold_2024_12_28_00_29_model_0_h.d.map filetype=ascii skip=6
