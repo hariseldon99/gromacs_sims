@@ -1,0 +1,127 @@
+Starting
+---------------------------------------------
+                :-) GROMACS - gmx grompp, 2024.4-conda_forge (-:
+
+Executable:   /usr/local/bin.AVX2_256/gmx
+Data prefix:  /usr/local
+Working dir:  /host_pwd
+Command line:
+  gmx grompp -f npt.mdp -c nvt.gro -t nvt.cpt -r nvt.gro -p topol.top -n index.ndx -o npt.tpr -maxwarn 10
+
+Ignoring obsolete mdp entry 'title'
+Ignoring obsolete mdp entry 'ns_type'
+
+WARNING 1 [file npt.mdp]:
+  The Berendsen barostat does not generate any strictly correct ensemble,
+  and should not be used for new production simulations (in our opinion).
+  We recommend using the C-rescale barostat instead.
+
+Generating 1-4 interactions: fudge = 1
+Number of degrees of freedom in T-Coupling group Protein_PYC is 14859.92
+Number of degrees of freedom in T-Coupling group Water_and_ions is 576918.06
+
+NOTE 1 [file npt.mdp]:
+  Removing center of mass motion in the presence of position restraints
+  might cause artifacts. When you are using position restraints to
+  equilibrate a macro-molecule, the artifacts are usually negligible.
+
+Last frame         -1 time  100.000   
+
+There was 1 NOTE
+
+There was 1 WARNING
+
+GROMACS reminds you: "Mathematics is no more computation than typing is literature." (John Allen Paulos)
+
+Setting the LD random seed to 1472197375
+
+Generated 171294 of the 171405 non-bonded parameter combinations
+
+Generated 120921 of the 171405 1-4 parameter combinations
+
+Excluding 3 bonded neighbours molecule type 'Protein_chain_A'
+
+turning H bonds into constraints...
+
+Excluding 3 bonded neighbours molecule type 'PYC'
+
+turning H bonds into constraints...
+
+Excluding 2 bonded neighbours molecule type 'SOL'
+
+turning H bonds into constraints...
+
+Excluding 3 bonded neighbours molecule type 'NA'
+
+turning H bonds into constraints...
+
+The center of mass of the position restraint coord's is 12.139 -3.975  5.714
+
+The center of mass of the position restraint coord's is 12.139 -3.975  5.714
+
+The largest distance between excluded atoms is 0.434 nm between atom 2202 and 2210
+
+Determining Verlet buffer for a tolerance of 0.005 kJ/mol/ps at 300 K
+
+Calculated rlist for 1x1 atom pair-list as 1.296 nm, buffer size 0.096 nm
+
+Set rlist, assuming 4x4 atom pair-list, to 1.224 nm, buffer size 0.024 nm
+
+Note that mdrun will redetermine rlist based on the actual pair-list setup
+
+Reading Coordinates, Velocities and Box size from old trajectory
+
+Will read whole trajectory
+
+Using frame at t = 100 ps
+
+Starting time for run is 0 ps
+Calculating fourier grid dimensions for X Y Z
+Using a fourier grid of 104x104x104, spacing 0.156 0.156 0.156
+
+Estimate for the relative computational load of the PME mesh part: 0.16
+
+This run will generate roughly 165 Mb of data
+                :-) GROMACS - gmx mdrun, 2024.4-conda_forge (-:
+
+Executable:   /usr/local/bin.AVX2_256/gmx
+Data prefix:  /usr/local
+Working dir:  /host_pwd
+Command line:
+  gmx mdrun -nt 32 -pin on -gpu_id 0 -nb gpu -pme gpu -pmefft gpu -deffnm npt
+
+The current CPU can measure timings more accurately than the code in
+gmx mdrun was configured to use. This might affect your simulation
+speed as accurate timings are needed for load-balancing.
+Please consider rebuilding gmx mdrun with the GMX_USE_RDTSCP=ON CMake option.
+Reading file npt.tpr, VERSION 2024.4-conda_forge (single precision)
+Changing nstlist from 20 to 100, rlist from 1.224 to 1.347
+
+
+Update groups can not be used for this system because atoms that are (in)directly constrained together are interdispersed with other atoms
+
+1 GPU selected for this run.
+Mapping of GPU IDs to the 2 GPU tasks in the 1 rank on this node:
+  PP:0,PME:0
+PP tasks will do (non-perturbed) short-ranged interactions on the GPU
+PP task will update and constrain coordinates on the GPU
+PME tasks will do all aspects on the GPU
+Using 1 MPI thread
+Using 32 OpenMP threads 
+
+starting mdrun 'Protein in water'
+50000 steps,    100.0 ps.
+
+Writing final coordinates.
+
+               Core t (s)   Wall t (s)        (%)
+       Time:     5122.326      160.108     3199.3
+                 (ns/day)    (hour/ns)
+Performance:       53.965        0.445
+
+GROMACS reminds you: "You are wrong!" (NOFX)
+
+NUM_THREADS= 32
+---------------------------------------------
+Runtime: 173.399289735 sec
+---------------------------------------------
