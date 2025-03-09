@@ -1,0 +1,67 @@
+#!/bin/bash
+#----------------------------------------------------------
+# Job name
+#PBS -N HDock
+# queue select
+#PBS -q workq
+#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn1
+# Name of stdout output file (default)
+#PBS -o rundocking.out 
+# stdout output file
+#PBS -j oe
+#PBS -l walltime=96:00:00 
+#----------------------------------------------------------
+
+IPYNB="sequence_alignment_conserved.ipynb"
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
+
+#Start time
+start=`date +%s.%N`
+# Change to submission directory
+cd $PBS_O_WORKDIR
+#Load basic OHPC tools
+module load ohpc
+#Load cuda
+module load cuda
+#Load fftw. Needed for HDock
+module load fftw
+
+echo "Starting"
+echo '---------------------------------------------'
+#Executing command
+conda activate
+jupyter nbconvert --to notebook --execute $IPYNB
+
+#End time
+end=`date +%s.%N`
+
+
+echo "NUM_THREADS= ${PBS_NCPUS}"
+RUNTIME=$( echo "$end - $start" | bc -l )
+
+echo '---------------------------------------------'
+echo "Runtime: "$RUNTIME" sec"
+echo '---------------------------------------------'
+#----------------------------------------------------------
+# Communicate job status to a telegram bot
+#----------------------------------------------------------
+# Create a telegram bot 
+# Get TOKEN, CHATID from botfather
+# See https://www.cytron.io/tutorial/how-to-create-a-telegram-bot-get-the-api-key-and-chat-id
+# Put them into two environment variables TOKEN and CHATID 
+# Store them in a config file and source it like below
+#----------------------------------------------------------
+
+source ${HOME}/.config/telegram/telegram.conf
+
+LOGIN_NODE=kuhpchn
+SSHBIN=/usr/bin/ssh
+URL="https://api.telegram.org/bot${TOKEN}/sendMessage"
+
+# Generate the telegram message  text
+
+TEXT="${bell} PBS job exiting now. Job name : ${PBS_JOBNAME}. Job id : ${PBS_JOBID}. Job dir : ${PBS_O_WORKDIR}. Job start-time : ${start}. Job end-time : ${end}. Job runtime : ${RUNTIME} secs."
+
+CMD='curl -s --max-time 10 --retry 5 --retry-delay 2 --retry-max-time 10  -d '\""chat_id=${CHATID}&text=${TEXT}&disable_web_page_preview=true&parse_mode=markdown"\"" ${URL}"
+
+$SSHBIN $LOGIN_NODE $CMD
