@@ -297,8 +297,8 @@ display dof_focaldist 0.700000
 mol new /home/daneel/gitrepos/gromacs_sims/DNA_peptide/molecular_dynamics/dna_sequence_101_peptide_model_0/sys_prod/prod_start.pdb type pdb first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol addfile /home/daneel/gitrepos/gromacs_sims/DNA_peptide/molecular_dynamics/dna_sequence_101_peptide_model_0/sys_prod/prod_dna_sequence_101_peptide_model_0_compact_compact.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol delrep 0 top
-mol representation Licorice 0.300000 12.000000 12.000000 0 0
-mol color Element
+mol representation NewRibbons 0.300000 12.000000 3.000000 0
+mol color ResType
 mol selection {protein}
 mol material AOChalky
 mol addrep top
@@ -331,7 +331,7 @@ mol clipplane center 5 0 top {0.0 0.0 0.0}
 mol clipplane color  5 0 top {0.5 0.5 0.5 }
 mol clipplane normal 5 0 top {0.0 0.0 1.0}
 mol clipplane status 5 0 top {0}
-mol representation HBonds 3.000000 60.000000 41.000000
+mol representation HBonds 3.000000 30.000000 41.000000
 mol color Name
 mol selection {all}
 mol material AOEdgy
@@ -365,8 +365,8 @@ mol clipplane center 5 1 top {0.0 0.0 0.0}
 mol clipplane color  5 1 top {0.5 0.5 0.5 }
 mol clipplane normal 5 1 top {0.0 0.0 1.0}
 mol clipplane status 5 1 top {0}
-mol representation QuickSurf 0.500000 0.500000 1.000000 1.000000
-mol color ResType
+mol representation NewCartoon 0.300000 10.000000 4.100000 0
+mol color Chain
 mol selection {nucleic}
 mol material AOChalky
 mol addrep top
@@ -400,7 +400,7 @@ mol clipplane color  5 2 top {0.5 0.5 0.5 }
 mol clipplane normal 5 2 top {0.0 0.0 1.0}
 mol clipplane status 5 2 top {0}
 mol rename top prod_start.pdb
-set viewpoints([molinfo top]) {{{1 0 0 -105.96} {0 1 0 -69.29} {0 0 1 -49.58} {0 0 0 1}} {{0.17983 -0.559418 0.809134 0} {0.507935 -0.651594 -0.563392 0} {0.842402 0.512305 0.166969 0} {0 0 0 1}} {{0.0627719 0 0 0} {0 0.0627719 0 0} {0 0 0.0627719 0} {0 0 0 1}} {{1 0 0 -0.310882} {0 1 0 -0.579639} {0 0 1 0.422565} {0 0 0 1}}}
+set viewpoints([molinfo top]) {{{1 0 0 -105.96} {0 1 0 -69.29} {0 0 1 -49.58} {0 0 0 1}} {{0.23555 -0.956336 -0.172978 0} {-0.114306 0.14949 -0.982128 0} {0.965111 0.251113 -0.074106 0} {0 0 0 1}} {{0.0235727 0 0 0} {0 0.0235727 0 0} {0 0 0.0235727 0} {0 0 0 1}} {{1 0 0 -0.520882} {0 1 0 0.170361} {0 0 1 0.422565} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 set topmol [molinfo top]
 # done with molecule 0
@@ -569,12 +569,13 @@ color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
     {color Resname {DG} green}
     {color Resname {DC} white}
     {color Resname {DT} pink}
-    {color Chain {A} blue}
-    {color Chain {B} red}
-    {color Chain {C} gray}
+    {color Chain {A} cyan}
+    {color Chain {B} cyan}
+    {color Chain {C} silver}
     {color Segname {} blue}
     {color Conformation {all} blue}
     {color Molecule {0} blue}
+    {color Molecule {prod_start.pdb} blue}
     {color Structure {3_10_Helix} blue}
     {color Surface {Grasp} gray}
     {color Labels {Springs} orange}
