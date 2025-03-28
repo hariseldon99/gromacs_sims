@@ -331,8 +331,8 @@ mol clipplane center 5 0 top {0.0 0.0 0.0}
 mol clipplane color  5 0 top {0.5 0.5 0.5 }
 mol clipplane normal 5 0 top {0.0 0.0 1.0}
 mol clipplane status 5 0 top {0}
-mol representation Licorice 0.300000 12.000000 12.000000 0 0
-mol color Name
+mol representation NewCartoon 0.300000 10.000000 4.100000 0
+mol color Chain
 mol selection {nucleic}
 mol material AOEdgy
 mol addrep top
@@ -365,11 +365,45 @@ mol clipplane center 5 1 top {0.0 0.0 0.0}
 mol clipplane color  5 1 top {0.5 0.5 0.5 }
 mol clipplane normal 5 1 top {0.0 0.0 1.0}
 mol clipplane status 5 1 top {0}
+mol representation HBonds 3.000000 20.000000 46.000000
+mol color Chain
+mol selection {all}
+mol material AOEdgy
+mol addrep top
+mol selupdate 2 top 0
+mol colupdate 2 top 0
+mol scaleminmax top 2 0.000000 0.000000
+mol smoothrep top 2 25
+mol drawframes top 2 {now}
+mol clipplane center 0 2 top {0.0 0.0 0.0}
+mol clipplane color  0 2 top {0.5 0.5 0.5 }
+mol clipplane normal 0 2 top {0.0 0.0 1.0}
+mol clipplane status 0 2 top {0}
+mol clipplane center 1 2 top {0.0 0.0 0.0}
+mol clipplane color  1 2 top {0.5 0.5 0.5 }
+mol clipplane normal 1 2 top {0.0 0.0 1.0}
+mol clipplane status 1 2 top {0}
+mol clipplane center 2 2 top {0.0 0.0 0.0}
+mol clipplane color  2 2 top {0.5 0.5 0.5 }
+mol clipplane normal 2 2 top {0.0 0.0 1.0}
+mol clipplane status 2 2 top {0}
+mol clipplane center 3 2 top {0.0 0.0 0.0}
+mol clipplane color  3 2 top {0.5 0.5 0.5 }
+mol clipplane normal 3 2 top {0.0 0.0 1.0}
+mol clipplane status 3 2 top {0}
+mol clipplane center 4 2 top {0.0 0.0 0.0}
+mol clipplane color  4 2 top {0.5 0.5 0.5 }
+mol clipplane normal 4 2 top {0.0 0.0 1.0}
+mol clipplane status 4 2 top {0}
+mol clipplane center 5 2 top {0.0 0.0 0.0}
+mol clipplane color  5 2 top {0.5 0.5 0.5 }
+mol clipplane normal 5 2 top {0.0 0.0 1.0}
+mol clipplane status 5 2 top {0}
 mol rename top prod_start.pdb
-set viewpoints([molinfo top]) {{{1 0 0 -80.3277} {0 1 0 -37.8308} {0 0 1 -38.021} {0 0 0 1}} {{0.335623 -0.260791 -0.905177 0} {-0.273476 0.892552 -0.358554 0} {0.901426 0.367883 0.228241 0} {0 0 0 1}} {{0.037758 0 0 0} {0 0.037758 0 0} {0 0 0.037758 0} {0 0 0 1}} {{1 0 0 0.04} {0 1 0 -0.12} {0 0 1 0} {0 0 0 1}}}
+set viewpoints([molinfo top]) {{{1 0 0 -80.3277} {0 1 0 -37.8308} {0 0 1 -38.021} {0 0 0 1}} {{0.050028 -0.984806 -0.166288 0} {-0.922246 -0.109459 0.370784 0} {-0.383353 0.134809 -0.913711 0} {0 0 0 1}} {{0.037758 0 0 0} {0 0.037758 0 0} {0 0 0.037758 0} {0 0 0 1}} {{1 0 0 -0.42} {0 1 0 -0.07} {0 0 1 0} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 set topmol [molinfo top]
-# done with molecule 2
+# done with molecule 0
 foreach v $viewplist {
   molinfo $v set {center_matrix rotate_matrix scale_matrix global_matrix} $viewpoints($v)
 }
@@ -531,18 +565,22 @@ color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
     {color Element {Y} ochre}
     {color Element {Yb} ochre}
     {color Element {Zr} ochre}
+    {color Resname {HID} silver}
+    {color Resname {HIE} green}
+    {color Resname {PHZ} white}
     {color Resname {DC} silver}
     {color Resname {DG} green}
     {color Resname {DA} white}
     {color Resname {DT} pink}
+    {color Chain {X} blue}
     {color Chain {A} blue}
-    {color Chain {B} red}
-    {color Chain {C} gray}
+    {color Chain {B} cyan}
+    {color Chain {C} white}
     {color Segname {} blue}
     {color Conformation {all} blue}
     {color Molecule {0} blue}
-    {color Molecule {1} red}
-    {color Molecule {2} gray}
+    {color Molecule {zeb_hb_phz_complex.gro} blue}
+    {color Molecule {prod_start.pdb} blue}
     {color Structure {3_10_Helix} blue}
     {color Surface {Grasp} gray}
     {color Labels {Springs} orange}
