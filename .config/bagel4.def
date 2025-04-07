@@ -1,0 +1,107 @@
+Bootstrap: library   
+From: ubuntu:22.04
+Stage: build
+
+%labels
+  APPLICATION BAGEL4
+  AUTHOR Analabha Roy
+  EMAIL daneel@utexas.edu
+  YEAR 2025
+
+%help
+  This container has BAGEL4,
+    1.  Enables researchers to mine bacterial (meta-)genomic DNA for bacteriocins and RiPPs. 
+    2.  Additionally they provide databases and a BLAST against the core peptide databases
+    Can also view molecular structures with nglview.
+
+%environment
+  TZ=UTC
+  DEBIAN_FRONTEND=noninteractive
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
+  export PATH=/data/BAGEL4:$PATH
+  export PERL5LIB=/data/bagel4/lib
+
+%runscript
+  #!/bin/bash
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
+  #Run BAGEL4
+  /data/bagel4/bagel4_wrapper.pl
+  
+
+%post
+    export TZ=UTC
+    export DEBIAN_FRONTEND=noninteractive
+
+    # Update, install and cleanup of system packages needed at run-time
+    apt-get update -y
+    apt-get upgrade -y
+    apt-get -y install build-essential wget ca-certificates git dos2unix zsh
+    rm -rf /var/lib/apt/lists/*
+    apt-get clean
+    # Enable universe and multiverse repositories
+    sed -i 's/^# deb/deb/' /etc/apt/sources.list
+    apt-get update -y
+
+    #Start Installation here
+    apt-get install -y perl transtermhp hmmer libbio-searchio-hmmer-perl libnhgri-blastall-perl librsvg2-bin
+    mkdir /data
+    # Install Python 3 and necessary development tools
+    apt-get install -y python3 python3-dev python3-pip
+    # Install MOODS-python package
+    pip3 install MOODS-python
+    #Install bagel4
+    mkdir -p /data/bagel4
+    cd /usr/local/src
+    git clone https://github.com/annejong/BAGEL4
+    dos2unix BAGEL4/*.pl
+    cp -R BAGEL4/* /data/bagel4/
+    rm -rf BAGEL4
+    echo 'export PATH=/data/bagel4:$PATH' >> /etc/profile.d/bagel4.sh
+    chmod +x /etc/profile.d/bagel4.sh
+    # Update bagel4.conf to set the correct path for hmmsearch
+    sed -i 's|hmmsearch =/data/bagel4/tools/hmmsearch/binaries|hmmsearch = /usr/bin|' /data/bagel4/bagel4.conf
+    # Update bagel4.conf to set the correct number of CPUs
+    sed -i 's|cpu=1|cpu=8|' /data/bagel4/bagel4.conf
+    # Update bagel4.conf to set the correct path for MOODS
+    sed -i 's|MOODS = /data/bagel4/tools/MOODS-python-1.9.3|MOODS = /usr/local/lib/python3.10/dist-packages/MOODS|' /data/bagel4/bagel4.conf
+    # Update bagel4.conf to set the correct path for transtermhp
+    sed -i 's|transtermHP = /data/bagel4/tools/transterm_hp_v2.09|transtermHP = /usr/bin|' /data/bagel4/bagel4.conf
+    # Create a symlink for /usr/bagel4 to /data/bagel4
+    ln -s /data/bagel4 /usr/bagel4
+    export PERL5LIB=/data/bagel4/lib
+
+    #Installation of glimmer3
+    wget http://ccb.jhu.edu/software/glimmer/glimmer3.02.tar.gz
+    tar -xvzf glimmer3.02.tar.gz
+    cd glimmer3.02/SimpleMake/
+    make
+    cd ../..
+    mv glimmer3.02 /data/bagel4/tools/
+    rm glimmer3.02.tar.gz
+
+    #Download and install Pfamscan
+    wget http://pfam.xfam.org/download/PfamScan-1.6.tar.gz
+    tar -xvzf PfamScan-1.6.tar.gz
+    cp -R PfamScan-1.6/* /data/bagel4/Pfam-A/
+    rm PfamScan-1.6.tar.gz
+    cd /data/bagel4/Pfam-A/
+    find . -type f \( -name "*.pl" -o -name "*.pm" \) -exec dos2unix {} +
+    
+
+    #Download Pfam databases 
+    cd /data/bagel4/Pfam-A/
+    wget https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam31.0/Pfam-A.hmm.gz
+    wget ftp://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam31.0/Pfam-A.fasta.gz 
+    wget ftp://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam31.0/Pfam-A.seed.gz
+    gunzip Pfam*.gz
+    hmmpress Pfam-A.hmm
+    formatdb -i Pfam-A.fasta -p T
+
+
+
+
+    
+
+
