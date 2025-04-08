@@ -37,7 +37,7 @@ Stage: build
     # Update, install and cleanup of system packages needed at run-time
     apt-get update -y
     apt-get upgrade -y
-    apt-get -y install build-essential wget ca-certificates git dos2unix zsh
+    apt-get -y install build-essential wget aria2 ca-certificates git dos2unix zsh
     rm -rf /var/lib/apt/lists/*
     apt-get clean
     # Enable universe and multiverse repositories
@@ -60,10 +60,10 @@ Stage: build
     rm -rf BAGEL4
     echo 'export PATH=/data/bagel4:$PATH' >> /etc/profile.d/bagel4.sh
     chmod +x /etc/profile.d/bagel4.sh
-    # Update bagel4.conf to set the correct path for hmmsearch
-    sed -i 's|hmmsearch =/data/bagel4/tools/hmmsearch/binaries|hmmsearch = /usr/bin|' /data/bagel4/bagel4.conf
     # Update bagel4.conf to set the correct number of CPUs
     sed -i 's|cpu=1|cpu=8|' /data/bagel4/bagel4.conf
+    # Update bagel4.conf to set the correct path for hmmsearch
+    sed -i 's|hmmsearch =/data/bagel4/tools/hmmsearch/binaries|hmmsearch = /usr/bin|' /data/bagel4/bagel4.conf
     # Update bagel4.conf to set the correct path for MOODS
     sed -i 's|MOODS = /data/bagel4/tools/MOODS-python-1.9.3|MOODS = /usr/local/lib/python3.10/dist-packages/MOODS|' /data/bagel4/bagel4.conf
     # Update bagel4.conf to set the correct path for transtermhp
@@ -73,35 +73,28 @@ Stage: build
     export PERL5LIB=/data/bagel4/lib
 
     #Installation of glimmer3
-    wget https://ccb.jhu.edu/software/glimmer/glimmer3.02.tar.gz
-    tar -xvzf glimmer3.02.tar.gz
+    wget https://ccb.jhu.edu/software/glimmer/glimmer302b.tar.gz
+    tar -xvzf glimmer302b.tar.gz
     cd glimmer3.02/SimpleMake/
     make
     cd ../..
     mv glimmer3.02 /data/bagel4/tools/
-    rm glimmer3.02.tar.gz
+    rm glimmer302b.tar.gz
 
     #Download and install Pfamscan
-    wget http://pfam.xfam.org/download/PfamScan-1.6.tar.gz
-    tar -xvzf PfamScan-1.6.tar.gz
-    cp -R PfamScan-1.6/* /data/bagel4/Pfam-A/
-    rm PfamScan-1.6.tar.gz
+    wget https://ftp.ebi.ac.uk/pub/databases/Pfam/Tools/PfamScan.tar.gz
+    tar -xvzf PfamScan.tar.gz
+    cp -R PfamScan/* /data/bagel4/Pfam-A/
+    rm PfamScan.tar.gz
     cd /data/bagel4/Pfam-A/
     find . -type f \( -name "*.pl" -o -name "*.pm" \) -exec dos2unix {} +
     
 
     #Download Pfam databases 
     cd /data/bagel4/Pfam-A/
-    wget https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam31.0/Pfam-A.hmm.gz
-    wget ftp://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam31.0/Pfam-A.fasta.gz 
-    wget ftp://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam31.0/Pfam-A.seed.gz
+    aria2c -x8 https://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam37.2/Pfam-A.hmm.gz
+    aria2c -x8 ftp://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam37.2/Pfam-A.fasta.gz 
+    aria2c -x8 ftp://ftp.ebi.ac.uk/pub/databases/Pfam/releases/Pfam37.2/Pfam-A.seed.gz
     gunzip Pfam*.gz
     hmmpress Pfam-A.hmm
     formatdb -i Pfam-A.fasta -p T
-
-
-
-
-    
-
-
