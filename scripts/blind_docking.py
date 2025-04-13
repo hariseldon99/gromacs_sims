@@ -3,7 +3,6 @@ import subprocess
 import os
 import argparse
 from Bio.PDB import PDBParser
-from vina import Vina
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -35,6 +34,7 @@ def protonate_ligand(ligand_pdb):
         """
         Protonate the ligand using RDKit.
         """
+        print(ligand_pdb)
         ligand_mol = Chem.MolFromPDBFile(ligand_pdb, removeHs=False)
         if ligand_mol is None:
             raise ValueError(f"Could not parse ligand PDB file: {ligand_pdb}")
@@ -83,7 +83,7 @@ def prepare_ligand(ligand_pdb):
     ligand_pdb = protonate_ligand(ligand_pdb)
     ligand_pdbqt = ligand_pdb.replace('.pdb', '.pdbqt')
     try:
-        subprocess.run(['prepare_ligand', 
+        subprocess.run(['prepare_ligand4', 
                         '-l', ligand_pdb, 
                         '-o', ligand_pdbqt], check=True)
         print(f"Ligand prepared successfully: {ligand_pdbqt}")
@@ -99,7 +99,7 @@ def prepare_receptor(receptor_pdb):
     receptor_pdb = protonate_protein(receptor_pdb)
     receptor_pdbqt = receptor_pdb.replace('.pdb', '.pdbqt')
     try:
-        subprocess.run(['prepare_receptor', 
+        subprocess.run(['prepare_receptor4', 
                         '-r', receptor_pdb, 
                         '-o', receptor_pdbqt], check=True)
         print(f"Receptor prepared successfully: {receptor_pdbqt}")
@@ -153,7 +153,7 @@ def run_docking(receptor_pdbqt,
     """
     try:
         subprocess.run([
-            'vina', 
+            'vina',
             '--receptor', receptor_pdbqt, 
             '--ligand', ligand_pdbqt,
             '--exhaustiveness', '32', 
@@ -167,6 +167,66 @@ def run_docking(receptor_pdbqt,
     except subprocess.CalledProcessError as e:
         print(f"Error during docking: {e}")
         raise
+
+def docking(protein_pdb, ligand_pdb, output_pdbqt, nprocs, verbose=False):
+
+    if verbose:
+        print("Verbose mode enabled.")
+        print("Preparing receptor ...")
+
+    receptor_pdbqt = prepare_receptor(protein_pdb)
+    
+    if verbose:
+        print("Verbose mode enabled.")
+        print("Preparing ligand ...")
+    ligand_pdbqt = prepare_ligand(ligand_pdb)
+
+    if verbose:
+        print("Calculating center of mass and box size ...")
+
+    center_x, center_y, center_z = calculate_center_of_mass(protein_pdb)
+    box_size = estimate_box_size(protein_pdb)
+    size_x, size_y, size_z = box_size
+
+    if verbose:
+        print(f"Center of mass: {center_x}, {center_y}, {center_z}")
+        print(f"Estimated box size: {box_size}")
+
+    if verbose:
+        print("Running docking ...")
+        run_docking(receptor_pdbqt, ligand_pdbqt, output_pdbqt, 
+                center_x, center_y, center_z, 
+                size_x, size_y, size_z, 
+                nprocs=nprocs)
+
+def batch_docking(receptor_pdbqt, ligand_pdbqtdir, 
+                  center_x, center_y, center_z, 
+                  size_x, size_y, size_z,
+                  nprocs, verbose=False):
+    """
+    Perform batch docking for multiple ligands.
+    """
+    receptor_name = os.path.splitext(os.path.basename(receptor_pdbqt))[0]
+    output_dir = os.path.join(os.getcwd(), f'{receptor_name}_docking_results')
+    os.makedirs(output_dir)
+    if verbose:
+        print("Verbose mode enabled.")
+    ligand_pdbqts = [os.path.join(ligand_pdbqtdir, f) for f in os.listdir(ligand_pdbqtdir) if f.endswith('.pdbqt')]
+    command_list = ['vina', '--receptor', receptor_pdbqt,
+                    '--exhaustiveness', '32', 
+                    '--num_modes', '1', 
+                    '--cpu', str(nprocs),
+                    '--center_x', str(center_x), '--center_y', str(center_y), '--center_z', str(center_z),
+                    '--size_x', str(size_x), '--size_y', str(size_y), '--size_z', str(size_z),'--dir', output_dir]
+    for ligand_pdbqt in ligand_pdbqts:
+        command_list.extend(['--batch', ligand_pdbqt])
+    try:
+        subprocess.run(command_list, check=True)
+        print(f"Docking completed successfully @: {output_dir}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error during docking: {e}")
+        raise
+
 
 def main(nprocs = 12):
     parser = argparse.ArgumentParser(description='Blind Molecular Docking using AutoDock Vina and AutoLigand.')
