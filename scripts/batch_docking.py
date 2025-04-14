@@ -1,35 +1,21 @@
 #!/usr/bin/env python3
 import importmonkey 
-importmonkey.add_path("/home/daneel/gitrepos/gromacs_sims/scripts")
+importmonkey.add_path("/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics")
 receptors_dir = "/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics/test_proteins"
 ligands_dir = "/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics/test_ligands"
 import blind_docking as bd
+from multiprocessing import cpu_count
 import os
+nprocs_loc = os.environ.get("OMP_NUM_THREADS", cpu_count())
 from mpi4py import MPI
 
 from math import ceil
-from os import environ
-from multiprocessing import cpu_count
 def chunk_into_n(lst, n):
   size = ceil(len(lst) / n)
   return list(
     map(lambda x: lst[x * size:x * size + size],
     list(range(n)))
   )
-
-def get_processors_per_node():
-    if "PBS_NODEFILE" in environ:
-        with open(environ["PBS_NODEFILE"]) as f:
-            nodes = f.readlines()
-        return len(set(nodes))
-    else:
-        raise EnvironmentError("PBS_NODEFILE not found. Are you running this script in an OpenPBS environment?")
-
-try:
-    nprocs_loc = get_processors_per_node()
-except EnvironmentError as e:
-        nprocs_loc = cpu_count()
-        print(f"Using {nprocs_loc} processors per node.")
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
