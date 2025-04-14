@@ -3,14 +3,13 @@ import importmonkey
 importmonkey.add_path("/host_pwd")
 receptors_dir = "/host_pwd/downloaded_models"
 ligands_dir = "/host_pwd/ligands"
-nprocs_loc = os.environ.get("OMP_NUM_THREADS", cpu_count())
 import blind_docking as bd
+from multiprocessing import cpu_count
 import os
+nprocs_loc = os.environ.get("OMP_NUM_THREADS", cpu_count())
 from mpi4py import MPI
 
 from math import ceil
-from os import environ
-from multiprocessing import cpu_count
 def chunk_into_n(lst, n):
   size = ceil(len(lst) / n)
   return list(
