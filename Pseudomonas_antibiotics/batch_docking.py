@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import importmonkey 
-importmonkey.add_path("/home/daneel/gitrepos/gromacs_sims/scripts")
-receptors_dir = "/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics/test_proteins"
-ligands_dir = "/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics/test_ligands"
+importmonkey.add_path("/host_pwd")
+receptors_dir = "/host_pwd/downloaded_models"
+ligands_dir = "/host_pwd/ligands"
 import blind_docking as bd
 import os
 from mpi4py import MPI

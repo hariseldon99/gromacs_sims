@@ -1,0 +1,62 @@
+Bootstrap: library   
+From: ubuntu:22.04
+Stage: build
+
+%labels
+  APPLICATION AMDock
+  AUTHOR Analabha Roy
+  EMAIL daneel@utexas.edu
+  YEAR 2025
+
+%environment
+  TZ=UTC
+  DEBIAN_FRONTEND=noninteractive
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
+
+%runscript
+  #!/bin/bash
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
+  exec AMDock "$@"
+
+%post
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
+
+  # Update, install and cleanup of system packages needed at run-time
+  apt-get update -y
+  apt-get upgrade -y
+  apt-get -y install build-essential wget ca-certificates git dos2unix zsh
+  rm -rf /var/lib/apt/lists/*
+  apt-get clean
+
+  # Install Miniforge3
+  wget "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh"
+  /bin/bash ./Miniforge3-Linux-x86_64.sh -bfp /usr/local
+  conda config --file /.condarc --add channels defaults
+  conda config --file /.condarc --add channels conda-forge
+  conda config --file /.condarc --add channels bioconda
+  conda config --file /.condarc --add channels salilab
+  conda update conda -y
+  rm Miniforge3-Linux-x86_64.sh
+
+  # Install MPI and AMDock
+  conda install -c bioconda -c conda-forge -c salilab -y pymol-open-source openbabel pdb2pqr mpi4py rdkit biopython numpy autodock autodock-vina
+  python3 -m pip install pdb2pqr PyQt5
+  python3 -m pip install git+https://github.com/Valdes-Tresanco-MS/AutoDockTools_py3
+  python3 -m pip install AMDock
+  python3 -m pip install importmonkey
+
+  # Download and install pre-compiled release of AutoDock Vina
+  wget https://github.com/ccsb-scripps/AutoDock-Vina/releases/download/v1.2.7/vina_1.2.7_linux_x86_64 -O /usr/local/bin/vina
+  chmod +x /usr/local/bin/vina
+  wget https://github.com/ccsb-scripps/AutoDock-Vina/releases/download/v1.2.7/vina_split_1.2.7_linux_x86_64 -O /usr/local/bin/vina_split
+  chmod +x /usr/local/bin/vina_split
+  # Cleanup unnecessary files to reduce image size
+  conda clean --all -y
+  rm -rf /root/.cache
+  rm -rf /usr/local/pkgs
+  pip cache purge
+  conda clean -y --all
+
