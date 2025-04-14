@@ -3,6 +3,7 @@ import importmonkey
 importmonkey.add_path("/host_pwd")
 receptors_dir = "/host_pwd/downloaded_models"
 ligands_dir = "/host_pwd/ligands"
+nprocs_loc = os.environ.get("OMP_NUM_THREADS", cpu_count())
 import blind_docking as bd
 import os
 from mpi4py import MPI
@@ -16,20 +17,6 @@ def chunk_into_n(lst, n):
     map(lambda x: lst[x * size:x * size + size],
     list(range(n)))
   )
-
-def get_processors_per_node():
-    if "PBS_NODEFILE" in environ:
-        with open(environ["PBS_NODEFILE"]) as f:
-            nodes = f.readlines()
-        return len(set(nodes))
-    else:
-        raise EnvironmentError("PBS_NODEFILE not found. Are you running this script in an OpenPBS environment?")
-
-try:
-    nprocs_loc = get_processors_per_node()
-except EnvironmentError as e:
-        nprocs_loc = cpu_count()
-        print(f"Using {nprocs_loc} processors per node.")
 
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
