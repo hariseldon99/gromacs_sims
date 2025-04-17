@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 import importmonkey 
-importmonkey.add_path("/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics")
-receptors_dir = "/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics/test_proteins"
-ligands_dir = "/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics/test_ligands"
+importmonkey.add_path("/home/arunima/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics")
+receptors_dir = "/home/arunima/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/downloaded_models"
+ligands_dir = "/home/arunima/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/downloaded_ligands"
 import blind_docking as bd
 from multiprocessing import cpu_count
 import os
