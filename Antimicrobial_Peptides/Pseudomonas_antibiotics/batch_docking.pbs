@@ -30,7 +30,7 @@ export SIFIMG=AMDock.sif
 echo "Starting"
 echo '---------------------------------------------' 
 #Executing command
-LD_LIBRARY_PATH="" mpirun -np $MPIPROCS singularity exec --nv -B${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG python $PYFILE
+LD_LIBRARY_PATH="" mpirun -np $MPIPROCS singularity exec --nv -B${PWD}:/host_pwd --pwd /host_pwd $SIFPATH/$SIFIMG python $PYFILE --bd_modpath /host_pwd --receptors_dir /host_pwd/downloaded_models --ligands_dir /host_pwd/downloaded_ligands --protonate_receptors
 
 #End time
 end=`date +%s.%N`

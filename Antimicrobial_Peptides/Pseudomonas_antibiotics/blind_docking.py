@@ -75,12 +75,13 @@ def protonate_ligand(ligand_pdb):
             f.writelines(lines)
         return protonated_pdb
 
-def prepare_ligand(ligand_pdb):
+def prepare_ligand(ligand_pdb, protonate=True):
     """
     Prepare the ligand using ADFR.
     """
     # Protonate the ligand before preparing it
-    ligand_pdb = protonate_ligand(ligand_pdb)
+    if protonate:
+        ligand_pdb = protonate_ligand(ligand_pdb)
     ligand_pdbqt = ligand_pdb.replace('.pdb', '.pdbqt')
     try:
         subprocess.run(['prepare_ligand4', 
@@ -92,11 +93,12 @@ def prepare_ligand(ligand_pdb):
         print(f"Error preparing ligand: {e}")
         raise
 
-def prepare_receptor(receptor_pdb):
+def prepare_receptor(receptor_pdb, protonate=True):
     """
     Prepare the receptor using ADFR.
     """
-    receptor_pdb = protonate_protein(receptor_pdb)
+    if protonate:
+        receptor_pdb = protonate_protein(receptor_pdb)
     receptor_pdbqt = receptor_pdb.replace('.pdb', '.pdbqt')
     try:
         subprocess.run(['prepare_receptor4', 
