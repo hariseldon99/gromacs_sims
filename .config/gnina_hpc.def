@@ -1,0 +1,87 @@
+Bootstrap: library   
+From: ubuntu:22.04
+Stage: build
+
+%labels
+  APPLICATION Gnina in HPC
+  AUTHOR Analabha Roy
+  EMAIL daneel@utexas.edu
+  YEAR 2025
+
+%environment
+  TZ=UTC
+  DEBIAN_FRONTEND=noninteractive
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
+  export CONFIG_FILE_PATH="/.jupyter/singularity/jupyter_notebook_config.py"
+
+%runscript
+  #!/bin/bash
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
+  export MPLCONFIGDIR=/.matplotlib
+  export CONFIG_FILE_PATH="/.jupyter/singularity/jupyter_notebook_config.py"
+  #Run notebook
+  jupyter notebook -y --config="$CONFIG_FILE_PATH"
+ 
+%post
+  export TZ=UTC
+  export DEBIAN_FRONTEND=noninteractive
+  export MPLCONFIGDIR=/.matplotlib
+  export CONFIG_FILE_PATH="/.jupyter/singularity/jupyter_notebook_config.py"
+
+  # Update, install and cleanup of system packages needed at run-time
+  apt-get update -y
+  apt-get upgrade -y
+  apt-get -y install xauth build-essential wget ca-certificates git dos2unix zsh cmake libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest libjsoncpp-dev openmpi-bin libopenmpi-dev python3-mpi4py python3-json python3-glob python3-pandas python3-pil python3-pillow python3-requests python3-scikit-learn python3-scipy python3-seaborn python3-matplotlib python3-pydot python3-pydot-ng python3-pydot-ng
+
+  # Install Jupyter Notebook and related packages
+  apt-get -y install jupyter-notebook jupyter-core python3-notebook python3-ipykernel python3-ipython python3-ipython-genutils python3-nbconvert python3-nbformat python3-terminado python3-traitlets
+  
+  rm -rf /var/lib/apt/lists/*
+  apt-get clean
+  mkdir -p $MPLCONFIGDIR
+  mkdir -p /usr/src/
+  mkdir -p /.jupyter/singularity
+  mkdir -p /.jupyter
+  mkdir -p /.jupyter/jupyter_notebook_config.d
+  mkdir -p /.jupyter/jupyter_notebook_config.d/nbconvert.json
+  # Generate Jupyter configuration file at the custom path
+  jupyter notebook --generate-config --config="$CONFIG_FILE_PATH"
+  # Update the configuration file
+  echo "c.NotebookApp.ip = '0.0.0.0'" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.port = 8888" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.open_browser = False" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.token = ''" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.allow_origin = '*'" >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.disable_check_xsrf = True " >> "$CONFIG_FILE_PATH"
+  echo "c.NotebookApp.notebook_dir = '/host_pwd'" >> "$CONFIG_FILE_PATH"
+
+  wget https://developer.download.nvidia.com/compute/cuda/12.4.0/local_installers/cuda_12.4.0_550.54.14_linux.run
+  chmod 700 cuda_12.4.0_550.54.14_linux.run
+  sudo sh cuda_12.4.0_550.54.14_linux.run
+  wget https://developer.download.nvidia.com/compute/cudnn/9.0.0/local_installers/cudnn-local-repo-ubuntu2204-9.0.0_1.0-1_amd64.deb
+  sudo dpkg -i cudnn-local-repo-ubuntu2204-9.0.0_1.0-1_amd64.deb
+  sudo cp /var/cudnn-local-repo-ubuntu2204-9.0.0/cudnn-*-keyring.gpg /usr/share/keyrings/
+  sudo apt-get update
+  sudo apt-get -y install cudnn-cuda-12
+  apt-get install build-essential git cmake wget libboost-all-dev libeigen3-dev libgoogle-glog-dev libprotobuf-dev protobuf-compiler libhdf5-dev libatlas-base-dev python3-dev librdkit-dev python3-numpy python3-pip python3-pytest libjsoncpp-dev
+  pip3 install --upgrade pip
+  mkdir -p /usr/src/
+  cd /usr/src/
+  git clone https://github.com/openbabel/openbabel.git
+  cd openbabel
+  mkdir build
+  cd build
+  cmake -DWITH_MAEPARSER=OFF -DWITH_COORDGEN=OFF -DPYTHON_BINDINGS=ON -DRUN_SWIG=ON ..
+  make -j8
+  sudo make install
+  
+  cd /usr/src/
+  git clone https://github.com/gnina/gnina.git
+  cd gnina
+  mkdir build
+  cd build
+  cmake -DCMAKE_CUDA_ARCHITECTURES=all ..
+  make -j8
+  sudo make install
