@@ -13,7 +13,10 @@
 #----------------------------------------------------------
 
 # List of simulation directories
-directories=("dir1" "dir2" "dir3")
+#directories=("dir1" "dir2" "dir3")
+directories=("aminostep2012")
+
+CONDA_ENV_NAME="biobb_wf_protein-complex_md_setup"
 
 export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
 
@@ -25,6 +28,8 @@ cd $PBS_O_WORKDIR
 module load ohpc
 #Load cuda
 module load cuda
+
+conda activate $CONDA_ENV_NAME
 
 echo "Starting"
 echo '---------------------------------------------'
@@ -45,7 +50,7 @@ done
 #End time
 end=`date +%s.%N`
 
-echo "NUM_THREADS= ${PBS_NCPUS}"
+echo "NUM_CPUS= ${PBS_NCPUS}"
 RUNTIME=$( echo "$end - $start" | bc -l )
 
 echo '---------------------------------------------'
