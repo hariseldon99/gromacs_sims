@@ -1,8 +1,26 @@
 #!/usr/bin/env python3
 import importmonkey 
-importmonkey.add_path("/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics")
-receptors_dir = "/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics/test_proteins"
-ligands_dir = "/home/daneel/gitrepos/gromacs_sims/Pseudomonas_antibiotics/test_ligands"
+import argparse
+parser = argparse.ArgumentParser(description="Batch docking script for receptors and ligands.")
+parser.add_argument("--bd_modpath", type=str, required=True, 
+                    help="Directory containing blind docking module")
+parser.add_argument("--receptors_dir", type=str, required=True, 
+                    help="Directory containing receptor PDB files.")
+parser.add_argument("--ligands_dir", type=str, required=True, 
+                    help="Directory containing ligand PDB files.")
+parser.add_argument("--protonate_receptors", action="store_true", 
+                    help="Flag to protonate receptors.")
+parser.add_argument("--protonate_ligands", action="store_true", 
+                    help="Flag to protonate ligands.")
+
+args = parser.parse_args()
+
+receptors_dir = args.receptors_dir
+ligands_dir = args.ligands_dir
+protonate_receptors = args.protonate_receptors
+protonate_ligands = args.protonate_ligands
+importmonkey.add_path(args.bd_modpath)  
+
 import blind_docking as bd
 from multiprocessing import cpu_count
 import os
@@ -10,6 +28,7 @@ nprocs_loc = os.environ.get("OMP_NUM_THREADS", cpu_count())
 from mpi4py import MPI
 
 from math import ceil
+import argparse
 def chunk_into_n(lst, n):
   size = ceil(len(lst) / n)
   return list(
@@ -33,7 +52,7 @@ if rank == 0:
     for r in receptors:
         name = os.path.basename(r).split(".")[0]
         print(f"Preparing receptor {name} for docking...")
-        receptor_pdbqts.append(bd.prepare_receptor(r))
+        receptor_pdbqts.append(bd.prepare_receptor(r, protonate=args.protonate_receptors))
         print(f"{name} prepared.")
 
     #prepare ligands for docking
@@ -42,7 +61,7 @@ if rank == 0:
         if ligand.endswith('.pdb'):
             ligand_name = os.path.basename(ligand).split(".")[0]
             print(f"Preparing {ligand_name} for docking...")
-            ligand_pdbqts.append(bd.prepare_ligand(ligand))
+            ligand_pdbqts.append(bd.prepare_ligand(ligand, protonate=args.protonate_ligands))
             print(f"{ligand_name} prepared.")
         else:
             print(f"{ligand} is not a PDB file, skipping.")

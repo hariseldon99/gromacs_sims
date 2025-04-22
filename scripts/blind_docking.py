@@ -75,12 +75,13 @@ def protonate_ligand(ligand_pdb):
             f.writelines(lines)
         return protonated_pdb
 
-def prepare_ligand(ligand_pdb):
+def prepare_ligand(ligand_pdb, protonate=True):
     """
     Prepare the ligand using ADFR.
     """
     # Protonate the ligand before preparing it
-    ligand_pdb = protonate_ligand(ligand_pdb)
+    if protonate:
+        ligand_pdb = protonate_ligand(ligand_pdb)
     ligand_pdbqt = ligand_pdb.replace('.pdb', '.pdbqt')
     try:
         subprocess.run(['prepare_ligand4', 
@@ -92,11 +93,12 @@ def prepare_ligand(ligand_pdb):
         print(f"Error preparing ligand: {e}")
         raise
 
-def prepare_receptor(receptor_pdb):
+def prepare_receptor(receptor_pdb, protonate=True):
     """
     Prepare the receptor using ADFR.
     """
-    receptor_pdb = protonate_protein(receptor_pdb)
+    if protonate:
+        receptor_pdb = protonate_protein(receptor_pdb)
     receptor_pdbqt = receptor_pdb.replace('.pdb', '.pdbqt')
     try:
         subprocess.run(['prepare_receptor4', 
@@ -147,22 +149,27 @@ def run_docking(receptor_pdbqt,
                 output_pdbqt, 
                 center_x, center_y, center_z, 
                 size_x, size_y, size_z, 
-                nprocs=12):
+                nprocs=12, gnina=False):
     """
-    Run the docking using AutoDock Vina.
+    Run the docking using AutoDock Vina or the AI based Gnina.
     """
-    try:
-        subprocess.run([
+    command_list = [   
             'vina',
             '--receptor', receptor_pdbqt, 
             '--ligand', ligand_pdbqt,
-            '--exhaustiveness', '32', 
-            '--num_modes', '1', 
+            '--exhaustiveness', '32',
+            '--num_modes', '1',
             '--cpu', str(nprocs),
             '--center_x', str(center_x), '--center_y', str(center_y), '--center_z', str(center_z),
-            '--size_x', str(size_x), '--size_y', str(size_y), '--size_z', str(size_z),
+            '--size_x', str(size_x), '--size_y', str(size_y), '--size_z', str(size_z),    
             '--out', output_pdbqt
-        ], check=True)
+        ]
+
+    if gnina:
+        command_list[0] = 'gnina' #Replace vina with gnina
+        command_list.extend(['--device','0']) #GPU ID for Gnina
+    try:
+        subprocess.run(command_list, check=True)
         print(f"Docking completed successfully: {output_pdbqt}")
     except subprocess.CalledProcessError as e:
         print(f"Error during docking: {e}")
@@ -265,7 +272,7 @@ def main(nprocs = 12):
     run_docking(receptor_pdbqt, ligand_pdbqt, args.output, 
                 center_x, center_y, center_z, 
                 size_x, size_y, size_z, 
-                nprocs=nprocs)
+                nprocs=nprocs, gnina=True)
 
 if __name__ == "__main__":
     main()
