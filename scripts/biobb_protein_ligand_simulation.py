@@ -122,6 +122,8 @@ complex = {
     'outdir': './outputs',
 }
 
+#TODO: Add command line argument parsing to allow user to specify input parameters
+#TODO: Add options for protonation states of the ligand and protein, if not done, or to deprotonate if done
 def molecular_dynamics(complex=complex):
     complex_pdb = complex['input_structure']
     ligandCode = complex['ligand_code']
@@ -853,20 +855,43 @@ def molecular_dynamics(complex=complex):
     # GMXImage: "Imaging" the resulting trajectory
     #           Removing water molecules and ions from the resulting structure
 
-    # Create prop dict and inputs/outputs
-    output_imaged_traj = proteinFile.removesuffix('.pdb')+'_imaged_traj.xtc'
+    # Create prop dict and inputs/outputs (their way, which didn't work too well)
+    #output_imaged_traj = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_imaged_traj.xtc'
+    #prop = {
+    #    'center_selection':  'Protein_Other',
+    #    'output_selection': 'Protein_Other',
+    #    'pbc' : 'mol',
+    #    'center' : True
+    #}
+    
+    # Create prop dict and inputs/outputs (my way, which worked better)
+    output_cluster_traj = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_cluster_traj.xtc'
     prop = {
-        'center_selection':  'Protein_Other',
+        'cluster_selection':  'Protein_Other',
         'output_selection': 'Protein_Other',
-        'pbc' : 'mol',
-        'center' : True
+        'pbc' : 'cluster',
+        'center' : False
     }
 
-    # Create and launch bb
+    # Create and launch bb 
     gmx_image(input_traj_path=output_md_xtc,
             input_top_path=output_gppmd_tpr,
             input_index_path=output_complex_ndx,
-            output_traj_path=output_imaged_traj, 
+            output_traj_path=output_cluster_traj, 
+            properties=prop)
+    
+    output_center_traj = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_cluster_center_traj.xtc'
+    prop = {
+        'center_selection':  'Protein_Other',
+        'output_selection': 'Protein_Other',
+        'pbc' : 'none',
+        'center' : True
+    }
+    # Create and launch bb 
+    gmx_image(input_traj_path=output_cluster_traj,
+            input_top_path=output_gppmd_tpr,
+            input_index_path=output_complex_ndx,
+            output_traj_path=output_center_traj, 
             properties=prop)
 
 
@@ -880,7 +905,7 @@ def molecular_dynamics(complex=complex):
     #                the "imaged dry" trajectory generated in the previous step.
 
     # Create prop dict and inputs/outputs
-    output_dry_gro = proteinFile.removesuffix('.pdb')+'_md_dry.gro'
+    output_dry_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md_dry.gro'
     prop = {
         'selection':  'Protein_Other'
     }
@@ -902,24 +927,3 @@ def molecular_dynamics(complex=complex):
 #  - **output_md_cpt** : **Final checkpoint file**, with information about the state of the simulation. It can be used to **restart** or **continue** a MD simulation.
 #  - **output_gppmd_tpr** : **Final tpr file**, GROMACS portable binary run input file. This file contains the starting structure of the **MD setup free MD simulation step**, together with the molecular topology and all the simulation parameters. It can be used to **extend** the simulation.
 #  - **output_genion_top_zip** : **Final topology** of the MD system. It is a compressed zip file including a **topology file** (.top) and a set of auxiliary **include topology** files (.itp).
-# 
-# **Analysis** (MD setup check) output files generated:
-#  - **output_rms_first** : **Root Mean Square deviation (RMSd)** against **minimized and equilibrated structure** of the final **free MD run step**.
-#  - **output_rms_exp** : **Root Mean Square deviation (RMSd)** against **experimental structure** of the final **free MD run step**.
-#  - **output_rgyr** : **Radius of Gyration** of the final **free MD run step** of the **setup pipeline**.
-#  
-
-
-# ***
-# <a id="questions"></a>
-# 
-# ## Questions & Comments
-# 
-# Questions, issues, suggestions and comments are really welcome!
-# 
-# * GitHub issues:
-#     * [https://github.com/bioexcel/biobb](https://github.com/bioexcel/biobb)
-# 
-# * BioExcel forum:
-#     * [https://ask.bioexcel.eu/c/BioExcel-Building-Blocks-library](https://ask.bioexcel.eu/c/BioExcel-Building-Blocks-library)
-# 
