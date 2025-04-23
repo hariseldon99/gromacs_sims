@@ -1,0 +1,112 @@
+==========================================================================
+| ACPYPE: AnteChamber PYthon Parser interfacE v. 2022.6.6 (c) 2025 AWSdS |
+==========================================================================
+DEBUG: CLI: -i /home/arunima/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/aminostep2012/a9720c58-b84b-4d8b-bde4-c17f1403d302/STM.H.min.mol2 -b STMparams.w449j9 -n 0
+DEBUG: Python Version 3.12.10 | packaged by conda-forge | (main, Apr 10 2025, 22:21:13) [GCC 13.3.0]
+DEBUG: Max execution time tolerance is 3h
+DEBUG: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/antechamber -dr no -i STM.H.min.mol2 -fi mol2 -o tmp -fo ac -pf y
+DEBUG: Info: The atom type is set to gaff; the options available to the -at flag are
+ gaff, gaff2, amber, bcc, abcg2, and sybyl.
+
+Warning: The assigned bond types may be wrong, please :
+(1) double check the structure (the connectivity) and/or 
+(2) adjust atom valence penalty parameters in APS.DAT, and/or 
+(3) increase PSCUTOFF in define.h and recompile bondtype.c
+ (be cautious, using a large value of PSCUTOFF (>100) will 
+ significantly increase the computation time).
+
+DEBUG: setResNameCheckCoords done
+DEBUG: Net charge drift '0.000000'
+==> ... charge set to 0
+==> Executing Antechamber...
+DEBUG: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/antechamber -dr no -i STM.H.min.mol2 -fi mol2 -o STMparams.w449j9_bcc_gaff2.mol2 -fo mol2 -c bcc -nc 0 -m 1 -s 2 -df 2 -at gaff2 -pf n 
+DEBUG: No file left to be removed
+==> * Antechamber OK *
+DEBUG: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/parmchk2 -i STMparams.w449j9_bcc_gaff2.mol2 -f mol2 -o STMparams.w449j9_AC.frcmod -s 2
+==> * Parmchk OK *
+DEBUG: No crd or prm files left to be removed
+==> Executing Tleap...
+DEBUG: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/tleap -f tleap.in
+DEBUG: ++++++++++start_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DEBUG: Checking 'STM'....
+Checking parameters for unit 'STM'.
+Checking for bond parameters.
+Checking for angle parameters.
+Unit is OK.
+DEBUG: ++++++++++end_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+==> * Tleap OK *
+==> Removing temporary files...
+DEBUG: prmtop and inpcrd files loaded
+DEBUG: basename defined = 'STMparams.w449j9'
+DEBUG: getCoords done
+DEBUG: getABCOEFs done
+DEBUG: charge to be balanced: total 0.0010000082
+DEBUG: balanceCharges done
+DEBUG: Balanced TotalCharge -0.0000000000
+DEBUG: PBC = None
+DEBUG: getAtoms done
+DEBUG: getBonds done
+DEBUG: getAngles done
+DEBUG: getDihedrals done
+==> Using OpenBabel v.3.1.0
+
+==> Writing NEW PDB file
+
+==> Writing CNS/XPLOR files
+
+DEBUG: chiralGroups 1
+==> Writing GROMACS files
+
+==> Disambiguating lower and uppercase atomtypes in GMX top file, even if identical.
+
+DEBUG: writing GRO file
+DEBUG: Box size estimated
+DEBUG: writing POSRE file
+DEBUG: atomTypes 11
+DEBUG: GMX atomtypes done
+DEBUG: atoms 59
+DEBUG: GMX atoms done
+DEBUG: bonds 61
+DEBUG: GMX bonds done
+DEBUG: atomPairs 117
+DEBUG: GMX pairs done
+DEBUG: angles 89
+DEBUG: GMX angles done
+DEBUG: setProperDihedralsCoef done
+DEBUG: properDihedralsCoefRB 128
+DEBUG: properDihedralsAlphaGamma 0
+DEBUG: properDihedralsGmx45 136
+==> Writing GMX dihedrals for GMX 4.5 and higher.
+
+DEBUG: GMX special proper dihedrals done
+DEBUG: improperDihedrals 19
+DEBUG: GMX improper dihedrals done
+==> Writing CHARMM files
+
+DEBUG: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/antechamber -dr no -i STMparams.w449j9_bcc_gaff2.mol2 -fi mol2 -o STMparams.w449j9_CHARMM -fo charmm -s 2 -at gaff2 -pf n -rn STM
+DEBUG: ++++++++++start_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+DEBUG: Info: The atom type is set to gaff2; the options available to the -at flag are
+ gaff, gaff2, amber, bcc, abcg2, and sybyl.
+
+Info: Ignoring Mol2 record type (@<TRIPOS>SUBSTRUCTURE).
+Info: Finished reading file (STMparams.w449j9_bcc_gaff2.mol2); atoms read (59), bonds read (61).
+Info: Determining atomic numbers from atomic symbols which are case sensitive.
+Running: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/bondtype -j full -i ANTECHAMBER_BOND_TYPE.AC0 -o ANTECHAMBER_BOND_TYPE.AC -f ac
+Warning: The assigned bond types may be wrong, please :
+(1) double check the structure (the connectivity) and/or 
+(2) adjust atom valence penalty parameters in APS.DAT, and/or 
+(3) increase PSCUTOFF in define.h and recompile bondtype.c
+ (be cautious, using a large value of PSCUTOFF (>100) will 
+ significantly increase the computation time).
+
+Running: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/atomtype -i ANTECHAMBER_AC.AC0 -o ANTECHAMBER_AC.AC -p gaff2
+
+Running: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/atomtype -i ANTECHAMBER_PREP.AC0 -o ANTECHAMBER_PREP.AC -p gaff2
+
+Running: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/charmmgen -i ANTECHAMBER_PREP.AC -f ac -o STMparams.w449j9_CHARMM -r STM
+
+DEBUG: ++++++++++end_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+==> Writing pickle file STMparams.w449j9.pkl
+==> Removing temporary files...
+Total time of execution: 8m 15s
+DEBUG: No tmp folder left to be removed
