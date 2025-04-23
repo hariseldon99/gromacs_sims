@@ -74,9 +74,7 @@ from biobb_analysis.gromacs.gmx_image import gmx_image
 from biobb_analysis.gromacs.gmx_trjconv_str import gmx_trjconv_str
 
 
-downloaded_pdb = 'aminostep2012.pdb'
-ligandCode = "STM"
-mol_charge = 0
+
 
 nprocs = int(os.environ.get('PBS_NCPUS', '12'))
 mpithreads = int(os.environ.get('PBS_MPITHREADS', '1'))
@@ -117,780 +115,782 @@ def deprotonate_pdb(input_file, output_file):
             outf.write(line)
 
 
-# Create properties dict and inputs/outputs
-proteinFile = "prot_" + downloaded_pdb
-ligandFile = ligandCode+'.pdb'
-complexFile = proteinFile.removesuffix('.pdb') + '_' + ligandCode+'.pdb'
-
-prop = {
-     'heteroatoms' : [{"name": "STM"}]
+complex = {
+    'input_structure': 'aminostep2012.pdb',
+    'ligand_code': "STM",
+    'ligand_charge': 0,
+    'outdir': './outputs',
 }
 
-extract_heteroatoms(input_structure_path=downloaded_pdb,
-     output_heteroatom_path=ligandFile,
-     properties=prop)
-
-extract_molecule(input_structure_path=downloaded_pdb,
-     output_molecule_path=proteinFile)
-
-print(proteinFile, ligandFile, complexFile)
-
-cat_pdb(input_structure1=proteinFile,
-       input_structure2=ligandFile,
-       output_structure_path=complexFile)
-
-# ***
-# ## Fix protein structure
-# **Checking** and **fixing** (if needed) the protein structure:<br>
-# - **Modeling** **missing side-chain atoms**, modifying incorrect **amide assignments**, choosing **alternative locations**.<br>
-# - **Checking** for missing **backbone atoms**, **heteroatoms**, **modified residues** and possible **atomic clashes**.
-# 
-# ***
-# **Building Blocks** used:
-#  - [FixSideChain](https://biobb-model.readthedocs.io/en/latest/model.html#module-model.fix_side_chain) from **biobb_model.model.fix_side_chain**
-# ***
-
-# Create prop dict and inputs/outputs
-fixed_pdb = proteinFile.removesuffix('.pdb')+'_fixed.pdb'
-
-# Create and launch bb
-fix_side_chain(input_pdb_path=proteinFile,
-             output_pdb_path=fixed_pdb)
-
-# ***
-# ## Create protein system topology
-# 
-# **Extra Step** The protein needs to be deprotonated for this to work.
-# 
+def molecular_dynamics(complex=complex):
+    complex_pdb = complex['input_structure']
+    ligandCode = complex['ligand_code']
+    mol_charge = complex['ligand_charge']
+    outdir = complex['outdir']
+    os.makedirs(outdir, exist_ok=True)
+    # Ensure all outputs are directed to the specified 'outdir'
+    proteinFile = os.path.join(outdir, "prot_" + complex_pdb)
+    ligandFile = os.path.join(outdir, ligandCode + '.pdb')
+    complexFile = os.path.join(outdir, proteinFile.removesuffix('.pdb') + '_' + ligandCode + '.pdb')
 
 
-# Deprotonate the fixed PDB file
-deprotonated_pdb = fixed_pdb.removesuffix('.pdb')+'_deprotonated.pdb'
-deprotonate_pdb(fixed_pdb, deprotonated_pdb)
+    prop = {
+     'heteroatoms' : [{"name": ligandCode}]
+    }
+
+    extract_heteroatoms(input_structure_path=complex_pdb,
+        output_heteroatom_path=ligandFile,
+        properties=prop)
+
+    extract_molecule(input_structure_path=complex_pdb,
+        output_molecule_path=proteinFile)
 
 
-# **Building GROMACS topology** corresponding to the protein structure.<br>
-# Force field used in this tutorial is [**amber99sb-ildn**](https://dx.doi.org/10.1002%2Fprot.22711): AMBER **parm99** force field with **corrections on backbone** (sb) and **side-chain torsion potentials** (ildn). Water molecules type used in this tutorial is [**spc/e**](https://pubs.acs.org/doi/abs/10.1021/j100308a038).<br>
-# Adding **hydrogen atoms** if missing. Automatically identifying **disulfide bridges**. <br>
-# 
-# Generating two output files: 
-# - **GROMACS structure** (gro file)
-# - **GROMACS topology** ZIP compressed file containing:
-#     - *GROMACS topology top file* (top file)
-#     - *GROMACS position restraint file/s* (itp file/s)
-# ***
-# **Building Blocks** used:
-#  - [Pdb2gmx](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.pdb2gmx) from **biobb_gromacs.gromacs.pdb2gmx**
-# ***# 
+    cat_pdb(input_structure1=proteinFile,
+        input_structure2=ligandFile,
+        output_structure_path=complexFile)
+
+    # ***
+    # ## Fix protein structure
+    # **Checking** and **fixing** (if needed) the protein structure:<br>
+    # - **Modeling** **missing side-chain atoms**, modifying incorrect **amide assignments**, choosing **alternative locations**.<br>
+    # - **Checking** for missing **backbone atoms**, **heteroatoms**, **modified residues** and possible **atomic clashes**.
+    # 
+    # ***
+    # **Building Blocks** used:
+    #  - [FixSideChain](https://biobb-model.readthedocs.io/en/latest/model.html#module-model.fix_side_chain) from **biobb_model.model.fix_side_chain**
+    # ***
+
+    fixed_pdb = proteinFile.removesuffix('.pdb')+'_fixed.pdb'
+
+    fix_side_chain(input_pdb_path=proteinFile,
+                output_pdb_path=fixed_pdb)
+
+    # ***
+    # ## Create protein system topology
+    # 
+    # **Extra Step** The protein needs to be deprotonated for this to work.
+    # 
+
+    # Deprotonate the fixed PDB file
+    deprotonated_pdb = fixed_pdb.removesuffix('.pdb')+'_deprotonated.pdb'
+    deprotonate_pdb(fixed_pdb, deprotonated_pdb)
 
 
-# Create Protein system topology
-# Import module
+    # **Building GROMACS topology** corresponding to the protein structure.<br>
+    # Force field used in this tutorial is [**amber99sb-ildn**](https://dx.doi.org/10.1002%2Fprot.22711): AMBER **parm99** force field with **corrections on backbone** (sb) and **side-chain torsion potentials** (ildn). Water molecules type used in this tutorial is [**spc/e**](https://pubs.acs.org/doi/abs/10.1021/j100308a038).<br>
+    # Adding **hydrogen atoms** if missing. Automatically identifying **disulfide bridges**. <br>
+    # 
+    # Generating two output files: 
+    # - **GROMACS structure** (gro file)
+    # - **GROMACS topology** ZIP compressed file containing:
+    #     - *GROMACS topology top file* (top file)
+    #     - *GROMACS position restraint file/s* (itp file/s)
+    # ***
+    # **Building Blocks** used:
+    #  - [Pdb2gmx](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.pdb2gmx) from **biobb_gromacs.gromacs.pdb2gmx**
 
-# Create inputs/outputs
-output_pdb2gmx_gro = proteinFile.removesuffix('.pdb')+'_pdb2gmx.gro'
-output_pdb2gmx_top_zip = proteinFile.removesuffix('.pdb')+'_pdb2gmx_top.zip'
-prop = {
-    'force_field' : 'amber99sb-ildn',
-    'water_type': 'spce'
-}
+    output_pdb2gmx_gro = proteinFile.removesuffix('.pdb')+'_pdb2gmx.gro'
+    output_pdb2gmx_top_zip = proteinFile.removesuffix('.pdb')+'_pdb2gmx_top.zip'
+    prop = {
+        'force_field' : 'amber99sb-ildn',
+        'water_type': 'spce'
+    }
 
-# Create and launch bb
-pdb2gmx(input_pdb_path=deprotonated_pdb,
-        output_gro_path=output_pdb2gmx_gro,
-        output_top_zip_path=output_pdb2gmx_top_zip,
+    # Create and launch bb
+    pdb2gmx(input_pdb_path=deprotonated_pdb,
+            output_gro_path=output_pdb2gmx_gro,
+            output_top_zip_path=output_pdb2gmx_top_zip,
+            properties=prop, restart=True)
+
+    # ## Create ligand system topology
+    # **Building GROMACS topology** corresponding to the ligand structure.<br>
+    # Force field used in this tutorial step is **amberGAFF**: [General AMBER Force Field](http://ambermd.org/antechamber/gaff.html), designed for rational drug design.<br>
+    # - [Step 1](#ligandTopologyStep1): Add **hydrogen atoms** if missing.
+    # - [Step 2](#ligandTopologyStep2): **Energetically minimize the system** with the new hydrogen atoms. 
+    # - [Step 3](#ligandTopologyStep3): Generate **ligand topology** (parameters). 
+    # ***
+    # **Building Blocks** used:
+    #  - [ReduceAddHydrogens](https://biobb-chemistry.readthedocs.io/en/latest/ambertools.html#module-ambertools.reduce_add_hydrogens) from **biobb_chemistry.ambertools.reduce_add_hydrogens**
+    #  - [BabelMinimize](https://biobb-chemistry.readthedocs.io/en/latest/babelm.html#module-babelm.babel_minimize) from **biobb_chemistry.babelm.babel_minimize** 
+    #  - [AcpypeParamsGMX](https://biobb-chemistry.readthedocs.io/en/latest/acpype.html#module-acpype.acpype_params_gmx) from **biobb_chemistry.acpype.acpype_params_gmx** 
+    # ***
+    # ### Step 1: Add **hydrogen atoms**
+    # 
+    # Note that this is not needed if ligand was already protonated during docking and not deprotonated after.
+
+    # Create Ligand system topology, STEP 1
+    # Reduce_add_hydrogens: add Hydrogen atoms to a small molecule (using Reduce tool from Ambertools package)
+    # Import module
+    ligandpath = os.path.join(outdir, ligandCode)
+    # Create prop dict and inputs/outputs
+    output_reduce_h =  ligandpath+'.pdb' 
+
+    # ### Step 2: **Energetically minimize the system** with the new hydrogen atoms. 
+
+    # Create Ligand system topology, STEP 2
+    # Babel_minimize: Structure energy minimization of a small molecule after being modified adding hydrogen atoms
+
+    output_babel_min = ligandpath+'.H.min.mol2'                              
+    prop = {
+        'method' : 'sd',
+        'criteria' : '1e-10',
+        'force_field' : 'GAFF'
+    }
+
+    # Create and launch bb
+    babel_minimize(input_path=output_reduce_h,
+                output_path=output_babel_min,
+                properties=prop)
+
+    # ### Step 3: Generate **ligand topology** (parameters).
+
+    # Create Ligand system topology, STEP 3
+    # Acpype_params_gmx: Generation of topologies for GROMACS with ACPype
+    # Import module
+
+    # Create prop dict and inputs/outputs
+    output_acpype_gro = ligandpath+'params.gro'
+    output_acpype_itp = ligandpath+'params.itp'
+    output_acpype_top = ligandpath+'params.top'
+    output_acpype = ligandpath+'params'
+    prop = {
+        'basename' : output_acpype,
+        'charge' : mol_charge
+    }
+
+    # Create and launch bb
+    acpype_params_gmx(input_path=output_babel_min, 
+                    output_path_gro=output_acpype_gro,
+                    output_path_itp=output_acpype_itp,
+                    output_path_top=output_acpype_top,
+                    properties=prop)
+
+    # <a id="restraints"></a>
+    # ***
+    # ## Preparing Ligand Restraints
+    # In subsequent steps of the pipeline, such as the equilibration stages of the **protein-ligand complex** system, it is recommended to apply some **restraints** to the small molecule, to avoid a possible change in position due to protein repulsion. **Position restraints** will be applied to the ligand, using a **force constant of 1000 KJ/mol\*nm^2** on the three coordinates: x, y and z. In this steps the **restriction files** will be created and integrated in the **ligand topology**.
+    # - [Step 1](#restraintsStep1): Creating an index file with a new group including just the **small molecule heavy atoms**.
+    # - [Step 2](#restraintsStep2): Generating the **position restraints** file.
+    # ***
+    # **Building Blocks** used:
+    #  - [MakeNdx](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.make_ndx) from **biobb_gromacs.gromacs.make_ndx** 
+    #  - [Genrestr](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.genrestr) from **biobb_gromacs.gromacs.genrestr** 
+    # ***
+
+    # <a id="restraintsStep1"></a>
+    # ### Step 1: Creating an index file for the small molecule heavy atoms
+
+    # MakeNdx: Creating import sys
+    # Create prop dict and inputs/outputs
+    output_ligand_ndx = ligandpath+'_index.ndx'
+    prop = {
+        'selection': "0 & ! a H*"
+    }
+
+    # Create and launch bb
+    make_ndx(input_structure_path=output_acpype_gro,
+            output_ndx_path=output_ligand_ndx,
+            properties=prop)
+
+    # <a id="restraintsStep2"></a>
+    # ### Step 2: Generating the position restraints file
+
+    # Genrestr: Generating the position restraints file
+
+    # Create prop dict and inputs/outputs
+    output_restraints_top = ligandpath+'_posres.itp'
+    prop = {
+        'force_constants': "1000 1000 1000",
+        'restrained_group': "System_&_!H*"
+    }
+
+    # Create and launch bb
+    genrestr(input_structure_path=output_acpype_gro,
+            input_ndx_path=output_ligand_ndx,
+            output_itp_path=output_restraints_top,
+            properties=prop)
+
+
+    # <a id="complex"></a>
+    # ***
+    # ## Create new protein-ligand complex structure file
+    # Building new **protein-ligand complex** PDB file with:
+    # - The new **protein system** with fixed problems from *Fix Protein Structure* step and hydrogens atoms added from *Create Protein System Topology* step.
+    # - The new **ligand system** with hydrogens atoms added from *Create Ligand System Topology* step. 
+    # 
+    # This new structure is needed for **GROMACS** as it is **force field-compliant**, it **has all the new hydrogen atoms**, and the **atom names are matching the newly generated protein and ligand topologies**.
+    # ***
+    # **Building Blocks** used:
+    #  - [GMXTrjConvStr](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_trjconv_str) from **biobb_analysis.gromacs.gmx_trjconv_str**
+    #  - [CatPDB](https://biobb-structure-utils.readthedocs.io/en/latest/utils.html#module-utils.cat_pdb) from **biobb_structure_utils.utils.cat_pdb**
+    # ***
+
+    # Convert gro (with hydrogens) to pdb (PROTEIN)
+    proteinFile_H = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_complex_H.pdb'
+    prop = {
+        'selection' : 'System'
+    }
+
+    # Create and launch bb
+    gmx_trjconv_str(input_structure_path=output_pdb2gmx_gro,
+                input_top_path=output_pdb2gmx_gro,
+                output_str_path=proteinFile_H, 
+                properties=prop)
+
+    # Convert gro (with hydrogens) to pdb (LIGAND)
+    ligandFile_H = ligandpath+'_complex_H.pdb'
+    prop = {
+        'selection' : 'System'
+    }
+
+    # Create and launch bb
+    gmx_trjconv_str(input_structure_path=output_acpype_gro,
+                input_top_path=output_acpype_gro,
+                output_str_path=ligandFile_H, 
+                properties=prop)
+
+    # Concatenating both PDB files: Protein + Ligand
+    complexFile_H = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_H.pdb'
+
+    # Create and launch bb
+    cat_pdb(input_structure1=proteinFile_H,
+        input_structure2=ligandFile_H,
+        output_structure_path=complexFile_H)
+
+    # <a id="complextop"></a>
+    # ***
+    # ## Create new protein-ligand complex topology file
+    # Building new **protein-ligand complex** GROMACS topology file with:
+    # - The new **protein system** topology generated from *Create Protein System Topology* step.
+    # - The new **ligand system** topology generated from *Create Ligand System Topology* step. 
+    # 
+    # NOTE: From this point on, the **protein-ligand complex structure and topology** generated can be used in a regular MD setup.
+    # ***
+    # **Building Blocks** used:
+    #  - [AppendLigand](https://biobb-gromacs.readthedocs.io/en/latest/gromacs_extra.html#gromacs-extra-append-ligand-module) from **biobb_gromacs.gromacs_extra.append_ligand**
+    # ***
+
+    # AppendLigand: Append a ligand to a GROMACS topology
+    # Import module
+
+    # Create prop dict and inputs/outputs
+    output_complex_top = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_complex.top.zip'
+
+    posresifdef = "POSRES_"+ligandCode.upper()
+    prop = {
+        'posres_name': posresifdef
+    }
+
+    # Create and launch bb
+    append_ligand(input_top_zip_path=output_pdb2gmx_top_zip,
+                input_posres_itp_path=output_restraints_top,
+                input_itp_path=output_acpype_itp, 
+                output_top_zip_path=output_complex_top,
+                properties=prop)
+
+
+    # <a id="box"></a>
+    # ***
+    # ## Create solvent box
+    # Define the unit cell for the **protein-ligand complex** to fill it with water molecules.<br>
+    # **Truncated octahedron** box is used for the unit cell. This box type is the one which best reflects the geometry of the solute/protein, in this case a **globular protein**, as it approximates a sphere. It is also convenient for the computational point of view, as it accumulates **less water molecules at the corners**, reducing the final number of water molecules in the system and making the simulation run faster.<br> A **protein to box** distance of **0.8 nm** is used, and the protein is **centered in the box**.  
+    # 
+    # ***
+    # **Building Blocks** used:
+    #  - [Editconf](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.editconf) from **biobb_gromacs.gromacs.editconf** 
+    # ***
+
+    # Editconf: Create solvent box
+    # Import module
+
+    # Create prop dict and inputs/outputs
+    output_editconf_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_complex_editconf.gro'
+
+    prop = {
+        'box_type': 'octahedron',
+        'distance_to_molecule': 0.8
+    }
+
+    # Create and launch bb
+    editconf(input_gro_path=complexFile_H, 
+            output_gro_path=output_editconf_gro,
+            properties=prop)
+
+    # <a id="water"></a>
+    # ***
+    # ## Fill the box with water molecules
+    # Fill the unit cell for the **protein-ligand complex** with water molecules.<br>
+    # The solvent type used is the default **Simple Point Charge water (SPC)**, a generic equilibrated 3-point solvent model. 
+    # 
+    # ***
+    # **Building Blocks** used:
+    #  - [Solvate](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.solvate) from **biobb_gromacs.gromacs.solvate** 
+    # ***
+
+    # Solvate: Fill the box with water molecules
+
+    # Create prop dict and inputs/outputs
+    output_solvate_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_solvate.gro'
+    output_solvate_top_zip = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_solvate_top.zip'
+
+    # Create and launch bb
+    solvate(input_solute_gro_path=output_editconf_gro,
+            output_gro_path=output_solvate_gro,
+            input_top_zip_path=output_complex_top,
+            output_top_zip_path=output_solvate_top_zip)
+
+    # <a id="ions"></a>
+    # ***
+    # ## Adding ions
+    # Add ions to neutralize the **protein-ligand complex** and reach a desired ionic concentration.
+    # - [Step 1](#ionsStep1): Creating portable binary run file for ion generation
+    # - [Step 2](#ionsStep2): Adding ions to **neutralize** the system and reach a **0.05 molar ionic concentration**
+    # ***
+    # **Building Blocks** used:
+    #  - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
+    #  - [Genion](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.genion) from **biobb_gromacs.gromacs.genion** 
+    # ***
+
+    # <a id="ionsStep1"></a>
+    # ### Step 1: Creating portable binary run file for ion generation
+
+    # Grompp: Creating portable binary run file for ion generation
+
+    # Create prop dict and inputs/outputs
+    prop = {
+        'mdp':{
+            'nsteps':'5000'
+        },
+        'simulation_type':'ions',
+        'maxwarn': 1
+    }
+    output_gppion_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_complex_gppion.tpr'
+
+    # Create and launch bb
+    grompp(input_gro_path=output_solvate_gro,
+        input_top_zip_path=output_solvate_top_zip, 
+        output_tpr_path=output_gppion_tpr,
+        properties=prop)
+
+    # <a id="ionsStep2"></a>
+    # ### Step 2: Adding ions to neutralize the system
+    # Replace **solvent molecules** with **ions** to **neutralize** the system.
+
+    # Genion: Adding ions to reach a 0.05 molar concentration
+
+    # Create prop dict and inputs/outputs
+    prop={
+        'neutral':True,
+        'concentration':0
+    }
+    output_genion_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_genion.gro'
+    output_genion_top_zip = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_genion_top.zip'
+
+    # Create and launch bb
+    genion(input_tpr_path=output_gppion_tpr,
+        output_gro_path=output_genion_gro, 
+        input_top_zip_path=output_solvate_top_zip,
+        output_top_zip_path=output_genion_top_zip, 
+        properties=prop)
+
+    # <a id="min"></a>
+    # ***
+    # ## Energetically minimize the system
+    # Energetically minimize the **protein-ligand complex** till reaching a desired potential energy.
+    # - [Step 1](#emStep1): Creating portable binary run file for energy minimization
+    # - [Step 2](#emStep2): Energetically minimize the **protein-ligand complex** till reaching a force of 500 kJ/mol*nm.
+    # - [Step 3](#emStep3): Checking **energy minimization** results. Plotting energy by time during the **minimization** process.
+    # ***
+    # **Building Blocks** used:
+    #  - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
+    #  - [Mdrun](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.mdrun) from **biobb_gromacs.gromacs.mdrun** 
+    #  - [GMXEnergy](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_energy) from **biobb_analysis.gromacs.gmx_energy** 
+    # ***
+
+    # <a id="emStep1"></a>
+    # ### Step 1: Creating portable binary run file for energy minimization
+    # Method used to run the **energy minimization** is a **steepest descent**, with a **maximum force of 500 kJ/mol\*nm^2**, and a minimization **step size of 1fs**. The **maximum number of steps** to perform if the maximum force is not reached is **5,000 steps**. 
+
+    # Grompp: Creating portable binary run file for mdrun
+
+    # Create prop dict and inputs/outputs
+    prop = {
+        'mdp':{
+            'nsteps':'15000',
+            'emstep': 0.01,
+            'emtol':'500'
+        },
+        'simulation_type':'minimization'
+    }
+    output_gppmin_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_gppmin.tpr'
+
+    # Create and launch bb
+    grompp(input_gro_path=output_genion_gro,
+        input_top_zip_path=output_genion_top_zip,
+        output_tpr_path=output_gppmin_tpr,
+        properties=prop)
+
+
+    # ## Unset OMP_NUM_THREADS
+    # 
+    # The environment variable `OMP_num_threads_omp` is often set automatically by grid engines even if the user did not. Doing so creates conflicts with thread setting variables whenever `gromacs` runs. However, unsetting it before launching this notebook will allow `acpype` (the AMBER-GAFF2 topology generator) to use all available cores in the runtime machine, which might violate grid policy. So best to unset it after `acpype` runs.
+
+    del os.environ['OMP_NUM_THREADS']
+
+    # <a id="emStep2"></a>
+    # ### Step 2: Running Energy Minimization
+    # Running **energy minimization** using the **tpr file** generated in the previous step.
+
+    # Mdrun: Running minimization
+
+    # Create prop dict and inputs/outputs
+    output_min_trr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_min.trr'
+    output_min_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_min.gro'
+    output_min_edr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_min.edr'
+    output_min_log = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_min.log'
+
+    # Create and launch bb
+    mdrun(input_tpr_path=output_gppmin_tpr,
+        output_trr_path=output_min_trr, 
+        output_gro_path=output_min_gro,
+        output_edr_path=output_min_edr, 
+        output_log_path=output_min_log,
+        use_gpu=usegpu,
+        num_threads_omp=nprocs,
+        num_threads_mpi=mpithreads,
+        gpu_id=gpuid)
+
+
+    # <a id="emStep3"></a>
+    # ### Step 3: Checking Energy Minimization results
+    # Checking **energy minimization** results. Plotting **potential energy** by time during the minimization process. 
+
+    # GMXEnergy: Getting system energy by time  
+
+    # Create prop dict and inputs/outputs
+    output_min_ene_xvg = proteinFile.removesuffix('.pdb') +'_'+ligandCode+'_min_ene.xvg'
+    prop = {
+        'terms':  ["Potential"]
+    }
+
+    # Create and launch bb
+    gmx_energy(input_energy_path=output_min_edr, 
+            output_xvg_path=output_min_ene_xvg, 
+            properties=prop)
+
+    # <a id="nvt"></a>
+    # ***
+    # ## Equilibrate the system (NVT)
+    # Equilibrate the **protein-ligand complex** system in NVT ensemble (constant Number of particles, Volume and Temperature). To avoid temperature coupling problems, a new *"system"* group will be created including the **protein** + the **ligand** to be assigned to a single thermostatting group.
+    # 
+    # - [Step 1](#eqNVTStep1): Creating an index file with a new group including the **protein-ligand complex**.
+    # - [Step 2](#eqNVTStep3): Creating portable binary run file for system equilibration
+    # - [Step 3](#eqNVTStep3): Equilibrate the **protein-ligand complex** with NVT ensemble.
+    # - [Step 4](#eqNVTStep4): Checking **NVT Equilibration** results. Plotting **system temperature** by time during the **NVT equilibration** process. 
+    # ***
+    # **Building Blocks** used:
+    # - [MakeNdx](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.make_ndx) from **biobb_gromacs.gromacs.make_ndx** 
+    # - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
+    # - [Mdrun](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.mdrun) from **biobb_gromacs.gromacs.mdrun** 
+    # - [GMXEnergy](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_energy) from **biobb_analysis.gromacs.gmx_energy** 
+    # ***
+
+    # <a id="eqNVTStep1"></a>
+    # ### Step 1: Creating an index file with a new group including the **protein-ligand complex**
+
+    # MakeNdx: Creating index file with a new group (protein-ligand complex)
+
+    # Create prop dict and inputs/outputs
+    output_complex_ndx = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_index.ndx'
+    prop = {
+        'selection': "\"Protein\"|\"Other\"" 
+    }
+
+    # Create and launch bb
+    make_ndx(input_structure_path=output_min_gro,
+            output_ndx_path=output_complex_ndx,
+            properties=prop)
+
+
+    # <a id="eqNVTStep2"></a>
+    # ### Step 2: Creating portable binary run file for system equilibration (NVT)
+    # Note that for the purposes of temperature coupling, the **protein-ligand complex** (*Protein_Other*) is considered as a single entity.
+
+    # Grompp: Creating portable binary run file for NVT System Equilibration
+
+    # Create prop dict and inputs/outputs
+    output_gppnvt_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'gppnvt.tpr'
+    prop = {
+        'mdp':{
+            'nsteps':'50000',
+            'tc-grps': 'Protein_Other Water_and_ions',
+            'Define': '-DPOSRES -D' + posresifdef
+        },
+        'simulation_type':'nvt'
+    }
+
+    # Create and launch bb
+    grompp(input_gro_path=output_min_gro,
+        input_top_zip_path=output_genion_top_zip,
+        input_ndx_path=output_complex_ndx,
+        output_tpr_path=output_gppnvt_tpr,
         properties=prop, restart=True)
 
-# ## Create ligand system topology
-# **Building GROMACS topology** corresponding to the ligand structure.<br>
-# Force field used in this tutorial step is **amberGAFF**: [General AMBER Force Field](http://ambermd.org/antechamber/gaff.html), designed for rational drug design.<br>
-# - [Step 1](#ligandTopologyStep1): Add **hydrogen atoms** if missing.
-# - [Step 2](#ligandTopologyStep2): **Energetically minimize the system** with the new hydrogen atoms. 
-# - [Step 3](#ligandTopologyStep3): Generate **ligand topology** (parameters). 
-# ***
-# **Building Blocks** used:
-#  - [ReduceAddHydrogens](https://biobb-chemistry.readthedocs.io/en/latest/ambertools.html#module-ambertools.reduce_add_hydrogens) from **biobb_chemistry.ambertools.reduce_add_hydrogens**
-#  - [BabelMinimize](https://biobb-chemistry.readthedocs.io/en/latest/babelm.html#module-babelm.babel_minimize) from **biobb_chemistry.babelm.babel_minimize** 
-#  - [AcpypeParamsGMX](https://biobb-chemistry.readthedocs.io/en/latest/acpype.html#module-acpype.acpype_params_gmx) from **biobb_chemistry.acpype.acpype_params_gmx** 
-# ***
-# ### Step 1: Add **hydrogen atoms**
-# 
-# Note that this is not needed if ligand was already protonated during docking and not deprotonated after.
 
-# Create Ligand system topology, STEP 1
-# Reduce_add_hydrogens: add Hydrogen atoms to a small molecule (using Reduce tool from Ambertools package)
-# Import module
+    # <a id="eqNVTStep3"></a>
+    # ### Step 3: Running NVT equilibration
 
-# Create prop dict and inputs/outputs
-output_reduce_h = ligandCode+'.pdb' 
+    # Mdrun: Running NVT System Equilibration
 
-# ### Step 2: **Energetically minimize the system** with the new hydrogen atoms. 
+    # Create prop dict and inputs/outputs
+    output_nvt_trr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.trr'
+    output_nvt_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.gro'
+    output_nvt_edr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.edr'
+    output_nvt_log = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.log'
+    output_nvt_cpt = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.cpt'
 
-# Create Ligand system topology, STEP 2
-# Babel_minimize: Structure energy minimization of a small molecule after being modified adding hydrogen atoms
-# Import module
+    # Create and launch bb
+    mdrun(input_tpr_path=output_gppnvt_tpr,
+        output_trr_path=output_nvt_trr,
+        output_gro_path=output_nvt_gro,
+        output_edr_path=output_nvt_edr,
+        output_log_path=output_nvt_log,
+        output_cpt_path=output_nvt_cpt,
+        use_gpu=usegpu,
+        num_threads_omp=nprocs,
+        num_threads_mpi=mpithreads,
+        gpu_id=gpuid)
 
-# Create prop dict and inputs/outputs
-output_babel_min = ligandCode+'.H.min.mol2'                              
-prop = {
-    'method' : 'sd',
-    'criteria' : '1e-10',
-    'force_field' : 'GAFF'
-}
+    # <a id="eqNVTStep4"></a>
+    # ### Step 4: Checking NVT Equilibration results
+    # Checking **NVT Equilibration** results. Plotting **system temperature** by time during the NVT equilibration process. 
 
-# Create and launch bb
-babel_minimize(input_path=output_reduce_h,
-              output_path=output_babel_min,
-              properties=prop)
+    # GMXEnergy: Getting system temperature by time during NVT Equilibration  
 
-# ### Step 3: Generate **ligand topology** (parameters).
+    # Create prop dict and inputs/outputs
+    output_nvt_temp_xvg = proteinFile.removesuffix('.pdb') +'_'+ligandCode+'_nvt_temp.xvg'
+    prop = {
+        'terms':  ["Temperature"]
+    }
 
-# Create Ligand system topology, STEP 3
-# Acpype_params_gmx: Generation of topologies for GROMACS with ACPype
-# Import module
+    # Create and launch bb
+    gmx_energy(input_energy_path=output_nvt_edr, 
+            output_xvg_path=output_nvt_temp_xvg, 
+            properties=prop)
 
-# Create prop dict and inputs/outputs
-output_acpype_gro = ligandCode+'params.gro'
-output_acpype_itp = ligandCode+'params.itp'
-output_acpype_top = ligandCode+'params.top'
-output_acpype = ligandCode+'params'
-prop = {
-    'basename' : output_acpype,
-    'charge' : mol_charge
-}
+    # <a id="npt"></a>
+    # ***
+    # ## Equilibrate the system (NPT)
+    # Equilibrate the **protein-ligand complex** system in NPT ensemble (constant Number of particles, Pressure and Temperature) .
+    # - [Step 1](#eqNPTStep1): Creating portable binary run file for system equilibration
+    # - [Step 2](#eqNPTStep2): Equilibrate the **protein-ligand complex** with NPT ensemble.
+    # - [Step 3](#eqNPTStep3): Checking **NPT Equilibration** results. Plotting **system pressure and density** by time during the **NPT equilibration** process.
+    # ***
+    # **Building Blocks** used:
+    #  - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
+    #  - [Mdrun](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.mdrun) from **biobb_gromacs.gromacs.mdrun** 
+    #  - [GMXEnergy](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_energy) from **biobb_analysis.gromacs.gmx_energy** 
+    # ***
 
-# Create and launch bb
-acpype_params_gmx(input_path=output_babel_min, 
-                output_path_gro=output_acpype_gro,
-                output_path_itp=output_acpype_itp,
-                output_path_top=output_acpype_top,
-                properties=prop)
 
-# <a id="restraints"></a>
-# ***
-# ## Preparing Ligand Restraints
-# In subsequent steps of the pipeline, such as the equilibration stages of the **protein-ligand complex** system, it is recommended to apply some **restraints** to the small molecule, to avoid a possible change in position due to protein repulsion. **Position restraints** will be applied to the ligand, using a **force constant of 1000 KJ/mol\*nm^2** on the three coordinates: x, y and z. In this steps the **restriction files** will be created and integrated in the **ligand topology**.
-# - [Step 1](#restraintsStep1): Creating an index file with a new group including just the **small molecule heavy atoms**.
-# - [Step 2](#restraintsStep2): Generating the **position restraints** file.
-# ***
-# **Building Blocks** used:
-#  - [MakeNdx](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.make_ndx) from **biobb_gromacs.gromacs.make_ndx** 
-#  - [Genrestr](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.genrestr) from **biobb_gromacs.gromacs.genrestr** 
-# ***
+    # <a id="eqNPTStep1"></a>
+    # ### Step 1: Creating portable binary run file for system equilibration (NPT)
 
-# <a id="restraintsStep1"></a>
-# ### Step 1: Creating an index file for the small molecule heavy atoms
 
-# MakeNdx: Creating import sys
-# Create prop dict and inputs/outputs
-output_ligand_ndx = ligandCode+'_index.ndx'
-prop = {
-    'selection': "0 & ! a H*"
-}
+    # Grompp: Creating portable binary run file for (NPT) System Equilibration
 
-# Create and launch bb
-make_ndx(input_structure_path=output_acpype_gro,
-        output_ndx_path=output_ligand_ndx,
+    # Create prop dict and inputs/outputs
+    output_gppnpt_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_gppnpt.tpr'
+    prop = {
+        'mdp':{
+            'type': 'npt',
+            'nsteps':'50000',
+            'tc-grps': 'Protein_Other Water_and_ions',
+            'Define': '-DPOSRES -D' + posresifdef
+        },
+        'simulation_type':'npt'
+    }
+
+    # Create and launch bb
+    grompp(input_gro_path=output_nvt_gro,
+        input_top_zip_path=output_genion_top_zip,
+        input_ndx_path=output_complex_ndx,
+        output_tpr_path=output_gppnpt_tpr,
+        input_cpt_path=output_nvt_cpt,
+        properties=prop, restart=True)
+
+
+    # <a id="eqNPTStep2"></a>
+    # ### Step 2: Running NPT equilibration
+
+
+    # Mdrun: Running NPT System Equilibration
+
+    # Create prop dict and inputs/outputs
+    output_npt_trr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.trr'
+    output_npt_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.gro'
+    output_npt_edr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.edr'
+    output_npt_log = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.log'
+    output_npt_cpt = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.cpt'
+
+    # Create and launch bb
+    mdrun(input_tpr_path=output_gppnpt_tpr,
+        output_trr_path=output_npt_trr,
+        output_gro_path=output_npt_gro,
+        output_edr_path=output_npt_edr,
+        output_log_path=output_npt_log,
+        output_cpt_path=output_npt_cpt,
+        use_gpu=usegpu,
+        num_threads_omp=nprocs,
+        num_threads_mpi=mpithreads,
+        gpu_id=gpuid)
+
+
+    # <a id="eqNPTStep3"></a>
+    # ### Step 3: Checking NPT Equilibration results
+    # Checking **NPT Equilibration** results. Plotting **system pressure and density** by time during the **NPT equilibration** process. 
+
+    # GMXEnergy: Getting system pressure and density by time during NPT Equilibration  
+
+    # Create prop dict and inputs/outputs
+    output_npt_pd_xvg = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt_PD.xvg'
+    prop = {
+        'terms':  ["Pressure","Density"]
+    }
+
+    # Create and launch bb
+    gmx_energy(input_energy_path=output_npt_edr, 
+            output_xvg_path=output_npt_pd_xvg, 
+            properties=prop)
+
+
+    # <a id="free"></a>
+    # ***
+    # ## Free Molecular Dynamics Simulation
+    # Upon completion of the **two equilibration phases (NVT and NPT)**, the system is now well-equilibrated at the desired temperature and pressure. The **position restraints** can now be released. The last step of the **protein-ligand complex** MD setup is a short, **free MD simulation**, to ensure the robustness of the system. 
+    # - [Step 1](#mdStep1): Creating portable binary run file to run a **free MD simulation**.
+    # - [Step 2](#mdStep2): Run short MD simulation of the **protein-ligand complex**.
+    # - [Step 3](#mdStep3): Checking results for the final step of the setup process, the **free MD run**. Plotting **Root Mean Square deviation (RMSd)** and **Radius of Gyration (Rgyr)** by time during the **free MD run** step. 
+    # ***
+    # **Building Blocks** used:
+    #  - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
+    #  - [Mdrun](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.mdrun) from **biobb_gromacs.gromacs.mdrun** 
+    #  - [GMXRms](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_rms) from **biobb_analysis.gromacs.gmx_rms** 
+    #  - [GMXRgyr](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_rgyr) from **biobb_analysis.gromacs.gmx_rgyr** 
+    # ***
+
+
+    # <a id="mdStep1"></a>
+    # ### Step 1: Creating portable binary run file to run a free MD simulation
+
+    # Grompp: Creating portable binary run file for mdrun
+    # Create prop dict and inputs/outputs
+    prop = {
+        'mdp':{
+            #'nsteps':'500000' # 1 ns (500,000 steps x 2fs per step)
+            #'nsteps':'5000' # 10 ps (5,000 steps x 2fs per step)
+            'nsteps':'5000000' # 10 ns (5000000 steps x 2fs per step)
+        },
+        'simulation_type':'free'
+    }
+    output_gppmd_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode + '_gppmd.tpr'
+
+    # Create and launch bb
+    grompp(input_gro_path=output_npt_gro,
+        input_top_zip_path=output_genion_top_zip,
+        output_tpr_path=output_gppmd_tpr,
+        input_cpt_path=output_npt_cpt,
         properties=prop)
 
-# <a id="restraintsStep2"></a>
-# ### Step 2: Generating the position restraints file
-
-# Genrestr: Generating the position restraints file
-
-# Create prop dict and inputs/outputs
-output_restraints_top = ligandCode+'_posres.itp'
-prop = {
-    'force_constants': "1000 1000 1000",
-    'restrained_group': "System_&_!H*"
-}
-
-# Create and launch bb
-genrestr(input_structure_path=output_acpype_gro,
-         input_ndx_path=output_ligand_ndx,
-         output_itp_path=output_restraints_top,
-         properties=prop)
-
-
-# <a id="complex"></a>
-# ***
-# ## Create new protein-ligand complex structure file
-# Building new **protein-ligand complex** PDB file with:
-# - The new **protein system** with fixed problems from *Fix Protein Structure* step and hydrogens atoms added from *Create Protein System Topology* step.
-# - The new **ligand system** with hydrogens atoms added from *Create Ligand System Topology* step. 
-# 
-# This new structure is needed for **GROMACS** as it is **force field-compliant**, it **has all the new hydrogen atoms**, and the **atom names are matching the newly generated protein and ligand topologies**.
-# ***
-# **Building Blocks** used:
-#  - [GMXTrjConvStr](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_trjconv_str) from **biobb_analysis.gromacs.gmx_trjconv_str**
-#  - [CatPDB](https://biobb-structure-utils.readthedocs.io/en/latest/utils.html#module-utils.cat_pdb) from **biobb_structure_utils.utils.cat_pdb**
-# ***
-
-# Convert gro (with hydrogens) to pdb (PROTEIN)
-proteinFile_H = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_complex_H.pdb'
-prop = {
-    'selection' : 'System'
-}
-
-# Create and launch bb
-gmx_trjconv_str(input_structure_path=output_pdb2gmx_gro,
-              input_top_path=output_pdb2gmx_gro,
-              output_str_path=proteinFile_H, 
-              properties=prop)
-
-# Convert gro (with hydrogens) to pdb (LIGAND)
-ligandFile_H = ligandCode+'_complex_H.pdb'
-prop = {
-    'selection' : 'System'
-}
-
-# Create and launch bb
-gmx_trjconv_str(input_structure_path=output_acpype_gro,
-              input_top_path=output_acpype_gro,
-              output_str_path=ligandFile_H, 
-              properties=prop)
-
-# Concatenating both PDB files: Protein + Ligand
-complexFile_H = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_H.pdb'
-
-# Create and launch bb
-cat_pdb(input_structure1=proteinFile_H,
-       input_structure2=ligandFile_H,
-       output_structure_path=complexFile_H)
-
-# <a id="complextop"></a>
-# ***
-# ## Create new protein-ligand complex topology file
-# Building new **protein-ligand complex** GROMACS topology file with:
-# - The new **protein system** topology generated from *Create Protein System Topology* step.
-# - The new **ligand system** topology generated from *Create Ligand System Topology* step. 
-# 
-# NOTE: From this point on, the **protein-ligand complex structure and topology** generated can be used in a regular MD setup.
-# ***
-# **Building Blocks** used:
-#  - [AppendLigand](https://biobb-gromacs.readthedocs.io/en/latest/gromacs_extra.html#gromacs-extra-append-ligand-module) from **biobb_gromacs.gromacs_extra.append_ligand**
-# ***
-
-# AppendLigand: Append a ligand to a GROMACS topology
-# Import module
-
-# Create prop dict and inputs/outputs
-output_complex_top = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_complex.top.zip'
-
-posresifdef = "POSRES_"+ligandCode.upper()
-prop = {
-    'posres_name': posresifdef
-}
-
-# Create and launch bb
-append_ligand(input_top_zip_path=output_pdb2gmx_top_zip,
-             input_posres_itp_path=output_restraints_top,
-             input_itp_path=output_acpype_itp, 
-             output_top_zip_path=output_complex_top,
-             properties=prop)
-
-
-# <a id="box"></a>
-# ***
-# ## Create solvent box
-# Define the unit cell for the **protein-ligand complex** to fill it with water molecules.<br>
-# **Truncated octahedron** box is used for the unit cell. This box type is the one which best reflects the geometry of the solute/protein, in this case a **globular protein**, as it approximates a sphere. It is also convenient for the computational point of view, as it accumulates **less water molecules at the corners**, reducing the final number of water molecules in the system and making the simulation run faster.<br> A **protein to box** distance of **0.8 nm** is used, and the protein is **centered in the box**.  
-# 
-# ***
-# **Building Blocks** used:
-#  - [Editconf](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.editconf) from **biobb_gromacs.gromacs.editconf** 
-# ***
-
-# Editconf: Create solvent box
-# Import module
-
-# Create prop dict and inputs/outputs
-output_editconf_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_complex_editconf.gro'
-
-prop = {
-    'box_type': 'octahedron',
-    'distance_to_molecule': 0.8
-}
-
-# Create and launch bb
-editconf(input_gro_path=complexFile_H, 
-         output_gro_path=output_editconf_gro,
-         properties=prop)
-
-# <a id="water"></a>
-# ***
-# ## Fill the box with water molecules
-# Fill the unit cell for the **protein-ligand complex** with water molecules.<br>
-# The solvent type used is the default **Simple Point Charge water (SPC)**, a generic equilibrated 3-point solvent model. 
-# 
-# ***
-# **Building Blocks** used:
-#  - [Solvate](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.solvate) from **biobb_gromacs.gromacs.solvate** 
-# ***
-
-# Solvate: Fill the box with water molecules
-
-# Create prop dict and inputs/outputs
-output_solvate_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_solvate.gro'
-output_solvate_top_zip = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_solvate_top.zip'
-
-# Create and launch bb
-solvate(input_solute_gro_path=output_editconf_gro,
-        output_gro_path=output_solvate_gro,
-        input_top_zip_path=output_complex_top,
-        output_top_zip_path=output_solvate_top_zip)
-
-# <a id="ions"></a>
-# ***
-# ## Adding ions
-# Add ions to neutralize the **protein-ligand complex** and reach a desired ionic concentration.
-# - [Step 1](#ionsStep1): Creating portable binary run file for ion generation
-# - [Step 2](#ionsStep2): Adding ions to **neutralize** the system and reach a **0.05 molar ionic concentration**
-# ***
-# **Building Blocks** used:
-#  - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
-#  - [Genion](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.genion) from **biobb_gromacs.gromacs.genion** 
-# ***
-
-# <a id="ionsStep1"></a>
-# ### Step 1: Creating portable binary run file for ion generation
-
-# Grompp: Creating portable binary run file for ion generation
-
-# Create prop dict and inputs/outputs
-prop = {
-    'mdp':{
-        'nsteps':'5000'
-    },
-    'simulation_type':'ions',
-    'maxwarn': 1
-}
-output_gppion_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_complex_gppion.tpr'
-
-# Create and launch bb
-grompp(input_gro_path=output_solvate_gro,
-       input_top_zip_path=output_solvate_top_zip, 
-       output_tpr_path=output_gppion_tpr,
-       properties=prop)
-
-# <a id="ionsStep2"></a>
-# ### Step 2: Adding ions to neutralize the system
-# Replace **solvent molecules** with **ions** to **neutralize** the system.
-
-# Genion: Adding ions to reach a 0.05 molar concentration
-
-# Create prop dict and inputs/outputs
-prop={
-    'neutral':True,
-    'concentration':0
-}
-output_genion_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_genion.gro'
-output_genion_top_zip = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_genion_top.zip'
-
-# Create and launch bb
-genion(input_tpr_path=output_gppion_tpr,
-       output_gro_path=output_genion_gro, 
-       input_top_zip_path=output_solvate_top_zip,
-       output_top_zip_path=output_genion_top_zip, 
-       properties=prop)
-
-# <a id="min"></a>
-# ***
-# ## Energetically minimize the system
-# Energetically minimize the **protein-ligand complex** till reaching a desired potential energy.
-# - [Step 1](#emStep1): Creating portable binary run file for energy minimization
-# - [Step 2](#emStep2): Energetically minimize the **protein-ligand complex** till reaching a force of 500 kJ/mol*nm.
-# - [Step 3](#emStep3): Checking **energy minimization** results. Plotting energy by time during the **minimization** process.
-# ***
-# **Building Blocks** used:
-#  - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
-#  - [Mdrun](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.mdrun) from **biobb_gromacs.gromacs.mdrun** 
-#  - [GMXEnergy](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_energy) from **biobb_analysis.gromacs.gmx_energy** 
-# ***
-
-# <a id="emStep1"></a>
-# ### Step 1: Creating portable binary run file for energy minimization
-# Method used to run the **energy minimization** is a **steepest descent**, with a **maximum force of 500 kJ/mol\*nm^2**, and a minimization **step size of 1fs**. The **maximum number of steps** to perform if the maximum force is not reached is **5,000 steps**. 
-
-# Grompp: Creating portable binary run file for mdrun
-
-# Create prop dict and inputs/outputs
-prop = {
-    'mdp':{
-        'nsteps':'15000',
-        'emstep': 0.01,
-        'emtol':'500'
-    },
-    'simulation_type':'minimization'
-}
-output_gppmin_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_gppmin.tpr'
-
-# Create and launch bb
-grompp(input_gro_path=output_genion_gro,
-       input_top_zip_path=output_genion_top_zip,
-       output_tpr_path=output_gppmin_tpr,
-       properties=prop)
-
-
-# ## Unset OMP_NUM_THREADS
-# 
-# The environment variable `OMP_num_threads_omp` is often set automatically by grid engines even if the user did not. Doing so creates conflicts with thread setting variables whenever `gromacs` runs. However, unsetting it before launching this notebook will allow `acpype` (the AMBER-GAFF2 topology generator) to use all available cores in the runtime machine, which might violate grid policy. So best to unset it after `acpype` runs.
-
-del os.environ['OMP_NUM_THREADS']
-
-# <a id="emStep2"></a>
-# ### Step 2: Running Energy Minimization
-# Running **energy minimization** using the **tpr file** generated in the previous step.
-
-# Mdrun: Running minimization
-
-# Create prop dict and inputs/outputs
-output_min_trr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_min.trr'
-output_min_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_min.gro'
-output_min_edr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_min.edr'
-output_min_log = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_min.log'
-
-# Create and launch bb
-mdrun(input_tpr_path=output_gppmin_tpr,
-      output_trr_path=output_min_trr, 
-      output_gro_path=output_min_gro,
-      output_edr_path=output_min_edr, 
-      output_log_path=output_min_log,
-      use_gpu=usegpu,
-      num_threads_omp=nprocs,
-      num_threads_mpi=mpithreads,
-      gpu_id=gpuid)
-
-
-# <a id="emStep3"></a>
-# ### Step 3: Checking Energy Minimization results
-# Checking **energy minimization** results. Plotting **potential energy** by time during the minimization process. 
-
-# GMXEnergy: Getting system energy by time  
-
-# Create prop dict and inputs/outputs
-output_min_ene_xvg = proteinFile.removesuffix('.pdb') +'_'+ligandCode+'_min_ene.xvg'
-prop = {
-    'terms':  ["Potential"]
-}
-
-# Create and launch bb
-gmx_energy(input_energy_path=output_min_edr, 
-          output_xvg_path=output_min_ene_xvg, 
-          properties=prop)
-
-# <a id="nvt"></a>
-# ***
-# ## Equilibrate the system (NVT)
-# Equilibrate the **protein-ligand complex** system in NVT ensemble (constant Number of particles, Volume and Temperature). To avoid temperature coupling problems, a new *"system"* group will be created including the **protein** + the **ligand** to be assigned to a single thermostatting group.
-# 
-# - [Step 1](#eqNVTStep1): Creating an index file with a new group including the **protein-ligand complex**.
-# - [Step 2](#eqNVTStep3): Creating portable binary run file for system equilibration
-# - [Step 3](#eqNVTStep3): Equilibrate the **protein-ligand complex** with NVT ensemble.
-# - [Step 4](#eqNVTStep4): Checking **NVT Equilibration** results. Plotting **system temperature** by time during the **NVT equilibration** process. 
-# ***
-# **Building Blocks** used:
-# - [MakeNdx](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.make_ndx) from **biobb_gromacs.gromacs.make_ndx** 
-# - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
-# - [Mdrun](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.mdrun) from **biobb_gromacs.gromacs.mdrun** 
-# - [GMXEnergy](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_energy) from **biobb_analysis.gromacs.gmx_energy** 
-# ***
-
-# <a id="eqNVTStep1"></a>
-# ### Step 1: Creating an index file with a new group including the **protein-ligand complex**
-
-# MakeNdx: Creating index file with a new group (protein-ligand complex)
-
-# Create prop dict and inputs/outputs
-output_complex_ndx = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_index.ndx'
-prop = {
-    'selection': "\"Protein\"|\"Other\"" 
-}
-
-# Create and launch bb
-make_ndx(input_structure_path=output_min_gro,
-        output_ndx_path=output_complex_ndx,
-        properties=prop)
-
-
-# <a id="eqNVTStep2"></a>
-# ### Step 2: Creating portable binary run file for system equilibration (NVT)
-# Note that for the purposes of temperature coupling, the **protein-ligand complex** (*Protein_Other*) is considered as a single entity.
-
-# Grompp: Creating portable binary run file for NVT System Equilibration
-
-# Create prop dict and inputs/outputs
-output_gppnvt_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'gppnvt.tpr'
-prop = {
-    'mdp':{
-        'nsteps':'50000',
-        'tc-grps': 'Protein_Other Water_and_ions',
-        'Define': '-DPOSRES -D' + posresifdef
-    },
-    'simulation_type':'nvt'
-}
-
-# Create and launch bb
-grompp(input_gro_path=output_min_gro,
-       input_top_zip_path=output_genion_top_zip,
-       input_ndx_path=output_complex_ndx,
-       output_tpr_path=output_gppnvt_tpr,
-       properties=prop, restart=True)
-
-
-# <a id="eqNVTStep3"></a>
-# ### Step 3: Running NVT equilibration
-
-# Mdrun: Running NVT System Equilibration
-
-# Create prop dict and inputs/outputs
-output_nvt_trr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.trr'
-output_nvt_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.gro'
-output_nvt_edr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.edr'
-output_nvt_log = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.log'
-output_nvt_cpt = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.cpt'
-
-# Create and launch bb
-mdrun(input_tpr_path=output_gppnvt_tpr,
-      output_trr_path=output_nvt_trr,
-      output_gro_path=output_nvt_gro,
-      output_edr_path=output_nvt_edr,
-      output_log_path=output_nvt_log,
-      output_cpt_path=output_nvt_cpt,
-      use_gpu=usegpu,
-      num_threads_omp=nprocs,
-      num_threads_mpi=mpithreads,
-      gpu_id=gpuid)
-
-# <a id="eqNVTStep4"></a>
-# ### Step 4: Checking NVT Equilibration results
-# Checking **NVT Equilibration** results. Plotting **system temperature** by time during the NVT equilibration process. 
-
-# GMXEnergy: Getting system temperature by time during NVT Equilibration  
-
-# Create prop dict and inputs/outputs
-output_nvt_temp_xvg = proteinFile.removesuffix('.pdb') +'_'+ligandCode+'_nvt_temp.xvg'
-prop = {
-    'terms':  ["Temperature"]
-}
-
-# Create and launch bb
-gmx_energy(input_energy_path=output_nvt_edr, 
-          output_xvg_path=output_nvt_temp_xvg, 
-          properties=prop)
-
-# <a id="npt"></a>
-# ***
-# ## Equilibrate the system (NPT)
-# Equilibrate the **protein-ligand complex** system in NPT ensemble (constant Number of particles, Pressure and Temperature) .
-# - [Step 1](#eqNPTStep1): Creating portable binary run file for system equilibration
-# - [Step 2](#eqNPTStep2): Equilibrate the **protein-ligand complex** with NPT ensemble.
-# - [Step 3](#eqNPTStep3): Checking **NPT Equilibration** results. Plotting **system pressure and density** by time during the **NPT equilibration** process.
-# ***
-# **Building Blocks** used:
-#  - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
-#  - [Mdrun](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.mdrun) from **biobb_gromacs.gromacs.mdrun** 
-#  - [GMXEnergy](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_energy) from **biobb_analysis.gromacs.gmx_energy** 
-# ***
-
-
-# <a id="eqNPTStep1"></a>
-# ### Step 1: Creating portable binary run file for system equilibration (NPT)
-
-
-# Grompp: Creating portable binary run file for (NPT) System Equilibration
-
-# Create prop dict and inputs/outputs
-output_gppnpt_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_gppnpt.tpr'
-prop = {
-    'mdp':{
-        'type': 'npt',
-        'nsteps':'50000',
-        'tc-grps': 'Protein_Other Water_and_ions',
-        'Define': '-DPOSRES -D' + posresifdef
-    },
-    'simulation_type':'npt'
-}
-
-# Create and launch bb
-grompp(input_gro_path=output_nvt_gro,
-       input_top_zip_path=output_genion_top_zip,
-       input_ndx_path=output_complex_ndx,
-       output_tpr_path=output_gppnpt_tpr,
-       input_cpt_path=output_nvt_cpt,
-       properties=prop, restart=True)
-
-
-# <a id="eqNPTStep2"></a>
-# ### Step 2: Running NPT equilibration
-
-
-# Mdrun: Running NPT System Equilibration
-
-# Create prop dict and inputs/outputs
-output_npt_trr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.trr'
-output_npt_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.gro'
-output_npt_edr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.edr'
-output_npt_log = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.log'
-output_npt_cpt = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.cpt'
-
-# Create and launch bb
-mdrun(input_tpr_path=output_gppnpt_tpr,
-      output_trr_path=output_npt_trr,
-      output_gro_path=output_npt_gro,
-      output_edr_path=output_npt_edr,
-      output_log_path=output_npt_log,
-      output_cpt_path=output_npt_cpt,
-      use_gpu=usegpu,
-      num_threads_omp=nprocs,
-      num_threads_mpi=mpithreads,
-      gpu_id=gpuid)
-
-
-# <a id="eqNPTStep3"></a>
-# ### Step 3: Checking NPT Equilibration results
-# Checking **NPT Equilibration** results. Plotting **system pressure and density** by time during the **NPT equilibration** process. 
-
-# GMXEnergy: Getting system pressure and density by time during NPT Equilibration  
-
-# Create prop dict and inputs/outputs
-output_npt_pd_xvg = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt_PD.xvg'
-prop = {
-    'terms':  ["Pressure","Density"]
-}
-
-# Create and launch bb
-gmx_energy(input_energy_path=output_npt_edr, 
-          output_xvg_path=output_npt_pd_xvg, 
-          properties=prop)
-
-
-# <a id="free"></a>
-# ***
-# ## Free Molecular Dynamics Simulation
-# Upon completion of the **two equilibration phases (NVT and NPT)**, the system is now well-equilibrated at the desired temperature and pressure. The **position restraints** can now be released. The last step of the **protein-ligand complex** MD setup is a short, **free MD simulation**, to ensure the robustness of the system. 
-# - [Step 1](#mdStep1): Creating portable binary run file to run a **free MD simulation**.
-# - [Step 2](#mdStep2): Run short MD simulation of the **protein-ligand complex**.
-# - [Step 3](#mdStep3): Checking results for the final step of the setup process, the **free MD run**. Plotting **Root Mean Square deviation (RMSd)** and **Radius of Gyration (Rgyr)** by time during the **free MD run** step. 
-# ***
-# **Building Blocks** used:
-#  - [Grompp](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.grompp) from **biobb_gromacs.gromacs.grompp** 
-#  - [Mdrun](https://biobb-md.readthedocs.io/en/latest/gromacs.html#module-gromacs.mdrun) from **biobb_gromacs.gromacs.mdrun** 
-#  - [GMXRms](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_rms) from **biobb_analysis.gromacs.gmx_rms** 
-#  - [GMXRgyr](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_rgyr) from **biobb_analysis.gromacs.gmx_rgyr** 
-# ***
-
-
-# <a id="mdStep1"></a>
-# ### Step 1: Creating portable binary run file to run a free MD simulation
-
-# Grompp: Creating portable binary run file for mdrun
-# Create prop dict and inputs/outputs
-prop = {
-    'mdp':{
-        #'nsteps':'500000' # 1 ns (500,000 steps x 2fs per step)
-        #'nsteps':'5000' # 10 ps (5,000 steps x 2fs per step)
-        'nsteps':'5000000' # 10 ns (5000000 steps x 2fs per step)
-    },
-    'simulation_type':'free'
-}
-output_gppmd_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode + '_gppmd.tpr'
-
-# Create and launch bb
-grompp(input_gro_path=output_npt_gro,
-       input_top_zip_path=output_genion_top_zip,
-       output_tpr_path=output_gppmd_tpr,
-       input_cpt_path=output_npt_cpt,
-       properties=prop)
-
-# <a id="mdStep2"></a>
-# ### Step 2: Running short free MD simulation
-
-# Mdrun: Running free dynamics
-
-# Create prop dict and inputs/outputs
-output_md_trr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.trr'
-output_md_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.gro'
-output_md_edr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.edr'
-output_md_log = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.log'
-output_md_cpt = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.cpt'
-output_md_xtc = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.xtc'
-
-# Create and launch bb
-mdrun(input_tpr_path=output_gppmd_tpr,
-      output_trr_path=output_md_trr,
-      output_xtc_path=output_md_xtc,
-      output_gro_path=output_md_gro,
-      output_edr_path=output_md_edr,
-      output_log_path=output_md_log,
-      output_cpt_path=output_md_cpt,
-      use_gpu=usegpu,
-      num_threads_omp=nprocs,
-      num_threads_mpi=mpithreads,
-      gpu_id=gpuid)
-
-
-
-# <a id="post"></a>
-# ***
-# ## Post-processing and Visualizing resulting 3D trajectory
-# Post-processing and Visualizing the **protein-ligand complex system** MD setup **resulting trajectory** using **NGL**
-# - [Step 1](#ppStep1): *Imaging* the resulting trajectory, **stripping out water molecules and ions** and **correcting periodicity issues**.
-# - [Step 2](#ppStep2): Generating a *dry* structure, **removing water molecules and ions** from the final snapshot of the MD setup pipeline.
-# - [Step 3](#ppStep3): Visualizing the *imaged* trajectory using the *dry* structure as a **topology**. 
-# ***
-# **Building Blocks** used:
-#  - [GMXImage](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_image) from **biobb_analysis.gromacs.gmx_image** 
-#  - [GMXTrjConvStr](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_trjconv_str) from **biobb_analysis.gromacs.gmx_trjconv_str** 
-# ***
-
-
-# <a id="ppStep1"></a>
-# ### Step 1: *Imaging* the resulting trajectory.
-# Stripping out **water molecules and ions** and **correcting periodicity issues**  
-
-
-# GMXImage: "Imaging" the resulting trajectory
-#           Removing water molecules and ions from the resulting structure
-
-# Create prop dict and inputs/outputs
-output_imaged_traj = proteinFile.removesuffix('.pdb')+'_imaged_traj.xtc'
-prop = {
-    'center_selection':  'Protein_Other',
-    'output_selection': 'Protein_Other',
-    'pbc' : 'mol',
-    'center' : True
-}
-
-# Create and launch bb
-gmx_image(input_traj_path=output_md_xtc,
-         input_top_path=output_gppmd_tpr,
-         input_index_path=output_complex_ndx,
-         output_traj_path=output_imaged_traj, 
-         properties=prop)
-
-
-# <a id="ppStep2"></a>
-# ### Step 2: Generating the output *dry* structure.
-# **Removing water molecules and ions** from the resulting structure
-
-# GMXTrjConvStr: Converting and/or manipulating a structure
-#                Removing water molecules and ions from the resulting structure
-#                The "dry" structure will be used as a topology to visualize 
-#                the "imaged dry" trajectory generated in the previous step.
-
-# Create prop dict and inputs/outputs
-output_dry_gro = proteinFile.removesuffix('.pdb')+'_md_dry.gro'
-prop = {
-    'selection':  'Protein_Other'
-}
-
-# Create and launch bb
-gmx_trjconv_str(input_structure_path=output_md_gro,
-                input_top_path=output_gppmd_tpr,
-                input_index_path=output_complex_ndx,
-                output_str_path=output_dry_gro, 
-                properties=prop)
+    # <a id="mdStep2"></a>
+    # ### Step 2: Running short free MD simulation
+
+    # Mdrun: Running free dynamics
+
+    # Create prop dict and inputs/outputs
+    output_md_trr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.trr'
+    output_md_gro = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.gro'
+    output_md_edr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.edr'
+    output_md_log = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.log'
+    output_md_cpt = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.cpt'
+    output_md_xtc = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.xtc'
+
+    # Create and launch bb
+    mdrun(input_tpr_path=output_gppmd_tpr,
+        output_trr_path=output_md_trr,
+        output_xtc_path=output_md_xtc,
+        output_gro_path=output_md_gro,
+        output_edr_path=output_md_edr,
+        output_log_path=output_md_log,
+        output_cpt_path=output_md_cpt,
+        use_gpu=usegpu,
+        num_threads_omp=nprocs,
+        num_threads_mpi=mpithreads,
+        gpu_id=gpuid)
+
+
+
+    # <a id="post"></a>
+    # ***
+    # ## Post-processing and Visualizing resulting 3D trajectory
+    # Post-processing and Visualizing the **protein-ligand complex system** MD setup **resulting trajectory** using **NGL**
+    # - [Step 1](#ppStep1): *Imaging* the resulting trajectory, **stripping out water molecules and ions** and **correcting periodicity issues**.
+    # - [Step 2](#ppStep2): Generating a *dry* structure, **removing water molecules and ions** from the final snapshot of the MD setup pipeline.
+    # - [Step 3](#ppStep3): Visualizing the *imaged* trajectory using the *dry* structure as a **topology**. 
+    # ***
+    # **Building Blocks** used:
+    #  - [GMXImage](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_image) from **biobb_analysis.gromacs.gmx_image** 
+    #  - [GMXTrjConvStr](https://biobb-analysis.readthedocs.io/en/latest/gromacs.html#module-gromacs.gmx_trjconv_str) from **biobb_analysis.gromacs.gmx_trjconv_str** 
+    # ***
+
+
+    # <a id="ppStep1"></a>
+    # ### Step 1: *Imaging* the resulting trajectory.
+    # Stripping out **water molecules and ions** and **correcting periodicity issues**  
+
+
+    # GMXImage: "Imaging" the resulting trajectory
+    #           Removing water molecules and ions from the resulting structure
+
+    # Create prop dict and inputs/outputs
+    output_imaged_traj = proteinFile.removesuffix('.pdb')+'_imaged_traj.xtc'
+    prop = {
+        'center_selection':  'Protein_Other',
+        'output_selection': 'Protein_Other',
+        'pbc' : 'mol',
+        'center' : True
+    }
+
+    # Create and launch bb
+    gmx_image(input_traj_path=output_md_xtc,
+            input_top_path=output_gppmd_tpr,
+            input_index_path=output_complex_ndx,
+            output_traj_path=output_imaged_traj, 
+            properties=prop)
+
+
+    # <a id="ppStep2"></a>
+    # ### Step 2: Generating the output *dry* structure.
+    # **Removing water molecules and ions** from the resulting structure
+
+    # GMXTrjConvStr: Converting and/or manipulating a structure
+    #                Removing water molecules and ions from the resulting structure
+    #                The "dry" structure will be used as a topology to visualize 
+    #                the "imaged dry" trajectory generated in the previous step.
+
+    # Create prop dict and inputs/outputs
+    output_dry_gro = proteinFile.removesuffix('.pdb')+'_md_dry.gro'
+    prop = {
+        'selection':  'Protein_Other'
+    }
+
+    # Create and launch bb
+    gmx_trjconv_str(input_structure_path=output_md_gro,
+                    input_top_path=output_gppmd_tpr,
+                    input_index_path=output_complex_ndx,
+                    output_str_path=output_dry_gro, 
+                    properties=prop)
 
 # <a id="output"></a>
 # ## Output files
