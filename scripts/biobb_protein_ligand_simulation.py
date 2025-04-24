@@ -32,7 +32,7 @@ This tutorial aims to illustrate the process of **setting up a simulation system
  14. [Equilibrate the System (NPT)](#npt)
  15. [Free Molecular Dynamics Simulation](#free)
  16. [Post-processing Resulting 3D Trajectory](#post)
-***"""
+"""
 import argparse
 import os
 import sys
@@ -75,13 +75,6 @@ from biobb_analysis.gromacs.gmx_trjconv_str import gmx_trjconv_str
 
 
 
-
-nprocs = int(os.environ.get('PBS_NCPUS', '12'))
-mpithreads = int(os.environ.get('PBS_MPITHREADS', '1'))
-usegpu=True
-gpuid = '0'
-
-
 def deprotonate_pdb(input_file, output_file):
     """
     Remove hydrogen atoms from a PDB file.
@@ -114,32 +107,46 @@ def deprotonate_pdb(input_file, output_file):
             # Write all non-hydrogen lines (and non-ATOM/HETATM lines) to the output.
             outf.write(line)
 
-
+#Default complex dict structure
 complex = {
     'input_structure': 'aminostep2012.pdb',
     'ligand_code': "STM",
     'ligand_charge': 0,
     'outdir': './outputs',
 }
+processing_options = {
+    'usegpu': False,
+    'nprocs': 1,
+    'mpithreads': 1,
+    'gpuid': '0'
+}
 
-#TODO: Add command line argument parsing to allow user to specify input parameters
-#TODO: Add options for protonation states of the ligand and protein, if not done, or to deprotonate if done
-def molecular_dynamics(complex=complex):
+#TODO: Fix bug where it is necessary for complex pdb to be in outdir
+def molecular_dynamics(complex=complex, protonated=True, processing_options=processing_options):
     complex_pdb = complex['input_structure']
     ligandCode = complex['ligand_code']
     mol_charge = complex['ligand_charge']
     outdir = complex['outdir']
     os.makedirs(outdir, exist_ok=True)
-    # Ensure all outputs are directed to the specified 'outdir'
-    proteinFile = os.path.join(outdir, "prot_" + complex_pdb)
-    ligandFile = os.path.join(outdir, ligandCode + '.pdb')
-    complexFile = os.path.join(outdir, proteinFile.removesuffix('.pdb') + '_' + ligandCode + '.pdb')
+    # Store the current working directory
+    current_working_directory = os.getcwd()
+    os.chdir(outdir)
 
+    usegpu = processing_options['usegpu']
+    nprocs = processing_options['nprocs']
+    mpithreads = processing_options['mpithreads']
+    gpuid = processing_options['gpuid']
+
+
+    # Ensure all outputs are directed to the specified 'outdir'
+    proteinFile = "prot_" + complex_pdb
+    ligandFile = ligandCode + '.pdb'
+    complexFile = "prot_" + complex_pdb + '_' + ligandCode + '.pdb'
 
     prop = {
      'heteroatoms' : [{"name": ligandCode}]
     }
-
+    
     extract_heteroatoms(input_structure_path=complex_pdb,
         output_heteroatom_path=ligandFile,
         properties=prop)
@@ -147,7 +154,7 @@ def molecular_dynamics(complex=complex):
     extract_molecule(input_structure_path=complex_pdb,
         output_molecule_path=proteinFile)
 
-
+    print(proteinFile, ligandFile, complexFile)
     cat_pdb(input_structure1=proteinFile,
         input_structure2=ligandFile,
         output_structure_path=complexFile)
@@ -174,9 +181,12 @@ def molecular_dynamics(complex=complex):
     # **Extra Step** The protein needs to be deprotonated for this to work.
     # 
 
-    # Deprotonate the fixed PDB file
+    # Deprotonate the fixed PDB file, but only if it is already protonated.
     deprotonated_pdb = fixed_pdb.removesuffix('.pdb')+'_deprotonated.pdb'
-    deprotonate_pdb(fixed_pdb, deprotonated_pdb)
+    if protonated:
+        deprotonate_pdb(fixed_pdb, deprotonated_pdb)
+    else:
+        deprotonated_pdb = fixed_pdb    
 
 
     # **Building GROMACS topology** corresponding to the protein structure.<br>
@@ -224,16 +234,28 @@ def molecular_dynamics(complex=complex):
     # Create Ligand system topology, STEP 1
     # Reduce_add_hydrogens: add Hydrogen atoms to a small molecule (using Reduce tool from Ambertools package)
     # Import module
-    ligandpath = os.path.join(outdir, ligandCode)
+    
     # Create prop dict and inputs/outputs
-    output_reduce_h =  ligandpath+'.pdb' 
-
+    output_reduce_h =  ligandCode +'.reduce.H.pdb'
+    prop = {
+    'nuclear' : 'true'
+}   
+    #If ligand is protonated, then do nothing
+    if protonated:
+        output_reduce_h = ligandFile
+    else:
+        # Create and launch bb
+        reduce_add_hydrogens(input_path=ligandFile,
+            output_path=output_reduce_h,
+            properties=prop)
+        
+    
     # ### Step 2: **Energetically minimize the system** with the new hydrogen atoms. 
 
     # Create Ligand system topology, STEP 2
     # Babel_minimize: Structure energy minimization of a small molecule after being modified adding hydrogen atoms
 
-    output_babel_min = ligandpath+'.H.min.mol2'                              
+    output_babel_min = ligandCode +'.H.min.mol2'                              
     prop = {
         'method' : 'sd',
         'criteria' : '1e-10',
@@ -252,10 +274,10 @@ def molecular_dynamics(complex=complex):
     # Import module
 
     # Create prop dict and inputs/outputs
-    output_acpype_gro = ligandpath+'params.gro'
-    output_acpype_itp = ligandpath+'params.itp'
-    output_acpype_top = ligandpath+'params.top'
-    output_acpype = ligandpath+'params'
+    output_acpype_gro = ligandCode+'params.gro'
+    output_acpype_itp = ligandCode+'params.itp'
+    output_acpype_top = ligandCode+'params.top'
+    output_acpype = ligandCode+'params'
     prop = {
         'basename' : output_acpype,
         'charge' : mol_charge
@@ -285,7 +307,7 @@ def molecular_dynamics(complex=complex):
 
     # MakeNdx: Creating import sys
     # Create prop dict and inputs/outputs
-    output_ligand_ndx = ligandpath+'_index.ndx'
+    output_ligand_ndx = ligandCode+'_index.ndx'
     prop = {
         'selection': "0 & ! a H*"
     }
@@ -301,7 +323,7 @@ def molecular_dynamics(complex=complex):
     # Genrestr: Generating the position restraints file
 
     # Create prop dict and inputs/outputs
-    output_restraints_top = ligandpath+'_posres.itp'
+    output_restraints_top = ligandCode+'_posres.itp'
     prop = {
         'force_constants': "1000 1000 1000",
         'restrained_group': "System_&_!H*"
@@ -341,7 +363,7 @@ def molecular_dynamics(complex=complex):
                 properties=prop)
 
     # Convert gro (with hydrogens) to pdb (LIGAND)
-    ligandFile_H = ligandpath+'_complex_H.pdb'
+    ligandFile_H = ligandCode+'_complex_H.pdb'
     prop = {
         'selection' : 'System'
     }
@@ -537,8 +559,10 @@ def molecular_dynamics(complex=complex):
     # ## Unset OMP_NUM_THREADS
     # 
     # The environment variable `OMP_num_threads_omp` is often set automatically by grid engines even if the user did not. Doing so creates conflicts with thread setting variables whenever `gromacs` runs. However, unsetting it before launching this notebook will allow `acpype` (the AMBER-GAFF2 topology generator) to use all available cores in the runtime machine, which might violate grid policy. So best to unset it after `acpype` runs.
-
-    del os.environ['OMP_NUM_THREADS']
+    # Backup the value of OMP_NUM_THREADS to a string
+    omp_num_threads_backup = os.environ.get('OMP_NUM_THREADS', None)
+    if omp_num_threads_backup is not None:
+        del os.environ['OMP_NUM_THREADS']
 
     # <a id="emStep2"></a>
     # ### Step 2: Running Energy Minimization
@@ -916,6 +940,47 @@ def molecular_dynamics(complex=complex):
                     input_index_path=output_complex_ndx,
                     output_str_path=output_dry_gro, 
                     properties=prop)
+    #Before exiting, restore the environment variable OMP_NUM_THREADS
+    if omp_num_threads_backup is not None:
+        os.environ['OMP_NUM_THREADS'] = omp_num_threads_backup    
+    
+    os.chdir(current_working_directory)
+    
+    return True
+
+if __name__ == '__main__':
+    # Execute main function
+    parser = argparse.ArgumentParser(description="Protein-Ligand Molecular Dynamics Simulation Setup")
+    parser.add_argument("--input_structure", type=str, required=True, help="Path to the input PDB structure file")
+    parser.add_argument("--ligand_code", type=str, required=True, help="Ligand code (e.g., STM)")
+    parser.add_argument("--ligand_charge", type=int, default=0, help="Ligand charge (default: 0)")
+    parser.add_argument("--outdir", type=str, default="./outputs", help="Output directory (default: ./outputs)")
+    parser.add_argument("--nprocs", type=int, default=int(os.environ.get('PBS_NCPUS', '12')), help="Number of processors (default: environment variable PBS_NCPUS or 12)")
+    parser.add_argument("--mpithreads", type=int, default=int(os.environ.get('PBS_MPITHREADS', '1')), help="Number of MPI threads (default: environment variable PBS_MPITHREADS or 1)")
+    parser.add_argument("--usegpu", action='store_true', help="Use GPU for simulation (default: False)")
+    parser.add_argument("--gpuid", type=str, default="0", help="GPU ID to use (default: '0')")
+    parser.add_argument("--protonated", action='store_true', help="Set this option if the complex is protonated (default: False)")
+
+    
+
+    args = parser.parse_args()
+    print(args.usegpu, args.protonated)
+    processing_options = {
+        'nprocs': args.nprocs,
+        'mpithreads': args.mpithreads,
+        'usegpu': args.usegpu,
+        'gpuid': args.gpuid
+    }
+
+    complex = {
+        'input_structure': args.input_structure,
+        'ligand_code': args.ligand_code,
+        'ligand_charge': args.ligand_charge,
+        'outdir': args.outdir,
+    }
+
+    molecular_dynamics(complex=complex, protonated=args.protonated, processing_options=processing_options)
+
 
 # <a id="output"></a>
 # ## Output files
