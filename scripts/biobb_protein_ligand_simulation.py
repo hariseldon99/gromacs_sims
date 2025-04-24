@@ -108,21 +108,9 @@ def deprotonate_pdb(input_file, output_file):
             # Write all non-hydrogen lines (and non-ATOM/HETATM lines) to the output.
             outf.write(line)
 
-#Default complex dict structure
-complex = {
-    'input_structure': 'aminostep2012.pdb',
-    'ligand_code': "STM",
-    'ligand_charge': 0,
-    'outdir': './outputs',
-}
-processing_options = {
-    'usegpu': False,
-    'nprocs': 1,
-    'mpithreads': 1,
-    'gpuid': '0'
-}
 
-def molecular_dynamics(complex=complex, protonated=True, processing_options=processing_options):
+
+def molecular_dynamics(complex, protonated=True):
     complex_pdbfile = complex['input_structure']
     
     complex_pdb = os.path.basename(complex['input_structure'])
@@ -136,10 +124,10 @@ def molecular_dynamics(complex=complex, protonated=True, processing_options=proc
     current_working_directory = os.getcwd()
     os.chdir(outdir)
 
-    usegpu = processing_options['usegpu']
-    nprocs = processing_options['nprocs']
-    mpithreads = processing_options['mpithreads']
-    gpuid = processing_options['gpuid']
+    usegpu = complex['usegpu']
+    nprocs = complex['nprocs']
+    mpithreads = complex['mpithreads']
+    gpuid = complex['gpuid']
 
 
     # Ensure all outputs are directed to the specified 'outdir'
@@ -965,25 +953,20 @@ if __name__ == '__main__':
     parser.add_argument("--gpuid", type=str, default="0", help="GPU ID to use (default: '0')")
     parser.add_argument("--protonated", action='store_true', help="Set this option if the complex is protonated (default: False)")
 
-    
-
     args = parser.parse_args()
-    print(args.usegpu, args.protonated)
-    processing_options = {
+    
+    complex = {
+        'input_structure': args.input_structure,
+        'ligand_code': args.ligand_code,
+        'ligand_charge': args.ligand_charge,
+        'outdir': args.outdir,
         'nprocs': args.nprocs,
         'mpithreads': args.mpithreads,
         'usegpu': args.usegpu,
         'gpuid': args.gpuid
     }
 
-    complex = {
-        'input_structure': args.input_structure,
-        'ligand_code': args.ligand_code,
-        'ligand_charge': args.ligand_charge,
-        'outdir': args.outdir,
-    }
-
-    molecular_dynamics(complex=complex, protonated=args.protonated, processing_options=processing_options)
+    molecular_dynamics(complex, protonated=args.protonated)
 
 
 # <a id="output"></a>
