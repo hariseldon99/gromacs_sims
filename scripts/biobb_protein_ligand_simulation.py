@@ -72,6 +72,7 @@ from biobb_gromacs.gromacs.make_ndx import make_ndx
 from biobb_analysis.gromacs.gmx_image import gmx_image
 
 from biobb_analysis.gromacs.gmx_trjconv_str import gmx_trjconv_str
+import shutil
 
 
 
@@ -121,13 +122,16 @@ processing_options = {
     'gpuid': '0'
 }
 
-#TODO: Fix bug where it is necessary for complex pdb to be in outdir
 def molecular_dynamics(complex=complex, protonated=True, processing_options=processing_options):
-    complex_pdb = complex['input_structure']
+    complex_pdbfile = complex['input_structure']
+    
+    complex_pdb = os.path.basename(complex['input_structure'])
     ligandCode = complex['ligand_code']
     mol_charge = complex['ligand_charge']
     outdir = complex['outdir']
     os.makedirs(outdir, exist_ok=True)
+    # Copy the complex_pdbfile into the output directory
+    shutil.copy(complex_pdbfile, os.path.join(outdir, complex_pdb))
     # Store the current working directory
     current_working_directory = os.getcwd()
     os.chdir(outdir)
