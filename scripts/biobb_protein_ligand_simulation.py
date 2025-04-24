@@ -73,6 +73,8 @@ from biobb_analysis.gromacs.gmx_image import gmx_image
 
 from biobb_analysis.gromacs.gmx_trjconv_str import gmx_trjconv_str
 import shutil
+from tabulate import tabulate
+import time
 
 
 
@@ -111,13 +113,63 @@ def deprotonate_pdb(input_file, output_file):
 
 
 def molecular_dynamics(complex, protonated=True):
+    """
+    Main function to set up a molecular dynamics simulation for a protein-ligand complex.
+    This function performs the following steps:
+    1. Extracts the ligand and protein from the input PDB file.
+    2. Fixes the protein structure by modeling missing side-chain atoms and checking for issues.
+    3. Creates the protein system topology using GROMACS tools.
+    4. Creates the ligand system topology using AmberTools and Babel.
+    5. Prepares ligand restraints for the simulation.
+    6. Creates a new protein-ligand complex structure file.
+    7. Creates a new protein-ligand complex topology file.
+    8. Creates a solvent box around the complex.
+    9. Fills the box with water molecules.
+    10. Adds ions to neutralize the system.
+    11. Performs energy minimization of the system.
+    12. Equilibrates the system in NVT ensemble.
+    13. Equilibrates the system in NPT ensemble.
+    14. Runs free molecular dynamics simulation.
+    15. Post-processes the resulting trajectory.
+    """
+    # Redirect standard output and error to a log file with a timestamped name
+    timestamp = time.strftime("%Y%m%d-%H%M%S")
+    outdir = complex['outdir']
+    os.makedirs(outdir, exist_ok=True)
+    log_filename = os.path.join(complex['outdir'], f"simulation_log_{timestamp}.log")
+    
+    # Tabulate the complex dictionary
+    complex_table = [
+        ["Input Structure", complex['input_structure']],
+        ["Ligand Code", complex['ligand_code']],
+        ["Ligand Charge", complex['ligand_charge']],
+        ["Output Directory", complex['outdir']],
+        ["Number of Processors", complex['nprocs']],
+        ["MPI Threads", complex['mpithreads']],
+        ["Use GPU", complex['usegpu']],
+        ["GPU ID", complex['gpuid']],
+        ["Energy Minimization Steps", complex['em_steps']],
+        ["NVT Time (ps)", int(complex['nvt_steps'])*0.002],
+        ["NPT Time (ps)", int(complex['npt_steps'])*0.002],
+        ["MD Time (ns)", int(complex['md_steps'])*0.000002],
+        ["Log File", log_filename]
+    ]
+    print("=" * 50)
+    print("Start of Protein-Ligand Dynamics Simulation")
+    print("=" * 50)
+    print(tabulate(complex_table, headers=["Parameter", "Value"], tablefmt="grid"))
+    
+    
+    # Pause for 5 seconds
+    time.sleep(5)
+    sys.stdout = open(log_filename, "w")
+    sys.stderr = sys.stdout
     complex_pdbfile = complex['input_structure']
     
     complex_pdb = os.path.basename(complex['input_structure'])
     ligandCode = complex['ligand_code']
     mol_charge = complex['ligand_charge']
-    outdir = complex['outdir']
-    os.makedirs(outdir, exist_ok=True)
+    
     # Copy the complex_pdbfile into the output directory
     shutil.copy(complex_pdbfile, os.path.join(outdir, complex_pdb))
     # Store the current working directory
@@ -476,7 +528,7 @@ def molecular_dynamics(complex, protonated=True):
     # Create prop dict and inputs/outputs
     prop = {
         'mdp':{
-            'nsteps':'5000'
+            'nsteps':'5000',
         },
         'simulation_type':'ions',
         'maxwarn': 1
@@ -533,7 +585,7 @@ def molecular_dynamics(complex, protonated=True):
     # Create prop dict and inputs/outputs
     prop = {
         'mdp':{
-            'nsteps':'15000',
+            'nsteps':complex['em_steps'],
             'emstep': 0.01,
             'emtol':'500'
         },
@@ -641,7 +693,7 @@ def molecular_dynamics(complex, protonated=True):
     output_gppnvt_tpr = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'gppnvt.tpr'
     prop = {
         'mdp':{
-            'nsteps':'50000',
+            'nsteps':complex['nvt_steps'],
             'tc-grps': 'Protein_Other Water_and_ions',
             'Define': '-DPOSRES -D' + posresifdef
         },
@@ -723,7 +775,7 @@ def molecular_dynamics(complex, protonated=True):
     prop = {
         'mdp':{
             'type': 'npt',
-            'nsteps':'50000',
+            'nsteps':complex['npt_steps'],
             'tc-grps': 'Protein_Other Water_and_ions',
             'Define': '-DPOSRES -D' + posresifdef
         },
@@ -808,7 +860,7 @@ def molecular_dynamics(complex, protonated=True):
         'mdp':{
             #'nsteps':'500000' # 1 ns (500,000 steps x 2fs per step)
             #'nsteps':'5000' # 10 ps (5,000 steps x 2fs per step)
-            'nsteps':'5000000' # 10 ns (5000000 steps x 2fs per step)
+            'nsteps':complex['md_steps'] # 10 ns (5000000 steps x 2fs per step)
         },
         'simulation_type':'free'
     }
@@ -937,7 +989,14 @@ def molecular_dynamics(complex, protonated=True):
         os.environ['OMP_NUM_THREADS'] = omp_num_threads_backup    
     
     os.chdir(current_working_directory)
-    
+    # Reset standard output and standard error back to default
+    sys.stdout.close()
+    sys.stderr.close()
+    sys.stdout = sys.__stdout__
+    sys.stderr = sys.__stderr__
+    print("=" * 50)
+    print("End of Protein-Ligand Dynamics Simulation")
+    print("=" * 50)
     return True
 
 if __name__ == '__main__':
@@ -952,6 +1011,10 @@ if __name__ == '__main__':
     parser.add_argument("--usegpu", action='store_true', help="Use GPU for simulation (default: False)")
     parser.add_argument("--gpuid", type=str, default="0", help="GPU ID to use (default: '0')")
     parser.add_argument("--protonated", action='store_true', help="Set this option if the complex is protonated (default: False)")
+    parser.add_argument("--em_steps", type=str, default='15000', help="Max number of Energy minimization steps (default: 15000)")
+    parser.add_argument("--npt_steps", type=str, default='50000', help="Number of time steps for NPT equilibration (default: 5000 @ 2 fs per step)")
+    parser.add_argument("--nvt_steps", type=str, default='50000', help="Number of time steps for  NVT equilibration (default: 50000 @ 2 fs per step")
+    parser.add_argument("--md_steps", type=str, default='5000000', help="Number of time steps for production MD simulation (default: 5000000 @ 2 fs per step")
 
     args = parser.parse_args()
     
@@ -963,7 +1026,11 @@ if __name__ == '__main__':
         'nprocs': args.nprocs,
         'mpithreads': args.mpithreads,
         'usegpu': args.usegpu,
-        'gpuid': args.gpuid
+        'gpuid': args.gpuid,
+        'em_steps': args.em_steps,
+        'npt_steps': args.npt_steps,
+        'nvt_steps': args.nvt_steps,
+        'md_steps': args.md_steps
     }
 
     molecular_dynamics(complex, protonated=args.protonated)
