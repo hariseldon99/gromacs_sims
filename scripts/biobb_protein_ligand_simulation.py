@@ -935,7 +935,7 @@ def molecular_dynamics(complex, protonated=True):
     prop = {
         'cluster_selection':  'Protein_Other',
         'output_selection': 'Protein_Other',
-        #'center' : False, #This sets the -nocenter flag which, when coupled with -pbc cluster, will hang.       
+        'center' : False,     
         'pbc' : 'cluster'
     }
 
