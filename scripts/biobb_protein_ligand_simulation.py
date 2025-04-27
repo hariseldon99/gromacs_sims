@@ -935,7 +935,8 @@ def molecular_dynamics(complex, protonated=True):
     prop = {
         'cluster_selection':  'Protein_Other',
         'output_selection': 'Protein_Other',
-        'center' : False,     
+        'center' : False,
+        'center_selection': 'Protein_Other', #This is due to a bug in biobb_gromacs     
         'pbc' : 'cluster'
     }
 
