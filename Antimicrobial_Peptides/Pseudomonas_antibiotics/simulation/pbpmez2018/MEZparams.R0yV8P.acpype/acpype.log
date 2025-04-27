@@ -1,0 +1,64 @@
+==========================================================================
+| ACPYPE: AnteChamber PYthon Parser interfacE v. 2022.6.6 (c) 2025 AWSdS |
+==========================================================================
+DEBUG: CLI: -i /home/arunima/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/pbpmez2018/279ca856-7a22-4fa1-bda2-68172e1d4752/MEZ.H.min.mol2 -b MEZparams.R0yV8P -n 0
+DEBUG: Python Version 3.12.10 | packaged by conda-forge | (main, Apr 10 2025, 22:21:13) [GCC 13.3.0]
+DEBUG: Max execution time tolerance is 3h
+DEBUG: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/antechamber -dr no -i MEZ.H.min.mol2 -fi mol2 -o tmp -fo ac -pf y
+DEBUG: Info: The atom type is set to gaff; the options available to the -at flag are
+ gaff, gaff2, amber, bcc, abcg2, and sybyl.
+
+Warning: The assigned bond types may be wrong, please :
+(1) double check the structure (the connectivity) and/or 
+(2) adjust atom valence penalty parameters in APS.DAT, and/or 
+(3) increase PSCUTOFF in define.h and recompile bondtype.c
+ (be cautious, using a large value of PSCUTOFF (>100) will 
+ significantly increase the computation time).
+
+DEBUG: setResNameCheckCoords done
+DEBUG: Net charge drift '0.000000'
+==> ... charge set to 0
+==> Executing Antechamber...
+DEBUG: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/antechamber -dr no -i MEZ.H.min.mol2 -fi mol2 -o MEZparams.R0yV8P_bcc_gaff2.mol2 -fo mol2 -c bcc -nc 0 -m 1 -s 2 -df 2 -at gaff2 -pf n 
+DEBUG: No file left to be removed
+ERROR: ++++++++++start_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ERROR: Info: The atom type is set to gaff2; the options available to the -at flag are
+ gaff, gaff2, amber, bcc, abcg2, and sybyl.
+
+Info: Finished reading file (MEZ.H.min.mol2); atoms read (39), bonds read (42).
+Info: Determining atomic numbers from atomic symbols which are case sensitive.
+Running: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/bondtype -j full -i ANTECHAMBER_BOND_TYPE.AC0 -o ANTECHAMBER_BOND_TYPE.AC -f ac
+Warning: The assigned bond types may be wrong, please :
+(1) double check the structure (the connectivity) and/or 
+(2) adjust atom valence penalty parameters in APS.DAT, and/or 
+(3) increase PSCUTOFF in define.h and recompile bondtype.c
+ (be cautious, using a large value of PSCUTOFF (>100) will 
+ significantly increase the computation time).
+
+Running: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/atomtype -i ANTECHAMBER_AC.AC0 -o ANTECHAMBER_AC.AC -p gaff2
+Info: Total number of electrons: 260; net charge: 0
+
+Running: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/sqm -O -i sqm.in -o sqm.out
+/home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/wrapped_progs/antechamber: Fatal Error!
+Cannot properly run "/home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/sqm -O -i sqm.in -o sqm.out".
+
+ERROR: ++++++++++end_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ERROR: Antechamber failed
+DEBUG: /home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/bin/parmchk2 -i MEZparams.R0yV8P_bcc_gaff2.mol2 -f mol2 -o MEZparams.R0yV8P_AC.frcmod -s 2
+ERROR: ++++++++++start_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ERROR: Cannot open file (MEZparams.R0yV8P_bcc_gaff2.mol2) with mode (r).
+No such file or directory
+ERROR: ++++++++++end_quote+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ERROR: Parmchk failed
+ERROR: Tleap failed
+==> Removing temporary files...
+ERROR: ACPYPE FAILED: [Errno 2] No such file or directory: 'MEZparams.R0yV8P_AC.prmtop'
+Traceback (most recent call last):
+  File "/home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/lib/python3.12/site-packages/acpype/cli.py", line 140, in init_main
+    molecule.createMolTopol()
+  File "/home/arunima/.conda/envs/biobb_wf_protein-complex_md_setup/lib/python3.12/site-packages/acpype/topol.py", line 1116, in createMolTopol
+    self.topFileData = open(self.acTopFileName).readlines()
+                       ^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: 'MEZparams.R0yV8P_AC.prmtop'
+Total time of execution: 25s
+DEBUG: No tmp folder left to be removed

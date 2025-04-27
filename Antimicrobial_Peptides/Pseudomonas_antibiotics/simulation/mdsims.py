@@ -5,7 +5,7 @@ import os
 from mpi4py import MPI
 from Bio.PDB import PDBParser
 from math import ceil
-importmonkey.add_path("/home/daneel/gitrepos/gromacs_sims/scripts")
+importmonkey.add_path("/home/arunima/gitrepos/gromacs_sims/scripts")
 import biobb_protein_ligand_simulation as bb
 
 def chunk_into_n(lst, n):
@@ -18,7 +18,7 @@ def chunk_into_n(lst, n):
 complexes_dir = "./simulation_complexes"
 
 complex_pdbs = [
-    "levparc2018.pdb", "pbppen1999.pdb", "aminostep2016.pdb", "levgyra2018.pdb"
+     "pbppen1999.pdb", "aminostep2016.pdb", "levgyra2018.pdb"
     ,"pbpmez2018.pdb", "pbppen2018.pdb"
 ]
 
@@ -54,7 +54,7 @@ if rank == 0:
             'input_structure': pdb_file,
             'ligand_code': ligand_code,
             'ligand_charge': '0',
-            'outdir': pdb,
+            'outdir': pdb.removesuffix('.pdb'),
             'nprocs': os.environ.get('OMP_NUM_THREADS', '24'),
             'mpithreads': '1',
             'usegpu': True,

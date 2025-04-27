@@ -4,17 +4,17 @@
 #PBS -N md_prod
 # queue select
 #PBS -q workq
-#PBS -l select=1:ncpus=32:mpiprocs=32:host=kuhpcgn1
+#PBS -l nodes=kuhpcgn2
+#PBS -l ncpus=32
+#PBS -l mpiprocs=1
 # Name of stdout output file (default)
-#PBS -o mdsim.out 
+#PBS -o mdsim_1.out 
 # stdout output file
 #PBS -j oe
 #PBS -l walltime=96:00:00 
 #----------------------------------------------------------
 
 # List of simulation directories
-#directories=( "aminostep2012" "dir2" "dir3" )
-directories=( "aminostep2012" )
 
 CONDA_ENV_NAME="biobb_wf_protein-complex_md_setup"
 
@@ -29,22 +29,14 @@ module load ohpc
 #Load cuda
 module load cuda
 
+export PYFILE=$HOME/gitrepos/gromacs_sims/scripts/biobb_protein_ligand_simulation.py
 
 echo "Starting"
 echo '---------------------------------------------'
 
-#Executing command
-for dir in "${directories[@]}"; do
-	echo "Processing directory: $dir"
-	for notebook in "$dir"/*.ipynb; do
-		if [[ -f "$notebook" ]]; then
-			echo "Executing notebook: $notebook"
-			conda run -n $CONDA_ENV_NAME jupyter nbconvert --to notebook --execute "$notebook"
-		else
-			echo "No notebooks found in $dir"
-		fi
-	done
-done
+conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes/pbppen1999.pdb --ligand_code PEN --outdir pbppen1999 --nprocs $PBS_NCPUS --usegpu --protonated
+conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes/pbppen2018.pdb --ligand_code PEN --outdir pbppen2018 --nprocs $PBS_NCPUS --usegpu --protonated
+conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes/pbpmez2018.pdb --ligand_code MEZ --outdir pbpmez2018 --nprocs $PBS_NCPUS --usegpu --protonated
 
 #End time
 end=`date +%s.%N`
