@@ -18,9 +18,8 @@ def chunk_into_n(lst, n):
 complexes_dir = "./simulation_complexes"
 
 complex_pdbs = [
-    "aminostep2012.pdb", "aminotob2016.pdb", "levparc2018.pdb", "ndxgyra2018.pdb", 
-    "ndxparc2018.pdb", "pbppen1999.pdb", "aminostep2016.pdb", "levgyra2018.pdb", 
-    "ndxgyra1996.pdb", "ndxparc1999.pdb", "pbpmez2018.pdb", "pbppen2018.pdb"
+    "levparc2018.pdb", "pbppen1999.pdb", "aminostep2016.pdb", "levgyra2018.pdb"
+    ,"pbpmez2018.pdb", "pbppen2018.pdb"
 ]
 
 complexes = []
