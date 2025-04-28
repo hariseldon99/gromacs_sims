@@ -5,7 +5,7 @@
 # queue select
 #PBS -q workq
 #PBS -l nodes=kuhpcgn2
-#PBS -l ncpus=32
+#PBS -l ncpus=48
 #PBS -l mpiprocs=1
 # Name of stdout output file (default)
 #PBS -o mdsim_1.out 
@@ -34,9 +34,12 @@ export PYFILE=$HOME/gitrepos/gromacs_sims/scripts/biobb_protein_ligand_simulatio
 echo "Starting"
 echo '---------------------------------------------'
 
-conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes/pbppen1999.pdb --ligand_code PEN --outdir pbppen1999 --nprocs $PBS_NCPUS --usegpu --protonated
-conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes/pbppen2018.pdb --ligand_code PEN --outdir pbppen2018 --nprocs $PBS_NCPUS --usegpu --protonated
-conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes/pbpmez2018.pdb --ligand_code MEZ --outdir pbpmez2018 --nprocs $PBS_NCPUS --usegpu --protonated
+conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/aminostep2012C.pdb --ligand_code STM --outdir aminostep2012C --nprocs $PBS_NCPUS --usegpu --protonated
+conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/aminostep2016C.pdb --ligand_code STM --outdir aminostep2016C --nprocs $PBS_NCPUS --usegpu --protonated
+conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/aminotob2016C.pdb --ligand_code TOB --outdir aminotob2016C --nprocs $PBS_NCPUS --usegpu --protonated
+conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/levgyra2018C.pdb --ligand_code LEV --outdir levgyra2018C --nprocs $PBS_NCPUS --usegpu --protonated
+conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/ndxgyra1996C.pdb --ligand_code NDX --outdir ndxgyra1996C --nprocs $PBS_NCPUS --usegpu --protonated
+conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/ndxgyra2018C.pdb --ligand_code NDX --outdir ndxgyra2018C --nprocs $PBS_NCPUS --usegpu --protonated
 
 #End time
 end=`date +%s.%N`
