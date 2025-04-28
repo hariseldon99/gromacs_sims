@@ -326,6 +326,9 @@ def molecular_dynamics(complex, protonated=True):
     }
 
     # Create and launch bb
+    # Ensure the charge property is an integer to avoid issues with isinstance checks
+    prop['charge'] = int(prop['charge'])
+
     acpype_params_gmx(input_path=output_babel_min, 
                     output_path_gro=output_acpype_gro,
                     output_path_itp=output_acpype_itp,

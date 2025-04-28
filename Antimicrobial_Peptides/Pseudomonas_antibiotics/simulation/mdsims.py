@@ -15,13 +15,11 @@ def chunk_into_n(lst, n):
     list(range(n)))
   )
 
-complexes_dir = "./simulation_complexes_protonationfixed"
+complexes_dir = "./temp"
 
 complex_pdbs = [
-	"aminostep2012C.pdb",  "levparc2018C_chainB.pdb",  "ndxparc2018C_chainA.pdb",
-	"aminostep2016C.pdb",  "ndxgyra1996C.pdb",         "pbpmez2018C.pdb",
-	"aminotob2016C.pdb",   "ndxgyra2018C.pdb",         "pbppen1999C.pdb",
-	"levgyra2018C.pdb",    "ndxparc1999C_chainB.pdb",  "pbppen2018C.pdb"
+	"aminostep2012C.pdb",  
+	"aminostep2016C.pdb" 
 ]
 
 complexes = []
