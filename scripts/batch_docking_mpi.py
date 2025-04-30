@@ -94,3 +94,4 @@ for i, receptor in enumerate(receptor_pdbqts_loc):
                   size_x, size_y, size_z,
                   nprocs_loc)
     print(f"Process {rank} completed docking for receptor {i+1}/{len(receptor_pdbqts_loc)}: {receptor}")
+#TODO: After docking, split the output files into separate files for each receptor-ligand pair and deprotonate the ligand files. Optionally, use openbabel to reprotonate the ligand files, as docking screws with protonation states 
