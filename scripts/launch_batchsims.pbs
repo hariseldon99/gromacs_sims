@@ -39,10 +39,11 @@ conda run -n $CONDA_ENV_NAME mpirun -np $MPIPROCS $PYFILE
 
 #End time
 end=`date +%s.%N`
+ssh kuhpchn curl -d "Job Finished: Name=$PBS_JOBNAME, ID=$PBS_JOBID, Runtime=${RUNTIME} s, Nodes=$PBS_NODENUM, CPUs=${PBS_NCPUS}" ntfy.sh/kuhpchn
 
 echo "NUM_CPUS= ${PBS_NCPUS}"
 RUNTIME=$( echo "$end - $start" | bc -l )
-
+echo "Job Name: $PBS_JOBNAME"
 echo '---------------------------------------------'
 echo "Runtime: "$RUNTIME" sec"
 echo '---------------------------------------------'
