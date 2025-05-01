@@ -219,7 +219,7 @@ def batch_docking(receptor_pdbqt, ligand_pdbqtdir,
     if verbose:
         print("Verbose mode enabled.")
     ligand_pdbqts = [os.path.join(ligand_pdbqtdir, f) for f in os.listdir(ligand_pdbqtdir) if f.endswith('.pdbqt')]
-    command_list = ['gnina', '--receptor', receptor_pdbqt,
+    command_list = ['vina', '--receptor', receptor_pdbqt,
                     '--exhaustiveness', '32', 
                     '--num_modes', '1', 
                     '--cpu', str(nprocs),
