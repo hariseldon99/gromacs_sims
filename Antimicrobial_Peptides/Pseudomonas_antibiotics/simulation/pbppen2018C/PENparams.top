@@ -1,0 +1,20 @@
+; PENparams_GMX.top created by acpype (v: 2022.6.6) on Thu May  1 12:02:58 2025
+
+[ defaults ]
+; nbfunc        comb-rule       gen-pairs       fudgeLJ fudgeQQ
+1               2               yes             0.5     0.8333333333
+
+; Include PENparams.itp topology
+#include "PENparams.itp"
+
+; Ligand position restraints
+#ifdef POSRES_LIG
+#include "posre_PENparams.itp"
+#endif
+
+[ system ]
+ PENparams
+
+[ molecules ]
+; Compound        nmols
+ PENparams 1     
