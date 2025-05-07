@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+
 import os
 import sys
 import argparse
@@ -8,6 +9,7 @@ import logging
 from tqdm import tqdm
 from requests_toolbelt.multipart.encoder import MultipartEncoder, MultipartEncoderMonitor
 from argparse import RawTextHelpFormatter
+import math
 
 def create_tarball(directory):
     """Create a .tar.gz archive of `directory` and return its path."""
@@ -35,6 +37,22 @@ def create_tarball(directory):
 
     progress.close()
     return tarball
+
+def split_file(file_path, num_parts=20):
+    """Split a file into `num_parts` equally sized chunks."""
+    total = os.path.getsize(file_path)
+    chunk_size = -(-total // num_parts)   # ceiling division
+    parts = []
+    with open(file_path, "rb") as src:
+        for i in range(1, num_parts + 1):
+            chunk = src.read(chunk_size)
+            if not chunk:
+                break
+            part_name = f"{file_path}.part{i:02d}"
+            with open(part_name, "wb") as dst:
+                dst.write(chunk)
+            parts.append(part_name)
+    return parts
 
 
 def upload_to_zenodo(token, deposition_id, file_path):
@@ -74,23 +92,42 @@ def main():
         3. The tarball will be created in the current working directory with the same name as the directory being archived.
         """
     )
-    parser.add_argument("directory", help="Directory to archive")
-    parser.add_argument("deposition_id", help="Zenodo deposition ID")
+    parser.add_argument("directory", 
+                        help="Directory to archive and then upload or tarball to just upload")
+    parser.add_argument("deposition_id", 
+                        help="Zenodo deposition ID")
+    parser.add_argument(
+        "--split",
+        type=int,
+        nargs="?",
+        const=20,
+        default=None,
+        help="Split the tarball into N parts and upload each part (default: 20)"
+    )
+
     args = parser.parse_args()
 
     token = os.getenv("ZENODO_TOKEN")
     if not token:
         sys.exit("Error: ZENODO_TOKEN environment variable is not set.")
 
-    if not os.path.isdir(args.directory):
-        sys.exit(f"Error: '{args.directory}' is not a valid directory.")
-
-    tarball = create_tarball(args.directory)
-    print(f"✔ Created archive: {tarball}")
-
-    result = upload_to_zenodo(token, args.deposition_id, tarball)
-    print("✔ Upload successful. Server response:")
-    print(result)
+    if os.path.isdir(args.directory):
+        tarball = create_tarball(args.directory)
+        print(f"✔ Created archive: {tarball}")
+    else:
+        tarball = args.directory
+        if not os.path.isfile(tarball):
+            sys.exit(f"Error: {tarball} is not a valid file or directory.")    
+    # After you call create_tarball(...) in main():
+    if args.split:
+        parts = split_file(tarball, args.split)
+        for part in parts:
+            print(f"✔ Uploading part: {part}")
+            upload_to_zenodo(token, args.deposition_id, part)
+    else:    
+        result = upload_to_zenodo(token, args.deposition_id, tarball)
+        print("✔ Upload successful. Server response:")
+        print(result)
 
 if __name__ == "__main__":
     main()
