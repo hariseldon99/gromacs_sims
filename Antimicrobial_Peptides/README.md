@@ -13,10 +13,20 @@
   - Argha Nath, Department of Zoology
 
 - Contents:
-  - `Colpk_phosphatedylethanolamine/`, `Colpk_phosphatedylglycerol/`, `Colpk_pyocyanin/`: Simulations involving Colicin peptides.
-  - `Colpm_phosphatedylethanolamine/`, `Colpm_phosphatedylglycerol/`, `Colpm_pyocyanin/`: Simulations involving Colicin PM peptides.
-  - `DNA_peptide/`: Simulations involving DNA-peptide interactions.
-  - `Ku04AMP01_linear/`, `Ku04AMP01_phosphatedylethanolamine/`: Simulations of Ku04AMP01 antimicrobial peptide.
+  - Simulations involving Colicin peptides.
+    - [Colpk_phosphatedylethanolamine](Colpk_phosphatedylethanolamine/) ([Raw Data](https://doi.org/10.5281/zenodo.15375412)), 
+    - [Colpk_phosphatedylglycerol](Colpk_phosphatedylglycerol/) ([Raw Data](https://doi.org/10.5281/zenodo.15373388)), 
+    - [Colpk_pyocyanin](Colpk_pyocyanin) ([Raw Data](https://doi.org/10.5281/zenodo.15335935)): 
+  - Simulations involving Colicin PM peptides.
+    - [Colpm_phosphatedylethanolamine](Colpm_phosphatedylethanolamine/) ([Raw Data](https://doi.org/10.5281/zenodo.15375479)), 
+    - [Colpm_phosphatedylglycerol](Colpm_phosphatedylglycerol/) ([Raw Data](https://doi.org/10.5281/zenodo.15375268)), 
+    - [Colpm_pyocyanin](Colpm_pyocyanin) ([Raw Data](https://doi.org/10.5281/zenodo.15354462)): 
+  - [DNA_peptide](DNA_peptide/) ([Raw Data](https://doi.org/10.5281/zenodo.15380258)): Simulations involving DNA-peptide interactions.
+  - Simulations of Ku04AMP01 antimicrobial peptide.
+    - [Ku04AMP01_linear](Ku04AMP01_linear/) ([Raw Data](https://doi.org/10.5281/zenodo.15380037)),
+    - [Ku04AMP01_phosphatedylethanolamine](Ku04AMP01_phosphatedylethanolamine]/) ([Raw Data](https://doi.org/10.5281/zenodo.15380037)): 
+  - Simulations of Pseudomonas proteins with various antibiotics
+    - [Pseudomonas_antibiotics](Pseudomonas_antibiotics) ([Raw Data](https://doi.org/10.5281/zenodo.15383904)) (& links therein)
 
 - Deletion Note on 20250505
 There was a google drive synchroniztion error that led to topology and trajectory data loss. Full restoration was accomplished on this day. Restoration script:
