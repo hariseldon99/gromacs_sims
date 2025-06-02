@@ -1,0 +1,20 @@
+; VIAparams_GMX.top created by acpype (v: 2022.6.6) on Sun Jun  1 19:06:30 2025
+
+[ defaults ]
+; nbfunc        comb-rule       gen-pairs       fudgeLJ fudgeQQ
+1               2               yes             0.5     0.8333333333
+
+; Include VIAparams.itp topology
+#include "VIAparams.itp"
+
+; Ligand position restraints
+#ifdef POSRES_LIG
+#include "posre_VIAparams.itp"
+#endif
+
+[ system ]
+ VIAparams
+
+[ molecules ]
+; Compound        nmols
+ VIAparams 1     
