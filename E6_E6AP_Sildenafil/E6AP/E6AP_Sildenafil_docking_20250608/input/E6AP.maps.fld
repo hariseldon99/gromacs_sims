@@ -1,0 +1,44 @@
+# AVS field file
+#
+# AutoDock Atomic Affinity and Electrostatic Grids
+#
+# Created by /usr/local/lib/python3.9/site-packages/AMDock/data/autogrid4.
+#
+#SPACING 1.000
+#NELEMENTS 70 62 70
+#CENTER -29.294 -28.936 -14.483
+#MACROMOLECULE E6AP.pdbqt
+#GRID_PARAMETER_FILE E6AP_autolig.gpf
+#
+ndim=3			# number of dimensions in the field
+dim1=71			# number of x-elements
+dim2=63			# number of y-elements
+dim3=71			# number of z-elements
+nspace=3		# number of physical coordinates per point
+veclen=9		# number of affinity values at each point
+data=float		# data type (byte, integer, float, double)
+field=uniform		# field type (uniform, rectilinear, irregular)
+coord 1 file=E6AP.maps.xyz filetype=ascii offset=0
+coord 2 file=E6AP.maps.xyz filetype=ascii offset=2
+coord 3 file=E6AP.maps.xyz filetype=ascii offset=4
+label=C-affinity	# component label for variable 1
+label=S-affinity	# component label for variable 2
+label=OA-affinity	# component label for variable 3
+label=HD-affinity	# component label for variable 4
+label=A-affinity	# component label for variable 5
+label=NA-affinity	# component label for variable 6
+label=N-affinity	# component label for variable 7
+label=Electrostatics	# component label for variable 7
+label=Desolvation	# component label for variable 8
+#
+# location of affinity grid files and how to read them
+#
+variable 1 file=E6AP.C.map filetype=ascii skip=6
+variable 2 file=E6AP.S.map filetype=ascii skip=6
+variable 3 file=E6AP.OA.map filetype=ascii skip=6
+variable 4 file=E6AP.HD.map filetype=ascii skip=6
+variable 5 file=E6AP.A.map filetype=ascii skip=6
+variable 6 file=E6AP.NA.map filetype=ascii skip=6
+variable 7 file=E6AP.N.map filetype=ascii skip=6
+variable 8 file=E6AP.e.map filetype=ascii skip=6
+variable 9 file=E6AP.d.map filetype=ascii skip=6
