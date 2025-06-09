@@ -1,0 +1,58 @@
+#!/bin/bash
+#----------------------------------------------------------
+# Job name
+#PBS -N md_prod
+# queue select
+#PBS -q workq
+#PBS -l nodes=kuhpcgn1
+#PBS -l ncpus=48
+#PBS -l mpiprocs=48
+# Name of stdout output file (default)
+#PBS -o mdsim.out 
+# stdout output file
+#PBS -j oe
+#PBS -l walltime=96:00:00 
+#----------------------------------------------------------
+
+SIMDIR=/home/arunima/gitrepos/gromacs_sims/E6_E6AP_Sildenafil/E6/E6_VIA_MD
+CPTFILE=prot_E6_via_complex_VIA_md.cpt
+MDNAME=prot_E6_via_complex_VIA_gppmd_extend
+CONDA_ENV_NAME="biobb_wf_protein-complex_md_setup"
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
+
+#Start time
+start=`date +%s.%N`
+# Change to submission directory
+cd $PBS_O_WORKDIR
+#Load basic OHPC tools
+module load ohpc
+#Load cuda
+module load cuda
+
+
+echo "Starting"
+echo '---------------------------------------------'
+cd $SIMDIR
+conda run -n $CONDA_ENV_NAME gmx mdrun -pin on -nb gpu -gpu_id 0 -nt $OMP_NUM_THREADS -v -deffnm $MDNAME -cpi $CPTFILE -noappend
+
+#End time
+end=`date +%s.%N`
+
+echo "NUM_CPUS= ${PBS_NCPUS}"
+RUNTIME=$( echo "$end - $start" | bc -l )
+
+echo '---------------------------------------------'
+echo "Runtime: "$RUNTIME" sec"
+echo '---------------------------------------------'
+
+# Define login node
+LOGIN_NODE="kuhpchn"
+
+# Define the ntfy.sh URL
+NTFY_URL="https://ntfy.sh/kuhpchn"
+
+# Define the message payload
+MESSAGE="Job '$PBS_JOBID' finished on kuhpchn in '$RUNTIME' secs. Check output @ '$PBS_O_WORKDIR'"
+
+# SSH into the login node and execute the curl command remotely
+ssh "$LOGIN_NODE" "curl -X POST -d \"$MESSAGE\" \"$NTFY_URL\""
