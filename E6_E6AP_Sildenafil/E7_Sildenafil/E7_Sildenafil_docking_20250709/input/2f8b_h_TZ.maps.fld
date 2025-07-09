@@ -1,0 +1,44 @@
+# AVS field file
+#
+# AutoDock Atomic Affinity and Electrostatic Grids
+#
+# Created by /usr/local/lib/python3.9/site-packages/AMDock/data/autogrid4.
+#
+#SPACING 0.375
+#NELEMENTS 80 80 80
+#CENTER 0.000 0.000 0.000
+#MACROMOLECULE 2f8b_h_TZ.pdbqt
+#GRID_PARAMETER_FILE 2f8b_h_TZ.gpf
+#
+ndim=3			# number of dimensions in the field
+dim1=81			# number of x-elements
+dim2=81			# number of y-elements
+dim3=81			# number of z-elements
+nspace=3		# number of physical coordinates per point
+veclen=9		# number of affinity values at each point
+data=float		# data type (byte, integer, float, double)
+field=uniform		# field type (uniform, rectilinear, irregular)
+coord 1 file=2f8b_h_TZ.maps.xyz filetype=ascii offset=0
+coord 2 file=2f8b_h_TZ.maps.xyz filetype=ascii offset=2
+coord 3 file=2f8b_h_TZ.maps.xyz filetype=ascii offset=4
+label=A-affinity	# component label for variable 1
+label=C-affinity	# component label for variable 2
+label=S-affinity	# component label for variable 3
+label=OA-affinity	# component label for variable 4
+label=N-affinity	# component label for variable 5
+label=NA-affinity	# component label for variable 6
+label=HD-affinity	# component label for variable 7
+label=Electrostatics	# component label for variable 7
+label=Desolvation	# component label for variable 8
+#
+# location of affinity grid files and how to read them
+#
+variable 1 file=2f8b_h_TZ.A.map filetype=ascii skip=6
+variable 2 file=2f8b_h_TZ.C.map filetype=ascii skip=6
+variable 3 file=2f8b_h_TZ.S.map filetype=ascii skip=6
+variable 4 file=2f8b_h_TZ.OA.map filetype=ascii skip=6
+variable 5 file=2f8b_h_TZ.N.map filetype=ascii skip=6
+variable 6 file=2f8b_h_TZ.NA.map filetype=ascii skip=6
+variable 7 file=2f8b_h_TZ.HD.map filetype=ascii skip=6
+variable 8 file=2f8b_h_TZ.e.map filetype=ascii skip=6
+variable 9 file=2f8b_h_TZ.d.map filetype=ascii skip=6
