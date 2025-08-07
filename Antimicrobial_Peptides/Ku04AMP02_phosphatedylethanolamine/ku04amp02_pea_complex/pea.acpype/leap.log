@@ -1,4 +1,4 @@
-log started: Wed Aug  6 12:20:01 2025
+log started: Thu Aug  7 16:36:31 2025
 
 Log file: ./leap.log
 >> #
@@ -82,11 +82,11 @@ Log file: ./leap.log
 >> #	Load the main parameter set.
 >> #
 >> parm10 = loadamberparams parm10.dat
-Loading parameters: /usr/local/condaenv/envs/gromacs_compiled/dat/leap/parm/parm10.dat
+Loading parameters: /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/dat/leap/parm/parm10.dat
 Reading title:
 PARM99 + frcmod.ff99SB + frcmod.parmbsc0 + OL3 for RNA
 >> frcmod14SB = loadamberparams frcmod.ff14SB
-Loading parameters: /usr/local/condaenv/envs/gromacs_compiled/dat/leap/parm/frcmod.ff14SB
+Loading parameters: /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/dat/leap/parm/frcmod.ff14SB
 Reading force field modification type file (frcmod)
 Reading title:
 ff14SB protein backbone and sidechain parameters
@@ -94,7 +94,7 @@ ff14SB protein backbone and sidechain parameters
 >> #	Load main chain and terminating amino acid libraries
 >> #
 >> loadOff amino12.lib
-Loading library: /usr/local/condaenv/envs/gromacs_compiled/dat/leap/lib/amino12.lib
+Loading library: /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/dat/leap/lib/amino12.lib
 Loading: ALA
 Loading: ARG
 Loading: ASH
@@ -124,7 +124,7 @@ Loading: TRP
 Loading: TYR
 Loading: VAL
 >> loadOff aminoct12.lib
-Loading library: /usr/local/condaenv/envs/gromacs_compiled/dat/leap/lib/aminoct12.lib
+Loading library: /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/dat/leap/lib/aminoct12.lib
 Loading: CALA
 Loading: CARG
 Loading: CASN
@@ -152,7 +152,7 @@ Loading: CVAL
 Loading: NHE
 Loading: NME
 >> loadOff aminont12.lib
-Loading library: /usr/local/condaenv/envs/gromacs_compiled/dat/leap/lib/aminont12.lib
+Loading library: /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/dat/leap/lib/aminont12.lib
 Loading: ACE
 Loading: NALA
 Loading: NARG
@@ -217,10 +217,10 @@ Loading: NVAL
 >> CHIS = CHIE
 > 
 > source leaprc.gaff2
------ Source: /usr/local/condaenv/envs/gromacs_compiled/dat/leap/cmd/leaprc.gaff2
------ Source of /usr/local/condaenv/envs/gromacs_compiled/dat/leap/cmd/leaprc.gaff2 done
+----- Source: /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/dat/leap/cmd/leaprc.gaff2
+----- Source of /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/dat/leap/cmd/leaprc.gaff2 done
 >> logFile leap.log
-log started: Wed Aug  6 12:20:01 2025
+log started: Thu Aug  7 16:36:31 2025
 
 Log file: ./leap.log
 >> #
@@ -254,6 +254,8 @@ Log file: ./leap.log
 >> 	{ "c1"  "C" "sp2" }
 >> 	{ "c2"  "C" "sp2" }
 >> 	{ "c3"  "C" "sp3" }
+>> 	{ "c5"  "C" "sp3" }
+>> 	{ "c6"  "C" "sp3" }
 >> 	{ "ca"  "C" "sp2" }
 >> 	{ "cc"  "C" "sp2" }
 >> 	{ "cd"  "C" "sp2" }
@@ -334,26 +336,25 @@ Log file: ./leap.log
 >> #	Load the general force field parameter set.
 >> #
 >> gaff = loadamberparams gaff2.dat
-Loading parameters: /usr/local/condaenv/envs/gromacs_compiled/dat/leap/parm/gaff2.dat
+Loading parameters: /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/dat/leap/parm/gaff2.dat
 Reading title:
 AMBER General Force Field for organic molecules (Version 2.2.20, March 2021)
-(UNKNOWN ATOM TYPE: c6)
 > 
 > mods = loadamberparams pea_AC.frcmod
 Loading parameters: ./pea_AC.frcmod
 Reading force field modification type file (frcmod)
 Reading title:
 Remark line goes here
-> A1 = loadmol2 pea_bcc_gaff2.mol2
+> PEA = loadmol2 pea_bcc_gaff2.mol2
 Loading Mol2 file: ./pea_bcc_gaff2.mol2
 Reading MOLECULE named pea.pdb
-> check A1
-Checking 'A1'....
-Checking parameters for unit 'A1'.
+> check PEA
+Checking 'PEA'....
+Checking parameters for unit 'PEA'.
 Checking for bond parameters.
 Checking for angle parameters.
 Unit is OK.
-> saveamberparm A1 pea_AC.prmtop pea_AC.inpcrd
+> saveamberparm PEA pea_AC.prmtop pea_AC.inpcrd
 Checking Unit.
 Building topology.
 Building atom parameters.
@@ -362,8 +363,8 @@ Building angle parameters.
 Building proper torsion parameters.
 Building improper torsion parameters.
 --Impropers:
-  1	O4<A11> - O5<A11> - C4<A11> - C5<A11>
-  1	O6<A11> - O7<A11> - C7<A11> - C8<A11>
+  1	O4<PEA> - O5<PEA> - C4<PEA> - C5<PEA>
+  1	O6<PEA> - O7<PEA> - C7<PEA> - C8<PEA>
  total 2 improper torsions applied
 Building H-Bond parameters.
 Incorporating Non-Bonded adjustments.
@@ -374,12 +375,12 @@ Marking per-residue atom chain types.
 
 	res	total affected
 
-	A11	1
+	PEA	1
   )
  (no restraints)
-> saveoff A1 pea_AC.lib
+> saveoff PEA pea_AC.lib
  Creating pea_AC.lib
-Saving A1.
+Saving PEA.
 Building topology.
 Building atom parameters.
 > quit
