@@ -71,14 +71,15 @@ for simdir in simulation_dirnames:
         "-o", extended_tpr
     ], check=True)
 
-    # Step 2: Run mdrun with GPU (nonbonded + PME)
+    # Step 2: Run mdrun with GPU (nonbonded + PME) and -noappend
     mdrun_cmd = [
         "gmx", "mdrun",
         "-s", extended_tpr,
         "-cpi", input_cpt,
         "-deffnm", simdir + "_ext",
         "-ntomp", str(numprocs),
-        "-ntmpi", str(mpithreads)
+        "-ntmpi", str(mpithreads),
+        "-noappend"
     ]
     if usegpu:
         mdrun_cmd += ["-gpu_id", gpuid, "-nb", "gpu", "-pme", "gpu", "-update", "gpu"]
