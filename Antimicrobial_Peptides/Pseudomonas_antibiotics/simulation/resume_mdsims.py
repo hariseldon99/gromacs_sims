@@ -54,7 +54,7 @@ for simdir in simulation_dirnames:
     input_tpr = glob.glob(f"*{simdir}*_gppmd.tpr")[0]
     input_cpt = glob.glob(f"*{simdir}*_md.cpt")[0]
     input_ndx = glob.glob(f"*{simdir}*_index.ndx")[0]
-    output_gro = glob.glob(f"*{simdir}*_md.gro")[0].replace('.gro', '_ext.gro'), "-o", ou
+    output_gro = glob.glob(f"*{simdir}*_md.gro")[0].replace('.gro', '_ext.gro')
     output_trr = glob.glob(f"*{simdir}*_md.trr")[0].replace('.trr', '_ext.trr')
     output_edr = glob.glob(f"*{simdir}*_md.edr")[0].replace('.edr', '_ext.edr')
     output_log = glob.glob(f"*{simdir}*_md.log")[0].replace('.log', '_ext.log')
