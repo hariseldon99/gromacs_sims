@@ -54,7 +54,7 @@ for simdir in simulation_dirnames:
     input_tpr = glob.glob(f"*{simdir}*_gppmd.tpr")[0]
     input_cpt = glob.glob(f"*{simdir}*_md.cpt")[0]
     input_ndx = glob.glob(f"*{simdir}*_index.ndx")[0]
-    output_gro = glob.glob(f"*{simdir}*_md.gro")[0].replace('.gro', '_ext.gro')
+    output_gro = glob.glob(f"*{simdir}*_md.gro")[0].replace('.gro', '_ext.gro'), "-o", ou
     output_trr = glob.glob(f"*{simdir}*_md.trr")[0].replace('.trr', '_ext.trr')
     output_edr = glob.glob(f"*{simdir}*_md.edr")[0].replace('.edr', '_ext.edr')
     output_log = glob.glob(f"*{simdir}*_md.log")[0].replace('.log', '_ext.log')
@@ -88,22 +88,15 @@ for simdir in simulation_dirnames:
     # Step 3: Post-process with trjconv (cluster PBC)
     cluster_traj = output_xtc.replace('.xtc', '_cluster_traj.xtc')
     with subprocess.Popen(
-        ["gmx", "trjconv", "-s", extended_tpr, "-f", output_xtc, "-o", cluster_traj, "-pbc", "cluster"],
+        ["gmx", "trjconv", "-s", extended_tpr, "-n", input_ndx ,"-f", output_xtc, "-o", cluster_traj, "-pbc", "cluster"],
         stdin=subprocess.PIPE, text=True
     ) as proc:
         proc.communicate("Protein_Other\nProtein_Other\n")  # select group twice
 
     # Step 4: Center trajectory
-    center_traj = output_xtc.replace('.xtc', '_cluster_center_traj.xtc')
+    center_traj = output_xtc.replace('.xtc', '_center_traj.xtc')
     with subprocess.Popen(
-        ["gmx", "trjconv", "-s", extended_tpr, "-f", cluster_traj, "-o", center_traj, "-center"],
-        stdin=subprocess.PIPE, text=True
-    ) as proc:
-        proc.communicate("Protein_Other\n")
-
-    # Step 5: Generate dry structure (remove water & ions)
-    with subprocess.Popen(
-        ["gmx", "trjconv", "-s", extended_tpr, "-f", output_gro, "-o", output_dry_gro],
+        ["gmx", "trjconv", "-s", extended_tpr, "-n", input_ndx, "-f", cluster_traj, "-o", center_traj, "-center"],
         stdin=subprocess.PIPE, text=True
     ) as proc:
         proc.communicate("Protein_Other\n")
