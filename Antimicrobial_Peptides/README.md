@@ -23,8 +23,9 @@
     - [Colpm_pyocyanin](Colpm_pyocyanin) ([Raw Data](https://doi.org/10.5281/zenodo.15354462)): 
   - [DNA_peptide](DNA_peptide/) ([Raw Data](https://doi.org/10.5281/zenodo.15380258)): Simulations involving DNA-peptide interactions.
   - Simulations of Ku04AMP01 antimicrobial peptide.
-    - [Ku04AMP01_linear](Ku04AMP01_linear/) ([Raw Data](https://doi.org/10.5281/zenodo.15380037)),
-    - [Ku04AMP01_phosphatedylethanolamine](Ku04AMP01_phosphatedylethanolamine]/) ([Raw Data](https://doi.org/10.5281/zenodo.15380037)): 
+    - [Ku04AMP01_linear](Ku04AMP01_linear/) ([Raw Data](https://doi.org/10.5281/zenodo.15380037)) (TODO: PCA: FEL and PCA snapshots),
+    - [Ku04AMP01_phosphatedylglycerol](Ku04AMP01_phosphatedylglycerol]/) (Raw Data) (TODO: PCA: FEL and PCA snapshots)
+    - [Ku04AMP01_phosphatedylethanolamine](Ku04AMP01_phosphatedylethanolamine]/) ([Raw Data](https://doi.org/10.5281/zenodo.15380037))(TODO: PCA: FEL and PCA snapshots)
   - Simulations of Pseudomonas proteins with various antibiotics
     - [Pseudomonas_antibiotics](Pseudomonas_antibiotics) ([Raw Data](https://doi.org/10.5281/zenodo.15383904)) (& links therein)
 

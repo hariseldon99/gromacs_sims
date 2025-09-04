@@ -86,6 +86,7 @@ for simdir in simulation_dirnames:
     subprocess.run(mdrun_cmd, check=True)
 
     # Step 3: Post-process with trjconv (cluster PBC)
+    #Note: These seem to fail execution with no error messages. Needs debugging
     cluster_traj = output_xtc.replace('.xtc', '_cluster_traj.xtc')
     with subprocess.Popen(
         ["gmx", "trjconv", "-s", extended_tpr, "-n", input_ndx ,"-f", output_xtc, "-o", cluster_traj, "-pbc", "cluster"],
@@ -94,6 +95,7 @@ for simdir in simulation_dirnames:
         proc.communicate("Protein_Other\nProtein_Other\n")  # select group twice
 
     # Step 4: Center trajectory
+    #Note: These seem to fail execution with no error messages. Needs debugging
     center_traj = output_xtc.replace('.xtc', '_center_traj.xtc')
     with subprocess.Popen(
         ["gmx", "trjconv", "-s", extended_tpr, "-n", input_ndx, "-f", cluster_traj, "-o", center_traj, "-center"],
