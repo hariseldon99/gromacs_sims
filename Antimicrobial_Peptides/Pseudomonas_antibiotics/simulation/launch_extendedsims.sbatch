@@ -25,7 +25,7 @@
 
 source /usr/local/condaenv/bin/activate
 source /usr/local/gromacs/bin/GMXRC
-CONDA_ENV_NAME="base"
+CONDA_ENV_NAME="gromacs_compiled"
 
 export PYFILE="./resume_mdsims.py"
 
