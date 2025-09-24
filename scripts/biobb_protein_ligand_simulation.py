@@ -603,11 +603,13 @@ def molecular_dynamics(complex, protonated=True):
 
     # ## Unset OMP_NUM_THREADS
     # 
-    # The environment variable `OMP_num_threads_omp` is often set automatically by grid engines even if the user did not. Doing so creates conflicts with thread setting variables whenever `gromacs` runs. However, unsetting it before launching this notebook will allow `acpype` (the AMBER-GAFF2 topology generator) to use all available cores in the runtime machine, which might violate grid policy. So best to unset it after `acpype` runs.
+    # The environment variable `OMP_NUM_THREADS` is often set automatically by grid engines even if the user did not. Doing so creates conflicts with thread setting variables whenever `gromacs` runs. However, unsetting it before launching this notebook will allow `acpype` (the AMBER-GAFF2 topology generator) to use all available cores in the runtime machine, which might violate grid policy. So best to unset it after `acpype` runs.
     # Backup the value of OMP_NUM_THREADS to a string
     omp_num_threads_backup = os.environ.get('OMP_NUM_THREADS', None)
     if omp_num_threads_backup is not None:
-        del os.environ['OMP_NUM_THREADS']
+        os.environ['OMP_NUM_THREADS'] = str(nprocs) 
+        #Don't delete it. Instead, set it to nprocs
+        #del os.environ['OMP_NUM_THREADS'] 
 
     # <a id="emStep2"></a>
     # ### Step 2: Running Energy Minimization
