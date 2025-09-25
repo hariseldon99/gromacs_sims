@@ -600,15 +600,6 @@ def molecular_dynamics(complex, protonated=True):
         output_tpr_path=output_gppmin_tpr,
         properties=prop)
 
-
-    # ## Unset OMP_NUM_THREADS
-    # 
-    # The environment variable `OMP_NUM_THREADS` is often set automatically by grid engines even if the user did not. Doing so creates conflicts with thread setting variables whenever `gromacs` runs. However, unsetting it before launching this notebook will allow `acpype` (the AMBER-GAFF2 topology generator) to use all available cores in the runtime machine, which might violate grid policy. So best to unset it after `acpype` runs.
-    # Backup the value of OMP_NUM_THREADS to a string
-    #omp_num_threads_backup = os.environ.get('OMP_NUM_THREADS', None)
-    #if omp_num_threads_backup is not None:
-    #    del os.environ['OMP_NUM_THREADS'] 
-
     # <a id="emStep2"></a>
     # ### Step 2: Running Energy Minimization
     # Running **energy minimization** using the **tpr file** generated in the previous step.
@@ -729,8 +720,8 @@ def molecular_dynamics(complex, protonated=True):
         output_log_path=output_nvt_log,
         output_cpt_path=output_nvt_cpt,
         use_gpu=usegpu,
-        num_threads_omp=nprocs,
-        num_threads_mpi=mpithreads,
+        #num_threads_omp=nprocs,
+        #num_threads_mpi=mpithreads,
         gpu_id=gpuid)
 
     # <a id="eqNVTStep4"></a>
@@ -813,8 +804,8 @@ def molecular_dynamics(complex, protonated=True):
         output_log_path=output_npt_log,
         output_cpt_path=output_npt_cpt,
         use_gpu=usegpu,
-        num_threads_omp=nprocs,
-        num_threads_mpi=mpithreads,
+        #num_threads_omp=nprocs,
+        #num_threads_mpi=mpithreads,
         gpu_id=gpuid)
 
 
@@ -896,11 +887,9 @@ def molecular_dynamics(complex, protonated=True):
         output_log_path=output_md_log,
         output_cpt_path=output_md_cpt,
         use_gpu=usegpu,
-        num_threads_omp=nprocs,
-        num_threads_mpi=mpithreads,
+        #num_threads_omp=nprocs,
+        #num_threads_mpi=mpithreads,
         gpu_id=gpuid)
-
-
 
     # <a id="post"></a>
     # ***
@@ -985,10 +974,7 @@ def molecular_dynamics(complex, protonated=True):
                     input_top_path=output_gppmd_tpr,
                     input_index_path=output_complex_ndx,
                     output_str_path=output_dry_gro, 
-                    properties=prop)
-    #Before exiting, restore the environment variable OMP_NUM_THREADS
-    #if omp_num_threads_backup is not None:
-    #    os.environ['OMP_NUM_THREADS'] = omp_num_threads_backup    
+                    properties=prop) 
     
     os.chdir(current_working_directory)
     # Reset standard output and standard error back to default
