@@ -619,8 +619,8 @@ def molecular_dynamics(complex, protonated=True):
         output_edr_path=output_min_edr, 
         output_log_path=output_min_log,
         use_gpu=usegpu,
-        num_threads_omp=nprocs,
-        num_threads_mpi=mpithreads,
+        #num_threads_omp=nprocs,
+        #num_threads_mpi=mpithreads,
         gpu_id=gpuid)
 
 
