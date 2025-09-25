@@ -1,0 +1,173 @@
+# filepath: /home/daneel/gitrepos/gromacs_sims/.config/gromacs_2024.5-GPU.def
+Bootstrap: library
+From: ubuntu:22.04
+Stage: build
+
+%labels
+    APPLICATION GROMACS_2024.5-GPU
+    AUTHOR Analabha Roy
+    EMAIL daneel@utexas.edu
+    YEAR 2025
+
+%help
+    GROMACS 2024.5 (GPU, conda build, incl amber99sb-ildn, charmm36 and martini3 ff) + ambertools + biobb + analysis stack.
+    Launch Jupyter:
+        singularity run --nv -B $PWD:/host_pwd --pwd /host_pwd <image>.sif
+    Plain shell:
+        singularity run --nv <image>.sif
+    GROMACS:
+        singularity run --nv <image>.sif gmx mdrun -s topol.tpr
+    Run a command or script:
+        singularity run --nv <image>.sif my_script.sh arg1 arg2
+
+%environment
+    TZ=UTC
+    DEBIAN_FRONTEND=noninteractive
+    MPLCONFIGDIR=$HOME/.matplotlib
+    export TZ DEBIAN_FRONTEND MPLCONFIGDIR
+    export PATH=/usr/local/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    
+%runscript
+    #!/bin/bash
+    export MPLCONFIGDIR=$HOME/.matplotlib
+    if [ "$1" = "gmx" ]; then
+        shift
+        exec gmx "$@"
+    elif [ "$1" = "jupyter" ]; then
+        echo "Starting Notebook server on $HOSTNAME. Access via port 8888."
+        shift
+        jupyter lab --LabApp.extension_manager=readonly \
+            --ip=0.0.0.0 --port=8888 --no-browser --allow-root \
+            --NotebookApp.token='' --NotebookApp.password='' \
+            --ServerApp.token='' --ServerApp.password='' \
+            "$@"
+    else
+        /bin/bash "$@"
+    fi
+
+%post
+        set -eux
+        export DEBIAN_FRONTEND=noninteractive
+        # Make CUDA version visible to solver before any mamba install
+        export CONDA_OVERRIDE_CUDA=11.8
+        apt-get update
+        apt-get install -y --no-install-recommends \
+                build-essential wget ca-certificates git dos2unix zsh \
+                dvipng texlive-latex-extra texlive-fonts-recommended cm-super \
+                libxrender1 libxext6 libsm6 libice6
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
+
+        # Miniforge (conda) install
+        cd /tmp
+        wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+        bash Miniforge3-Linux-x86_64.sh -b -f -p /usr/local
+        rm Miniforge3-Linux-x86_64.sh
+        export PATH=/usr/local/bin:$PATH
+        export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+        # Channels & solver
+        conda config --system --add channels defaults
+        conda config --system --add channels conda-forge
+        conda config --system --add channels bioconda
+        conda config --file /.condarc --add channels salilab
+        conda config --system --set channel_priority flexible
+        conda install -y mamba
+
+        # Core scientific + MD + viz stack (GPU build of gromacs via cudatoolkit)
+        # Leaving build string free so solver picks correct cuda variant.
+        mamba install -y \
+                cudatoolkit=11.8 \
+                numpy \
+                rdkit \
+                tqdm \
+                mpi4py \
+                scienceplots \
+                ipympl \
+                dssp \
+                python=3.12 \
+                gromacs==2024.5=nompi_cuda_h5cb645a_0 \
+                ambertools \
+                acpype \
+                openbabel \
+                mdanalysis \
+                mdtraj \
+                nglview \
+                parmed \
+                biopython \
+                numpy scipy pandas \
+                seaborn plotly \
+                jupyter jupyterlab ipyparallel nbconvert \
+                jupyterlab-spellchecker \
+                jupyterlab_execute_time \
+                jupyterlab-git \
+                jupyterlab-lsp \
+                jupyterlab-system-monitor \
+                jupyterlab-topbar jupyterlab-topbar-text \
+                matplotlib-base \
+                pdb2pqr \
+                h5py \
+                networkx \
+                setuptools pip \
+                tabulate \
+                simpletraj
+                
+
+        # Extra tools (some already provided inside ambertools; duplicates tolerated)
+        pip install --no-cache-dir \
+                amberutils \
+                gromacs_py \
+                edgembar \
+                importmonkey \
+                mmpbsa-py \
+                pdb4amber \
+                pymsmt \
+                pytraj \
+                sander \
+                jupyterlab-code-formatter \
+                biobb-common biobb-chemistry biobb-io biobb-model \
+                biobb-structure-checking biobb-structure-utils biobb-analysis biobb-gromacs
+
+        # Enable nglview extension (JupyterLab 4 auto-detects, kept for safety)
+        jupyter-nbextension enable nglview --py --sys-prefix || true
+
+        # CHARMM36 update (replace old charmm36-jul2017.ff if present in gromacs template)
+        wget -q "https://mackerell.umaryland.edu/download.php?filename=CHARMM_ff_params_files/charmm36-jul2022.ff.tgz" -O /tmp/charmm36.tgz
+        
+
+        tar -xzf /tmp/charmm36.tgz -C /tmp
+        # Also place a clean copy in share/top for GMXLIB usage
+        mkdir -p /usr/local/share/gromacs/top
+        cp -r /tmp/charmm36-jul2022.ff /usr/local/share/gromacs/top/
+        rm -rf /tmp/charmm36* 
+        # Get the cgenff script for generating parameters for small molecules
+        wget https://raw.githubusercontent.com/Lemkul-Lab/cgenff_charmm2gmx/refs/heads/main/cgenff_charmm2gmx.py -O /usr/local/bin/cgenff_charmm2gmx.py
+        chmod +x /usr/local/bin/cgenff_charmm2gmx.py
+
+        # Download Martini 3 force field repository and install forcefield files for GROMACS
+        git clone --depth 1 https://github.com/marrink-lab/martini-forcefields /tmp/martini3 || true
+
+        # Create destination in conda GROMACS top directory and copy force field files
+        mkdir -p /usr/local/share/gromacs/top/martini3.ff
+        # try common locations inside the repo (be permissive)
+        if [ -d /tmp/martini3/martini_forcefields ]; then
+                cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files/* /usr/local/share/gromacs/top/martini3.ff/
+                cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files_contributed/* /usr/local/share/gromacs/top/martini3.ff/
+        else
+                cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files/* /usr/local/share/gromacs/top/martini3.ff/ || true
+                cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files_contributed/* /usr/local/share/gromacs/top/martini3.ff/ || true
+        fi
+
+        # Install martinize2 vermouth cgbuilder and insane for coarse graining (prefer conda, fallback to pip)
+        if ! mamba install -y cgbuilder insane vermouth; then
+                pip install --no-cache-dir cgbuilder insane vermouth || true
+        fi
+        # Cleanup temporary clones
+        rm -rf /tmp/martini3 
+
+        # Clean
+        mamba clean -afy
+        find /usr/local -name "__pycache__" -type d -exec rm -rf {} +
+        mkdir -p /root/.jupyter
+
+        echo "DONE: GROMACS 2024.5 GPU + bio stack."
