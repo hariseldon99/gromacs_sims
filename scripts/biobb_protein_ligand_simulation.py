@@ -145,7 +145,6 @@ def molecular_dynamics(complex, protonated=True):
         ["Ligand Charge", complex['ligand_charge']],
         ["Output Directory", complex['outdir']],
         ["Number of Processors", complex['nprocs']],
-        ["MPI Threads", complex['mpithreads']],
         ["Use GPU", complex['usegpu']],
         ["GPU ID", complex['gpuid']],
         ["Energy Minimization Steps", complex['em_steps']],
@@ -178,7 +177,6 @@ def molecular_dynamics(complex, protonated=True):
 
     usegpu = complex['usegpu']
     nprocs = complex['nprocs']
-    mpithreads = complex['mpithreads']
     gpuid = complex['gpuid']
 
     # Ensure all outputs are directed to the specified 'outdir'
@@ -619,8 +617,8 @@ def molecular_dynamics(complex, protonated=True):
         output_edr_path=output_min_edr, 
         output_log_path=output_min_log,
         use_gpu=usegpu,
-        #num_threads_omp=nprocs,
-        #num_threads_mpi=mpithreads,
+        num_threads_omp=nprocs,
+        num_threads_mpi=1,
         gpu_id=gpuid)
 
 
@@ -720,8 +718,8 @@ def molecular_dynamics(complex, protonated=True):
         output_log_path=output_nvt_log,
         output_cpt_path=output_nvt_cpt,
         use_gpu=usegpu,
-        #num_threads_omp=nprocs,
-        #num_threads_mpi=mpithreads,
+        num_threads_omp=nprocs,
+        num_threads_mpi=1,
         gpu_id=gpuid)
 
     # <a id="eqNVTStep4"></a>
@@ -804,8 +802,8 @@ def molecular_dynamics(complex, protonated=True):
         output_log_path=output_npt_log,
         output_cpt_path=output_npt_cpt,
         use_gpu=usegpu,
-        #num_threads_omp=nprocs,
-        #num_threads_mpi=mpithreads,
+        num_threads_omp=nprocs,
+        num_threads_mpi=1,
         gpu_id=gpuid)
 
 
@@ -887,8 +885,8 @@ def molecular_dynamics(complex, protonated=True):
         output_log_path=output_md_log,
         output_cpt_path=output_md_cpt,
         use_gpu=usegpu,
-        #num_threads_omp=nprocs,
-        #num_threads_mpi=mpithreads,
+        num_threads_omp=nprocs,
+        num_threads_mpi=1,
         gpu_id=gpuid)
 
     # <a id="post"></a>
@@ -995,7 +993,6 @@ if __name__ == '__main__':
     parser.add_argument("--ligand_charge", type=int, default=0, help="Ligand charge (default: 0)")
     parser.add_argument("--outdir", type=str, default="./outputs", help="Output directory (default: ./outputs)")
     parser.add_argument("--nprocs", type=int, default=int(os.environ.get('PBS_NCPUS', '12')), help="Number of processors (default: environment variable PBS_NCPUS or 12)")
-    parser.add_argument("--mpithreads", type=int, default=int(os.environ.get('PBS_MPITHREADS', '1')), help="Number of MPI threads (default: environment variable PBS_MPITHREADS or 1)")
     parser.add_argument("--usegpu", action='store_true', help="Use GPU for simulation (default: False)")
     parser.add_argument("--gpuid", type=str, default="0", help="GPU ID to use (default: '0')")
     parser.add_argument("--protonated", action='store_true', help="Set this option if the complex is protonated (default: False)")
@@ -1012,7 +1009,6 @@ if __name__ == '__main__':
         'ligand_charge': args.ligand_charge,
         'outdir': args.outdir,
         'nprocs': args.nprocs,
-        'mpithreads': args.mpithreads,
         'usegpu': args.usegpu,
         'gpuid': args.gpuid,
         'em_steps': args.em_steps,
