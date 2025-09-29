@@ -31,6 +31,8 @@ Stage: build
 %runscript
     #!/bin/bash
     export MPLCONFIGDIR=$HOME/.matplotlib
+    jupyter labextension list 2>&1 | tee $HOME/.jupyter/extension_check.log
+    grep "not compatible" $HOME/.jupyter/extension_check.log && echo "Extension conflicts detected"
     if [ "$1" = "gmx" ]; then
         shift
         exec gmx "$@"
@@ -92,18 +94,19 @@ Stage: build
                 openbabel \
                 mdanalysis \
                 mdtraj \
-                nglview \
+                nglview=3.* \
                 parmed \
                 biopython \
                 numpy scipy pandas \
                 seaborn plotly \
-                jupyter jupyterlab ipyparallel nbconvert \
+                jupyter\
+                jupyterlab=4.3.*\
+                jupyter_server=2.14.*\
+                notebook-shim=0.2.*\
+                nbconvert \
                 jupyterlab-spellchecker \
-                jupyterlab_execute_time \
                 jupyterlab-git \
                 jupyterlab-lsp \
-                jupyterlab-system-monitor \
-                jupyterlab-topbar jupyterlab-topbar-text \
                 matplotlib-base \
                 pdb2pqr \
                 h5py \
@@ -111,19 +114,13 @@ Stage: build
                 setuptools pip \
                 tabulate \
                 simpletraj
-                
-
         # Extra tools (some already provided inside ambertools; duplicates tolerated)
         pip install --no-cache-dir \
                 amberutils \
                 gromacs_py \
-                edgembar \
                 importmonkey \
-                mmpbsa-py \
-                pdb4amber \
-                pymsmt \
-                pytraj \
-                sander \
+                ipyparallel \
+                jupyterlab-execute-time \
                 jupyterlab-code-formatter \
                 biobb-common biobb-chemistry biobb-io biobb-model \
                 biobb-structure-checking biobb-structure-utils biobb-analysis biobb-gromacs
@@ -133,7 +130,6 @@ Stage: build
 
         # CHARMM36 update (replace old charmm36-jul2017.ff if present in gromacs template)
         wget -q "https://mackerell.umaryland.edu/download.php?filename=CHARMM_ff_params_files/charmm36-jul2022.ff.tgz" -O /tmp/charmm36.tgz
-        
 
         tar -xzf /tmp/charmm36.tgz -C /tmp
         # Also place a clean copy in share/top for GMXLIB usage
