@@ -15,7 +15,6 @@ import os
 import subprocess
 from typing import Optional
 from biobb_common.tools import file_utils as fu
-from biobb_common.tools.file_utils import launchlogger
 from biobb_gromacs.gromacs.mdrun import Mdrun as _BiobbMdrun
 
 class MdrunOMPEnv(_BiobbMdrun):
@@ -134,12 +133,15 @@ class MdrunOMPEnv(_BiobbMdrun):
         return self.return_code
 
 
-@launchlogger
 def mdrun_env(input_tpr_path: str, output_gro_path: str, output_edr_path: str,
               output_log_path: str, output_trr_path: Optional[str] = None, input_cpt_path: Optional[str] = None,
               output_xtc_path: Optional[str] = None, output_cpt_path: Optional[str] = None,
               output_dhdl_path: Optional[str] = None, properties: Optional[dict] = None, **kwargs) -> int:
     """Function-style wrapper matching biobb.mdrun signature, using MdrunOMPEnv."""
+    # Ensure a dict so we can pass/update log paths if needed
+    if properties is None:
+        properties = {}
+    # Let BiobbObject manage logs (uses properties['out_log']/['err_log'] if provided)
     return MdrunOMPEnv(input_tpr_path=input_tpr_path, output_trr_path=output_trr_path,
                        output_gro_path=output_gro_path, output_edr_path=output_edr_path,
                        output_log_path=output_log_path, input_cpt_path=input_cpt_path,
