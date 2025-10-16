@@ -18,7 +18,10 @@ from biobb_common.tools import file_utils as fu
 from biobb_gromacs.gromacs.mdrun import Mdrun as _BiobbMdrun
 
 class MdrunOMPEnv(_BiobbMdrun):
-    """Subclass of biobb Mdrun that runs gmx mdrun via subprocess with a scoped OMP_NUM_THREADS."""
+    # Important: biobb_common expects a docstring with "Args"/"Properties".
+    # Use the parent class docstring to satisfy its parser and avoid StopIteration.
+    __doc__ = _BiobbMdrun.__doc__
+    # Note: this subclass launches gmx via subprocess and scopes OMP_NUM_THREADS to the child.
     def launch(self) -> int:
         # Honour Biobb restart/skip semantics
         if self.check_restart():
@@ -66,7 +69,8 @@ class MdrunOMPEnv(_BiobbMdrun):
         mpi_ranks = None
         if getattr(self, 'num_threads_mpi', None):
             mpi_ranks = int(self.num_threads_mpi)
-        if getattr(self, 'use_gpu', False):
+        # Default ntmpi=1 when GPU or -ntomp used and user didn’t set ntmpi
+        if getattr(self, 'use_gpu', False) or getattr(self, 'num_threads_omp', None):
             mpi_ranks = max(1, mpi_ranks or 1)
         if mpi_ranks:
             fu.log(f'User added number of gmx mpi threads: {mpi_ranks}', self.out_log)
@@ -101,6 +105,7 @@ class MdrunOMPEnv(_BiobbMdrun):
             env['OMP_NUM_THREADS'] = str(ntomp)
         else:
             env.pop('OMP_NUM_THREADS', None)
+        fu.log(f'Eff. env: OMP_NUM_THREADS={env.get("OMP_NUM_THREADS", "unset")}', self.out_log)
         for k, v in getattr(self, 'env_vars_dict', {}).items():
             env[str(k)] = str(v)
 
@@ -108,7 +113,7 @@ class MdrunOMPEnv(_BiobbMdrun):
         fu.log('Running (subprocess): ' + ' '.join(self.cmd), self.out_log)
         workdir = self.stage_io_dict.get("unique_dir") or os.getcwd()
         proc = subprocess.run(self.cmd, cwd=workdir, env=env, text=True,
-                              stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
         # Stream output into Biobb logs
         if proc.stdout:
@@ -134,8 +139,8 @@ class MdrunOMPEnv(_BiobbMdrun):
 
 
 def mdrun_env(input_tpr_path: str, output_gro_path: str, output_edr_path: str,
-              output_log_path: str, output_trr_path: Optional[str] = None, input_cpt_path: Optional[str] = None,
-              output_xtc_path: Optional[str] = None, output_cpt_path: Optional[str] = None,
+            output_log_path: str, output_trr_path: Optional[str] = None, input_cpt_path: Optional[str] = None,
+            output_xtc_path: Optional[str] = None, output_cpt_path: Optional[str] = None,
               output_dhdl_path: Optional[str] = None, properties: Optional[dict] = None, **kwargs) -> int:
     """Function-style wrapper matching biobb.mdrun signature, using MdrunOMPEnv."""
     # Ensure a dict so we can pass/update log paths if needed
@@ -143,7 +148,7 @@ def mdrun_env(input_tpr_path: str, output_gro_path: str, output_edr_path: str,
         properties = {}
     # Let BiobbObject manage logs (uses properties['out_log']/['err_log'] if provided)
     return MdrunOMPEnv(input_tpr_path=input_tpr_path, output_trr_path=output_trr_path,
-                       output_gro_path=output_gro_path, output_edr_path=output_edr_path,
-                       output_log_path=output_log_path, input_cpt_path=input_cpt_path,
-                       output_xtc_path=output_xtc_path, output_cpt_path=output_cpt_path,
-                       output_dhdl_path=output_dhdl_path, properties=properties, **kwargs).launch()
+                    output_gro_path=output_gro_path, output_edr_path=output_edr_path,
+                    output_log_path=output_log_path, input_cpt_path=input_cpt_path,
+                    output_xtc_path=output_xtc_path, output_cpt_path=output_cpt_path,
+                    output_dhdl_path=output_dhdl_path, properties=properties, **kwargs).launch()
