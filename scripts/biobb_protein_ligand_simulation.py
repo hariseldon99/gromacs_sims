@@ -64,6 +64,10 @@ from biobb_gromacs.gromacs.solvate import solvate
 from biobb_gromacs.gromacs.grompp import grompp
 from biobb_gromacs.gromacs.genion import genion
 from biobb_gromacs.gromacs.mdrun import mdrun
+# Temporary workaround for Slurm resume + GROMACS 2024 GPU thread requirements:
+# Use subprocess-backed mdrun_env to scope OMP_NUM_THREADS per-run and pass -ntmpi/-ntomp explicitly.
+# TODO: Remove this import and revert to stock biobb mdrun calls once biobb_gromacs fixes this upstream.
+from gromacs_mdrun_env import mdrun_env
 
 from biobb_analysis.gromacs.gmx_energy import gmx_energy
 
@@ -460,8 +464,7 @@ def molecular_dynamics(complex, protonated=True):
     # <a id="box"></a>
     # ***
     # ## Create solvent box
-    # Define the unit cell for the **protein-ligand complex** to fill it with water molecules.<br>
-    # **Truncated octahedron** box is used for the unit cell. This box type is the one which best reflects the geometry of the solute/protein, in this case a **globular protein**, as it approximates a sphere. It is also convenient for the computational point of view, as it accumulates **less water molecules at the corners**, reducing the final number of water molecules in the system and making the simulation run faster.<br> A **protein to box** distance of **0.8 nm** is used, and the protein is **centered in the box**.  
+    # Define the unit cell for the **protein-ligand complex** to fill it with water molecules.<br> **Truncated octahedron** box is used for the unit cell. This box type is the one which best reflects the geometry of the solute/protein, in this case a **globular protein**, as it approximates a sphere. It is also convenient for the computational point of view, as it accumulates **less water molecules at the corners**, reducing the final number of water molecules in the system and making the simulation run faster.<br> A **protein to box** distance of **0.8 nm** is used, and the protein is **centered in the box**.  
     # 
     # ***
     # **Building Blocks** used:
@@ -711,7 +714,8 @@ def molecular_dynamics(complex, protonated=True):
     output_nvt_cpt = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_nvt.cpt'
 
     # Create and launch bb
-    mdrun(input_tpr_path=output_gppnvt_tpr,
+    # NOTE: Using mdrun_env (workaround). Revert to mdrun when upstream biobb handles OMP scoping/resume.
+    mdrun_env(input_tpr_path=output_gppnvt_tpr,
         output_trr_path=output_nvt_trr,
         output_gro_path=output_nvt_gro,
         output_edr_path=output_nvt_edr,
@@ -795,7 +799,8 @@ def molecular_dynamics(complex, protonated=True):
     output_npt_cpt = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_npt.cpt'
 
     # Create and launch bb
-    mdrun(input_tpr_path=output_gppnpt_tpr,
+    # NOTE: Using mdrun_env (workaround). Revert to mdrun when upstream biobb handles OMP scoping/resume.
+    mdrun_env(input_tpr_path=output_gppnpt_tpr,
         output_trr_path=output_npt_trr,
         output_gro_path=output_npt_gro,
         output_edr_path=output_npt_edr,
@@ -877,7 +882,7 @@ def molecular_dynamics(complex, protonated=True):
     output_md_xtc = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_md.xtc'
 
     # Create and launch bb
-    mdrun(input_tpr_path=output_gppmd_tpr,
+    mdrun_env(input_tpr_path=output_gppmd_tpr,
         output_trr_path=output_md_trr,
         output_xtc_path=output_md_xtc,
         output_gro_path=output_md_gro,
