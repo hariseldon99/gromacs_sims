@@ -12,16 +12,15 @@
 #   correctly with GROMACS 2024+, so the stock mdrun works reliably again.
 
 import os
+import shlex
 import subprocess
 from typing import Optional
 from biobb_common.tools import file_utils as fu
 from biobb_gromacs.gromacs.mdrun import Mdrun as _BiobbMdrun
 
 class MdrunOMPEnv(_BiobbMdrun):
-    # Important: biobb_common expects a docstring with "Args"/"Properties".
-    # Use the parent class docstring to satisfy its parser and avoid StopIteration.
+    # Keep parent docstring so biobb_common's parser doesn't fail
     __doc__ = _BiobbMdrun.__doc__
-    # Note: this subclass launches gmx via subprocess and scopes OMP_NUM_THREADS to the child.
     def launch(self) -> int:
         # Honour Biobb restart/skip semantics
         if self.check_restart():
@@ -36,7 +35,10 @@ class MdrunOMPEnv(_BiobbMdrun):
         self.stage_files()
 
         # Build base command
-        self.cmd = [self.binary_path, 'mdrun',
+        # biobb sets binary_path to a string like "gmx -nobackup -nocopyright"
+        # Split it so subprocess sees the executable and its flags separately.
+        gmx_bin = shlex.split(self.binary_path or 'gmx')
+        self.cmd = gmx_bin + ['mdrun',
                     '-s', self.stage_io_dict["in"]["input_tpr_path"],
                     '-c', self.stage_io_dict["out"]["output_gro_path"],
                     '-e', self.stage_io_dict["out"]["output_edr_path"],
@@ -57,7 +59,7 @@ class MdrunOMPEnv(_BiobbMdrun):
 
         # MPI launcher passthrough (rare with thread-MPI, but keep parity)
         if self.mpi_bin:
-            mpi_cmd = [self.mpi_bin]
+            mpi_cmd = shlex.split(self.mpi_bin)
             if self.mpi_np:
                 mpi_cmd += ['-n', str(self.mpi_np)]
             if self.mpi_flags:
@@ -110,7 +112,11 @@ class MdrunOMPEnv(_BiobbMdrun):
             env[str(k)] = str(v)
 
         # Log command and run inside sandbox
-        fu.log('Running (subprocess): ' + ' '.join(self.cmd), self.out_log)
+        try:
+            cmd_str = shlex.join(self.cmd)
+        except AttributeError:
+            cmd_str = ' '.join(self.cmd)
+        fu.log('Running (subprocess): ' + cmd_str, self.out_log)
         workdir = self.stage_io_dict.get("unique_dir") or os.getcwd()
         proc = subprocess.run(self.cmd, cwd=workdir, env=env, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
