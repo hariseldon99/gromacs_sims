@@ -614,10 +614,10 @@ def molecular_dynamics(complex, protonated=True):
     output_min_log = proteinFile.removesuffix('.pdb')+'_'+ligandCode+'_min.log'
 
     # Create and launch bb
-    mdrun(input_tpr_path=output_gppmin_tpr,
-        output_trr_path=output_min_trr, 
+    mdrun_env(input_tpr_path=output_gppmin_tpr,
+        output_trr_path=output_min_trr,
         output_gro_path=output_min_gro,
-        output_edr_path=output_min_edr, 
+        output_edr_path=output_min_edr,
         output_log_path=output_min_log,
         use_gpu=usegpu,
         num_threads_omp=nprocs,

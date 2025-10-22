@@ -14,6 +14,7 @@
 import os
 import shlex
 import subprocess
+import re
 from typing import Optional
 from biobb_common.tools import file_utils as fu
 from biobb_gromacs.gromacs.mdrun import Mdrun as _BiobbMdrun
@@ -57,14 +58,15 @@ class MdrunOMPEnv(_BiobbMdrun):
         if self.stage_io_dict["out"].get("output_dhdl_path"):
             self.cmd += ['-dhdl', self.stage_io_dict["out"]["output_dhdl_path"]]
 
-        # MPI launcher passthrough (rare with thread-MPI, but keep parity)
-        if self.mpi_bin:
-            mpi_cmd = shlex.split(self.mpi_bin)
-            if self.mpi_np:
-                mpi_cmd += ['-n', str(self.mpi_np)]
-            if self.mpi_flags:
-                mpi_cmd.extend(self.mpi_flags)
-            self.cmd = mpi_cmd + self.cmd
+        # Disable any external MPI launcher usage (mpirun/srun). We run a single
+        # OS process and control parallelism via -ntomp/-ntmpi only.
+        for attr in ('mpi_bin', 'mpi_np', 'mpi_flags', 'force_mpi_launcher'):
+            if hasattr(self, attr) and getattr(self, attr):
+                fu.log(f'Ignoring property {attr} (MPI launcher disabled in mdrun_env)', self.out_log)
+                try:
+                    setattr(self, attr, None)
+                except Exception:
+                    pass
 
         # Threading: prefer explicit -ntmpi/-ntomp; avoid -nt (total) to prevent conflicts
         # -ntmpi: enforce >=1 when GPU is used (GROMACS 2024+ requirement)
@@ -96,6 +98,22 @@ class MdrunOMPEnv(_BiobbMdrun):
             fu.log(f'List of GPU device IDs mapping PP tasks to devices: {self.gpu_tasks}', self.out_log)
             self.cmd += ['-gputasks', str(self.gpu_tasks)]
 
+        # Explicitly state we do not use external MPI launchers
+        fu.log('MPI launcher disabled: running single-process gmx with -ntmpi/-ntomp', self.out_log)
+
+        # Preflight: detect GPU support and visibility inside container
+        gpu_visible = any(os.path.exists(p) for p in ('/dev/nvidia0', '/dev/dri/renderD128')) or \
+                    any(os.environ.get(k) for k in ('NVIDIA_VISIBLE_DEVICES', 'CUDA_VISIBLE_DEVICES', 'ROCR_VISIBLE_DEVICES'))
+        gmx_gpu_support = None
+        try:
+            ver = subprocess.run(gmx_bin + ['--version'], text=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            m = re.search(r'GPU (?:support|acceleration)\s*:\s*(.+)', ver.stdout, re.IGNORECASE)
+            if m:
+                gmx_gpu_support = m.group(1).strip()
+            fu.log(f'GROMACS GPU capability: {gmx_gpu_support or "unknown"}; GPU visible: {gpu_visible}', self.out_log)
+        except Exception as e:
+            fu.log(f'Warning: could not probe gmx --version ({e})', self.err_log)
+
         # Extra GMX env
         if getattr(self, 'gmx_lib', None):
             self.env_vars_dict['GMXLIB'] = self.gmx_lib
@@ -125,6 +143,19 @@ class MdrunOMPEnv(_BiobbMdrun):
         if proc.stdout:
             for line in proc.stdout.splitlines():
                 fu.log(line, self.out_log)
+        # Post-run: detect if GPU was actually used
+        used_gpu = False
+        try:
+            for line in (proc.stdout or '').splitlines():
+                if re.search(r'\bGPU\b', line) and re.search(r'Using|CUDA|SYCL|OpenCL', line, re.IGNORECASE):
+                    used_gpu = True
+                    break
+        except Exception:
+            pass
+        if getattr(self, 'use_gpu', False) and not used_gpu:
+            hint = 'Run Singularity with --nv/--rocm so GPUs are visible' if not gpu_visible else \
+                ('Your gmx may be CPU-only' if (gmx_gpu_support and gmx_gpu_support.lower().startswith('none')) else 'Check -nb/-pme flags and gpu_id')
+            fu.log(f'Warning: GPU requested but not detected in mdrun output. Hint: {hint}', self.err_log)
 
         self.return_code = proc.returncode
         if self.return_code != 0:
