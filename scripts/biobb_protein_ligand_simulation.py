@@ -81,6 +81,7 @@ from tabulate import tabulate
 import time
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from openbabel import openbabel as ob
 
 
 
@@ -293,23 +294,29 @@ def molecular_dynamics(complex, protonated=True):
     if protonated:
         output_reduce_h = ligandFile
     else:
-        # Prefer RDKit AddHs first (deterministic, avoids odd-electron artifacts).
-        # If RDKit fails, fall back to AmberTools reduce_add_hydrogens.
         try:
-            mol = Chem.MolFromPDBFile(ligandFile, removeHs=False, sanitize=False)
-            if mol is None:
-                raise ValueError("RDKit could not parse ligand PDB")
-            mol_h = Chem.AddHs(mol, addCoords=True)
-            # Write PDB via RDKit then force the residue name for all atom lines
-            pdb_block = Chem.MolToPDBBlock(mol_h)
+            # Use OpenBabel OBConversion API to add hydrogens and produce a PDB string.
+            obconv = ob.OBConversion()
+            obconv.SetInAndOutFormats("pdb", "pdb")
+            mol_ob = ob.OBMol()
+            if not obconv.ReadFile(mol_ob, ligandFile):
+                raise RuntimeError("OpenBabel could not read ligand PDB")
+            # Add hydrogens (keeps coordinates when present)
+            mol_ob.AddHydrogens()
+            # Attempt to perceive bond orders/assign coordinates if needed (best-effort)
+            try:
+                mol_ob.PerceiveBondOrders()
+            except Exception:
+                pass
+            pdb_block = obconv.WriteString(mol_ob)
             if not pdb_block:
-                raise ValueError("RDKit produced empty PDB block")
+                raise RuntimeError("OpenBabel produced empty PDB output")
+
+            # Force residue name to ligand code (first 3 chars, upper) for all ATOM/HETATM lines
             resname = ligandCode[:3].upper()
             out_lines = []
             for ln in pdb_block.splitlines():
                 if ln.startswith(("ATOM  ", "HETATM")):
-                    # replace residue name in columns 18-20 (0-based slice 17:20)
-                    # preserve line length and trailing columns
                     prefix = ln[:17] if len(ln) >= 17 else ln.ljust(17)
                     suffix = ln[20:] if len(ln) > 20 else ""
                     new_ln = prefix + ("{:<3}".format(resname)) + suffix
@@ -318,9 +325,9 @@ def molecular_dynamics(complex, protonated=True):
                     out_lines.append(ln)
             with open(output_reduce_h, "w", encoding="utf-8") as fh:
                 fh.write("\n".join(out_lines) + "\n")
-            print("Ligand protonated with RDKit AddHs (resname forced):", output_reduce_h)
-        except Exception as rdkit_exc:
-            print("RDKit AddHs failed:", rdkit_exc)
+            print("Ligand protonated with OpenBabel AddH (resname forced):", output_reduce_h)
+        except Exception as ob_exc:
+            print("OpenBabel AddH failed:", ob_exc)
             print("Falling back to reduce_add_hydrogens (AmberTools).")
             try:
                 reduce_add_hydrogens(input_path=ligandFile,
@@ -328,9 +335,8 @@ def molecular_dynamics(complex, protonated=True):
                                     properties=prop)
                 print("Ligand protonated with reduce_add_hydrogens:", output_reduce_h)
             except Exception as reduce_exc:
-                # If both methods fail, raise informative error
-                raise RuntimeError("Failed to add hydrogens with RDKit and reduce_add_hydrogens: "
-                                f"RDKit error: {rdkit_exc}; Reduce error: {reduce_exc}")
+                raise RuntimeError("Failed to add hydrogens with OpenBabel and reduce_add_hydrogens: "
+                                f"OpenBabel error: {ob_exc}; Reduce error: {reduce_exc}")
     
     # ### Step 2: **Energetically minimize the system** with the new hydrogen atoms. 
 
