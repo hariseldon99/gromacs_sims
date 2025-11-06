@@ -229,12 +229,9 @@ def molecular_dynamics(complex, protonated=True):
     # **Extra Step** The protein needs to be deprotonated for this to work.
     # 
 
-    # Deprotonate the fixed PDB file, but only if it is already protonated.
+    # Always deprotonate the fixed PDB file
     deprotonated_pdb = fixed_pdb.removesuffix('.pdb')+'_deprotonated.pdb'
-    if protonated:
-        deprotonate_pdb(fixed_pdb, deprotonated_pdb)
-    else:
-        deprotonated_pdb = fixed_pdb    
+    deprotonate_pdb(fixed_pdb, deprotonated_pdb)
 
     # **Building GROMACS topology** corresponding to the protein structure.<br>
     # Force field used in this tutorial is [**amber99sb-ildn**](https://dx.doi.org/10.1002%2Fprot.22711): AMBER **parm99** force field with **corrections on backbone** (sb) and **side-chain torsion potentials** (ildn). Water molecules type used in this tutorial is [**spc/e**](https://pubs.acs.org/doi/abs/10.1021/j100308a038).<br>
