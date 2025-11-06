@@ -79,6 +79,8 @@ from biobb_analysis.gromacs.gmx_trjconv_str import gmx_trjconv_str
 import shutil
 from tabulate import tabulate
 import time
+from rdkit import Chem
+from rdkit.Chem import AllChem
 
 
 
@@ -284,15 +286,34 @@ def molecular_dynamics(complex, protonated=True):
     prop = {
     'nuclear' : 'true'
 }   
+    # Note: reduce_add_hydrogens() (AmberTools) has been observed to produce
+    # molecules with odd electron counts that break downstream tools (e.g. acpype).
+    # Handle its failures or prefer alternative H-addition methods when possible.
     #If ligand is protonated, then do nothing
     if protonated:
         output_reduce_h = ligandFile
     else:
-        # Create and launch bb
-        reduce_add_hydrogens(input_path=ligandFile,
-            output_path=output_reduce_h,
-            properties=prop)
-        
+        # Prefer RDKit AddHs first (deterministic, avoids odd-electron artifacts).
+        # If RDKit fails, fall back to AmberTools reduce_add_hydrogens.
+        try:
+            mol = Chem.MolFromPDBFile(ligandFile, removeHs=False, sanitize=False)
+            if mol is None:
+                raise ValueError("RDKit could not parse ligand PDB")
+            mol_h = Chem.AddHs(mol, addCoords=True)
+            Chem.MolToPDBFile(mol_h, output_reduce_h)
+            print("Ligand protonated with RDKit AddHs:", output_reduce_h)
+        except Exception as rdkit_exc:
+            print("RDKit AddHs failed:", rdkit_exc)
+            print("Falling back to reduce_add_hydrogens (AmberTools).")
+            try:
+                reduce_add_hydrogens(input_path=ligandFile,
+                                    output_path=output_reduce_h,
+                                    properties=prop)
+                print("Ligand protonated with reduce_add_hydrogens:", output_reduce_h)
+            except Exception as reduce_exc:
+                # If both methods fail, raise informative error
+                raise RuntimeError("Failed to add hydrogens with RDKit and reduce_add_hydrogens: "
+                                f"RDKit error: {rdkit_exc}; Reduce error: {reduce_exc}")
     
     # ### Step 2: **Energetically minimize the system** with the new hydrogen atoms. 
 
