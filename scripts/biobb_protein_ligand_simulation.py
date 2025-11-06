@@ -300,8 +300,25 @@ def molecular_dynamics(complex, protonated=True):
             if mol is None:
                 raise ValueError("RDKit could not parse ligand PDB")
             mol_h = Chem.AddHs(mol, addCoords=True)
-            Chem.MolToPDBFile(mol_h, output_reduce_h)
-            print("Ligand protonated with RDKit AddHs:", output_reduce_h)
+            # Write PDB via RDKit then force the residue name for all atom lines
+            pdb_block = Chem.MolToPDBBlock(mol_h)
+            if not pdb_block:
+                raise ValueError("RDKit produced empty PDB block")
+            resname = ligandCode[:3].upper()
+            out_lines = []
+            for ln in pdb_block.splitlines():
+                if ln.startswith(("ATOM  ", "HETATM")):
+                    # replace residue name in columns 18-20 (0-based slice 17:20)
+                    # preserve line length and trailing columns
+                    prefix = ln[:17] if len(ln) >= 17 else ln.ljust(17)
+                    suffix = ln[20:] if len(ln) > 20 else ""
+                    new_ln = prefix + ("{:<3}".format(resname)) + suffix
+                    out_lines.append(new_ln)
+                else:
+                    out_lines.append(ln)
+            with open(output_reduce_h, "w", encoding="utf-8") as fh:
+                fh.write("\n".join(out_lines) + "\n")
+            print("Ligand protonated with RDKit AddHs (resname forced):", output_reduce_h)
         except Exception as rdkit_exc:
             print("RDKit AddHs failed:", rdkit_exc)
             print("Falling back to reduce_add_hydrogens (AmberTools).")
