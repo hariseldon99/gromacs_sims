@@ -1,0 +1,67 @@
+#!/bin/bash
+#----------------------------------------------------------
+# Job name
+#PBS -N parc_mdsim_res
+# queue select
+#PBS -q workq
+#PBS -l select=1:ncpus=32:mpiprocs=32:host=kuhpcgn1
+# Name of stdout output file (default)
+#PBS -o parc_mdsim_resumed.out 
+# stdout output file
+#PBS -j oe
+#PBS -l walltime=96:00:00 
+#----------------------------------------------------------
+
+# List of simulation directories
+
+
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
+
+#Start time
+start=`date +%s.%N`
+# Change to submission directory
+cd $PBS_O_WORKDIR
+#Load basic OHPC tools
+module load ohpc
+#Load cuda
+module load cuda
+
+# Define the directory with PDB files
+
+echo "NUM_CPUS= ${PBS_NCPUS}"
+export MD_DIR=/host_pwd/cipparc2014C/sandbox_5587ad7b-338f-4867-9d75-68c5182f5b6d
+export MD_NAME=prot_cipparc2014C_CIP
+export OMP_NUM_THREADS=${PBS_NCPUS}
+
+SIF_PATH="/home/arunima/images/gromacs_2024.5-GPU.sif"
+
+SINGULARITY() {
+  singularity exec --nv -B ~/.Xauthority -B "${PWD}:/host_pwd" --pwd /host_pwd "$SIF_PATH" "$@"
+}
+
+SINGULARITY bash -c  "gmx -nobackup -nocopyright mdrun -o ${MD_DIR}/${MD_NAME}_md.trr -s ${MD_DIR}/${MD_NAME}_gppmd.tpr -c ${MD_DIR}/${MD_NAME}_md.gro -e ${MD_DIR}/${MD_NAME}_md.edr -g ${MD_DIR}/${MD_NAME}_md.log -x ${MD_DIR}/${MD_NAME}_md.xtc -cpi ${MD_DIR}/${MD_NAME}_md.cpt -cpo ${MD_DIR}/${MD_NAME}_md.cpt"
+
+SINGULARITY bash -c 'echo "20 20"|gmx trjconv -f ${MD_DIR}/${MD_NAME}_md.xtc -s ${MD_DIR}/${MD_NAME}_gppmd.tpr -fit none -o ${MD_DIR}/${MD_NAME}_cluster_traj.xtc -n ${MD_DIR}/../${MD_NAME}_index.ndx -nocenter -pbc cluster -ur compact'
+SINGULARITY bash -c 'echo "20 20"|gmx trjconv -f ${MD_DIR}/${MD_NAME}_cluster_traj.xtc -s ${MD_DIR}/${MD_NAME}_gppmd.tpr -fit none -o ${MD_DIR}/${MD_NAME}_cluster_center_traj.xtc -n ${MD_DIR}/../${MD_NAME}_index.ndx -center -pbc none -ur compact'
+SINGULARITY bash -c 'echo "20 20"|gmx trjconv -f ${MD_DIR}/${MD_NAME}_cluster_center_traj.xtc -s ${MD_DIR}/${MD_NAME}_gppmd.tpr -dump 0 -o ${MD_DIR}/${MD_NAME}_md_start_dry.pdb -n ${MD_DIR}/../${MD_NAME}_index.ndx'
+
+#End time
+end=`date +%s.%N`
+
+RUNTIME=$( echo "$end - $start" | bc -l )
+
+echo '---------------------------------------------'
+echo "Runtime: "$RUNTIME" sec"
+echo '---------------------------------------------'
+
+# Define login node
+LOGIN_NODE="kuhpchn"
+
+# Define the ntfy.sh URL
+NTFY_URL="https://ntfy.sh/kuhpchn"
+
+# Define the message payload
+MESSAGE="Job '$PBS_JOBID' finished on kuhpchn in '$RUNTIME' secs. Check output @ '$PBS_O_WORKDIR'"
+
+# SSH into the login node and execute the curl command remotely
+sshpass -f $HOME/.password ssh "$LOGIN_NODE" "curl -X POST -d \"$MESSAGE\" \"$NTFY_URL\""

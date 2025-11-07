@@ -4,9 +4,7 @@
 #PBS -N md_prod
 # queue select
 #PBS -q workq
-#PBS -l nodes=kuhpcgn2
-#PBS -l ncpus=36
-#PBS -l mpiprocs=36
+#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn1
 # Name of stdout output file (default)
 #PBS -o mdsim_1.out 
 # stdout output file
@@ -14,32 +12,33 @@
 #PBS -l walltime=96:00:00 
 #----------------------------------------------------------
 
-# List of simulation directories
-
-CONDA_ENV_NAME="biobb_wf_protein-complex_md_setup"
-
+set -euo pipefail
+export PYTHONWARNINGS="ignore::SyntaxWarning"
 export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
-
 #Start time
 start=`date +%s.%N`
 # Change to submission directory
 cd $PBS_O_WORKDIR
 #Load basic OHPC tools
 module load ohpc
-#Load cuda
+#Load cuda and singularity
 module load cuda
-
+module load singularity
 export PYFILE=$HOME/gitrepos/gromacs_sims/scripts/biobb_protein_ligand_simulation.py
+SIF_FILE=$HOME/images/gromacs_2024.5-GPU.sif
+PDB_FILE=$HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/parc_simulation_complexes/levparc1999C.pdb
+LIGAND_CODE='LEV'
+BASENAME='levparc1999C'
+
+SINGULARITY() {
+  singularity exec --nv -B ~/.Xauthority -B "${PWD}:/host_pwd" --pwd /host_pwd "$SIF_FILE" "$@"
+}
+
 
 echo "Starting"
 echo '---------------------------------------------'
+SINGULARITY bash -c "${PYFILE} --input_structure ${PDB_FILE} --ligand_code ${LIGAND_CODE} --outdir ${BASENAME} --nprocs ${PBS_NCPUS} --usegpu --protonated"
 
-conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/aminostep2012C.pdb --ligand_code STM --outdir aminostep2012C --nprocs $PBS_NCPUS --usegpu --protonated
-conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/aminostep2016C.pdb --ligand_code STM --outdir aminostep2016C --nprocs $PBS_NCPUS --usegpu --protonated
-conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/aminotob2016C.pdb --ligand_code TOB --outdir aminotob2016C --nprocs $PBS_NCPUS --usegpu --protonated
-conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/levgyra2018C.pdb --ligand_code LEV --outdir levgyra2018C --nprocs $PBS_NCPUS --usegpu --protonated
-conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/ndxgyra1996C.pdb --ligand_code NDX --outdir ndxgyra1996C --nprocs $PBS_NCPUS --usegpu --protonated
-conda run -n $CONDA_ENV_NAME $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/ndxgyra2018C.pdb --ligand_code NDX --outdir ndxgyra2018C --nprocs $PBS_NCPUS --usegpu --protonated
 
 #End time
 end=`date +%s.%N`
@@ -50,3 +49,16 @@ RUNTIME=$( echo "$end - $start" | bc -l )
 echo '---------------------------------------------'
 echo "Runtime: "$RUNTIME" sec"
 echo '---------------------------------------------'
+
+# Define login node
+LOGIN_NODE="kuhpchn"
+
+# Define the ntfy.sh URL
+NTFY_URL="https://ntfy.sh/kuhpchn"
+
+# Define the message payload
+MESSAGE="Job '$PBS_JOBID' finished on kuhpchn in '$RUNTIME' secs. Check output @ '$PBS_O_WORKDIR'"
+
+# SSH into the login node and execute the curl command remotely
+sshpass -f $HOME/.password ssh "$LOGIN_NODE" "curl -X POST -d \"$MESSAGE\" \"$NTFY_URL\""
+

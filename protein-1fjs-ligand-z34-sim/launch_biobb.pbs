@@ -1,0 +1,41 @@
+#!/bin/bash
+#----------------------------------------------------------
+# Job name
+#PBS -N 1fjs-z34
+# queue select
+#PBS -q workq
+#PBS -l select=1:ncpus=12:mpiprocs=12:host=kuhpcgn2
+# Name of stdout output file (default)
+#PBS -o mdsim.out 
+# stdout output file
+#PBS -j oe
+#PBS -l walltime=96:00:00 
+#----------------------------------------------------------
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
+
+start=`date +%s.%N`
+# Change to submission directory
+cd $PBS_O_WORKDIR
+#Load basic OHPC tools
+module load ohpc
+#Load cuda
+module load cuda
+
+export PYFILE=$HOME/gitrepos/gromacs_sims/scripts/biobb_protein_ligand_simulation.py
+SIF_FILE="$HOME/images/gromacs_2024.5-GPU.sif"
+echo "Starting"
+echo '---------------------------------------------'
+
+
+# Run the biobb command with PBS_NCPUS
+singularity exec --nv -B ~/.Xauthority -B${PWD}:/host_pwd --pwd /host_pwd $SIF_FILE $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/aminostep2012C.pdb --ligand_code Z34 --outdir simulation_new --nprocs $PBS_NCPUS --usegpu --protonated
+
+#End time
+end=`date +%s.%N`
+
+echo "NUM_CPUS= ${PBS_NCPUS}"
+RUNTIME=$( echo "$end - $start" | bc -l )
+
+echo '---------------------------------------------'
+echo "Runtime: "$RUNTIME" sec"
+echo '---------------------------------------------'
