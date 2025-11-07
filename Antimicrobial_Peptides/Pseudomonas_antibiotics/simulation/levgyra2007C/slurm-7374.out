@@ -1,0 +1,142 @@
+Starting
+---------------------------------------------
+NUM_CPUS= 48
+                      :-) GROMACS - gmx mdrun, 2024.4 (-:
+
+Executable:   /usr/local/gromacs/bin/gmx
+Data prefix:  /usr/local/gromacs
+Working dir:  /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C
+Command line:
+  gmx -nobackup -nocopyright mdrun -o /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C/sandbox_162d528d-0f80-42cc-bd6f-6959d4419605/prot_levgyra2007C_LEV_md.trr -s /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C/sandbox_162d528d-0f80-42cc-bd6f-6959d4419605/prot_levgyra2007C_LEV_gppmd.tpr -c /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C/sandbox_162d528d-0f80-42cc-bd6f-6959d4419605/prot_levgyra2007C_LEV_md.gro -e /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C/sandbox_162d528d-0f80-42cc-bd6f-6959d4419605/prot_levgyra2007C_LEV_md.edr -g /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C/sandbox_162d528d-0f80-42cc-bd6f-6959d4419605/prot_levgyra2007C_LEV_md.log -x /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C/sandbox_162d528d-0f80-42cc-bd6f-6959d4419605/prot_levgyra2007C_LEV_md.xtc -cpi /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C/sandbox_162d528d-0f80-42cc-bd6f-6959d4419605/prot_levgyra2007C_LEV_md.cpt -cpo /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C/sandbox_162d528d-0f80-42cc-bd6f-6959d4419605/prot_levgyra2007C_LEV_md.cpt
+
+Reading file /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C/sandbox_162d528d-0f80-42cc-bd6f-6959d4419605/prot_levgyra2007C_LEV_gppmd.tpr, VERSION 2024.4 (single precision)
+Changing nstlist from 10 to 100, rlist from 1 to 1.171
+
+Update groups can not be used for this system because atoms that are (in)directly constrained together are interdispersed with other atoms
+
+1 GPU selected for this run.
+Mapping of GPU IDs to the 2 GPU tasks in the 1 rank on this node:
+  PP:0,PME:0
+PP tasks will do (non-perturbed) short-ranged interactions on the GPU
+PP task will update and constrain coordinates on the GPU
+PME tasks will do all aspects on the GPU
+Using 1 MPI thread
+
+Non-default thread affinity set, disabling internal thread affinity
+
+Using 24 OpenMP threads 
+
+
+WARNING: This run will generate roughly 7318 Mb of data
+
+starting mdrun 'Protein in water'
+5000000 steps,  10000.0 ps (continuing from step 3283900,   6567.8 ps).
+
+Writing final coordinates.
+
+               Core t (s)   Wall t (s)        (%)
+       Time:   335749.212    13989.595     2400.0
+                         3h53:09
+                 (ns/day)    (hour/ns)
+Performance:       21.197        1.132
+
+GROMACS reminds you: "I Can't Shake It" (Dinosaur Jr)
+
+                     :-) GROMACS - gmx trjconv, 2024.4 (-:
+
+Executable:   /usr/local/gromacs/bin/gmx
+Data prefix:  /usr/local/gromacs
+Working dir:  /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C
+Command line:
+  gmx trjconv -f prot_levgyra2007C_LEV_md.xtc -s prot_levgyra2007C_LEV_gppmd.tpr -fit none -o prot_levgyra2007C_LEV_cluster_traj.xtc -n ../prot_levgyra2007C_LEV_index.ndx -nocenter -pbc cluster -ur compact
+
+
+-------------------------------------------------------
+Program:     gmx trjconv, version 2024.4
+Source file: src/gromacs/commandline/cmdlineparser.cpp (line 271)
+Function:    void gmx::CommandLineParser::parse(int*, char**)
+
+Error in user input:
+Invalid command-line options
+  In command-line option -f
+    File 'prot_levgyra2007C_LEV_md.xtc' does not exist or is not accessible.
+    The file could not be opened.
+      Reason: No such file or directory
+      (call to fopen() returned error code 2)
+  In command-line option -n
+    File '../prot_levgyra2007C_LEV_index.ndx' does not exist or is not
+    accessible.
+    The file could not be opened.
+      Reason: No such file or directory
+      (call to fopen() returned error code 2)
+
+For more information and tips for troubleshooting, please check the GROMACS
+website at https://manual.gromacs.org/current/user-guide/run-time-errors.html
+-------------------------------------------------------
+                     :-) GROMACS - gmx trjconv, 2024.4 (-:
+
+Executable:   /usr/local/gromacs/bin/gmx
+Data prefix:  /usr/local/gromacs
+Working dir:  /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C
+Command line:
+  gmx trjconv -f prot_levgyra2007C_LEV_cluster_traj.xtc -s prot_levgyra2007C_LEV_gppmd.tpr -fit none -o prot_levgyra2007C_LEV_cluster_center_traj.xtc -n ../prot_levgyra2007C_LEV_index.ndx -center -pbc none -ur compact
+
+
+-------------------------------------------------------
+Program:     gmx trjconv, version 2024.4
+Source file: src/gromacs/commandline/cmdlineparser.cpp (line 271)
+Function:    void gmx::CommandLineParser::parse(int*, char**)
+
+Error in user input:
+Invalid command-line options
+  In command-line option -f
+    File 'prot_levgyra2007C_LEV_cluster_traj.xtc' does not exist or is not
+    accessible.
+    The file could not be opened.
+      Reason: No such file or directory
+      (call to fopen() returned error code 2)
+  In command-line option -n
+    File '../prot_levgyra2007C_LEV_index.ndx' does not exist or is not
+    accessible.
+    The file could not be opened.
+      Reason: No such file or directory
+      (call to fopen() returned error code 2)
+
+For more information and tips for troubleshooting, please check the GROMACS
+website at https://manual.gromacs.org/current/user-guide/run-time-errors.html
+-------------------------------------------------------
+                     :-) GROMACS - gmx trjconv, 2024.4 (-:
+
+Executable:   /usr/local/gromacs/bin/gmx
+Data prefix:  /usr/local/gromacs
+Working dir:  /home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/levgyra2007C
+Command line:
+  gmx trjconv -f _cluster_center_traj.xtc -s prot_levgyra2007C_LEV_gppmd.tpr -dump 0 -o prot_levgyra2007C_LEV_md_start_dry.pdb -n ../prot_levgyra2007C_LEV_index.ndx
+
+
+-------------------------------------------------------
+Program:     gmx trjconv, version 2024.4
+Source file: src/gromacs/commandline/cmdlineparser.cpp (line 271)
+Function:    void gmx::CommandLineParser::parse(int*, char**)
+
+Error in user input:
+Invalid command-line options
+  In command-line option -f
+    File '_cluster_center_traj.xtc' does not exist or is not accessible.
+    The file could not be opened.
+      Reason: No such file or directory
+      (call to fopen() returned error code 2)
+  In command-line option -n
+    File '../prot_levgyra2007C_LEV_index.ndx' does not exist or is not
+    accessible.
+    The file could not be opened.
+      Reason: No such file or directory
+      (call to fopen() returned error code 2)
+
+For more information and tips for troubleshooting, please check the GROMACS
+website at https://manual.gromacs.org/current/user-guide/run-time-errors.html
+-------------------------------------------------------
+(standard_in) 2: syntax error
+---------------------------------------------
+Runtime:  sec
+---------------------------------------------

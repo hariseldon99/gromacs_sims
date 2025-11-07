@@ -29,4 +29,4 @@ CONDA_ENV_NAME="gromacs_compiled"
 
 export PYFILE="./resume_mdsims.py"
 
-conda run -n $CONDA_ENV_NAME python $PYFILE 
+srun conda run -n $CONDA_ENV_NAME python $PYFILE 

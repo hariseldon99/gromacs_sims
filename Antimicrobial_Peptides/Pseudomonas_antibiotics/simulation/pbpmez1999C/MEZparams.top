@@ -1,0 +1,20 @@
+; MEZparams_GMX.top created by acpype (v: 2023.10.27) on Wed Oct  8 10:08:19 2025
+
+[ defaults ]
+; nbfunc        comb-rule       gen-pairs       fudgeLJ fudgeQQ
+1               2               yes             0.5     0.8333333333
+
+; Include MEZparams.itp topology
+#include "MEZparams.itp"
+
+; Ligand position restraints
+#ifdef POSRES_LIG
+#include "posre_MEZparams.itp"
+#endif
+
+[ system ]
+ MEZparams
+
+[ molecules ]
+; Compound        nmols
+ MEZparams 1     
