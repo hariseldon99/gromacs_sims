@@ -29,8 +29,8 @@ module load cuda
 # Define the directory with PDB files
 
 echo "NUM_CPUS= ${PBS_NCPUS}"
-export MD_DIR=/host_pwd/cipparc2007C/sandbox_4a6617e2-9a45-4f26-908d-ffdb30b548f7
-export MD_NAME=prot_cipparc2007C_CIP
+export MD_DIR=/host_pwd/cipparc2014C/sandbox_5587ad7b-338f-4867-9d75-68c5182f5b6d
+export MD_NAME=prot_cipparc2014C_CIP
 export OMP_NUM_THREADS=${PBS_NCPUS}
 
 SIF_PATH="/home/arunima/images/gromacs_2024.5-GPU.sif"
@@ -39,7 +39,7 @@ SINGULARITY() {
   singularity exec --nv -B ~/.Xauthority -B "${PWD}:/host_pwd" --pwd /host_pwd "$SIF_PATH" "$@"
 }
 
-#SINGULARITY bash -c  "gmx -nobackup -nocopyright mdrun -o ${MD_DIR}/${MD_NAME}_md.trr -s ${MD_DIR}/${MD_NAME}_gppmd.tpr -c ${MD_DIR}/${MD_NAME}_md.gro -e ${MD_DIR}/${MD_NAME}_md.edr -g ${MD_DIR}/${MD_NAME}_md.log -x ${MD_DIR}/${MD_NAME}_md.xtc -cpi ${MD_DIR}/${MD_NAME}_md.cpt -cpo ${MD_DIR}/${MD_NAME}_md.cpt"
+SINGULARITY bash -c  "gmx -nobackup -nocopyright mdrun -o ${MD_DIR}/${MD_NAME}_md.trr -s ${MD_DIR}/${MD_NAME}_gppmd.tpr -c ${MD_DIR}/${MD_NAME}_md.gro -e ${MD_DIR}/${MD_NAME}_md.edr -g ${MD_DIR}/${MD_NAME}_md.log -x ${MD_DIR}/${MD_NAME}_md.xtc -cpi ${MD_DIR}/${MD_NAME}_md.cpt -cpo ${MD_DIR}/${MD_NAME}_md.cpt"
 
 SINGULARITY bash -c 'echo "20 20"|gmx trjconv -f ${MD_DIR}/${MD_NAME}_md.xtc -s ${MD_DIR}/${MD_NAME}_gppmd.tpr -fit none -o ${MD_DIR}/${MD_NAME}_cluster_traj.xtc -n ${MD_DIR}/../${MD_NAME}_index.ndx -nocenter -pbc cluster -ur compact'
 SINGULARITY bash -c 'echo "20 20"|gmx trjconv -f ${MD_DIR}/${MD_NAME}_cluster_traj.xtc -s ${MD_DIR}/${MD_NAME}_gppmd.tpr -fit none -o ${MD_DIR}/${MD_NAME}_cluster_center_traj.xtc -n ${MD_DIR}/../${MD_NAME}_index.ndx -center -pbc none -ur compact'
