@@ -11,7 +11,7 @@
 #SBATCH --ntasks=1 
 #This sets the number of processes to 1.
 
-#SBATCH --cpus-per-task=48
+#SBATCH --cpus-per-task=36
 #This allocates the number of cpus per tasks. 
 
 #SBATCH --time=168:00:00 
@@ -33,8 +33,8 @@ echo '---------------------------------------------'
 # Define the directory with PDB files
 
 echo "NUM_CPUS= ${SLURM_CPUS_PER_TASK}"
-export MD_DIR=/home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/pbppen2015C/sandbox_aa6de86f-1a28-449f-bb33-d9cb1e792de5
-export MD_NAME=prot_pbppen2015C_PEN
+export MD_DIR=/home/admin/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/ndxgyra2007C/sandbox_c3bb2e44-4aab-4254-9f53-43342f72242b
+export MD_NAME=prot_ndxgyra2007C_NDX
 export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 gmx -nobackup -nocopyright mdrun -o ${MD_DIR}/${MD_NAME}_md.trr -s ${MD_DIR}/${MD_NAME}_gppmd.tpr -c ${MD_DIR}/${MD_NAME}_md.gro -e ${MD_DIR}/${MD_NAME}_md.edr -g ${MD_DIR}/${MD_NAME}_md.log -x ${MD_DIR}/${MD_NAME}_md.xtc -cpi ${MD_DIR}/${MD_NAME}_md.cpt -cpo ${MD_DIR}/${MD_NAME}_md.cpt

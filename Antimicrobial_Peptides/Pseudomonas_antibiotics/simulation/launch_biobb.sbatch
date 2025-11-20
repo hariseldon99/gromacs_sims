@@ -5,7 +5,7 @@
 #SBATCH --partition=GPU
 #This sets the partition to the GPU partition. Important for GPU jobs
 
-#SBATCH --gres=mps:50
+#SBATCH --gres=gpu:1
 #This allocates 1 GPU as a Global Resource (gres). Important for GPU jobs
 
 #SBATCH --ntasks=1 
@@ -28,9 +28,9 @@ source /usr/local/gromacs/bin/GMXRC
 CONDA_ENV_NAME="gromacs_compiled"
 
 export PYFILE=$HOME/gitrepos/gromacs_sims/scripts/biobb_protein_ligand_simulation.py
-export PDB_FILE=$HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/new_simulation_complexes/pbppen2015C.pdb
-export LIGAND_CODE='PEN'
-export BASENAME='pbppen2015C'
+export PDB_FILE=$HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/gyrase_A_2007_NDX_AMDock/ndxgyra2007C.pdb
+export LIGAND_CODE='NDX'
+export BASENAME='ndxgyra2007C'
 echo "Starting"
 echo '---------------------------------------------'
 
@@ -44,7 +44,7 @@ conda run -n $CONDA_ENV_NAME $PYFILE --input_structure "$PDB_FILE" \
         --ligand_code "$LIGAND_CODE" \
         --outdir "$BASENAME" \
         --nprocs $SLURM_CPUS_PER_TASK \
-        --usegpu --protonated
+        --usegpu 
 
 #End time
 end=`date +%s.%N`
