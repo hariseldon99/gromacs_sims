@@ -38,7 +38,7 @@ echo '---------------------------------------------'
 echo "NUM_CPUS= ${SLURM_CPUS_PER_TASK}"
     
 export PYTHONWARNINGS="ignore::SyntaxWarning"
-
+export PROTONATION_PREFER_AMBER="True"
 # Run the biobb command with SLURM_CPUS_PER_TASK
 conda run -n $CONDA_ENV_NAME $PYFILE --input_structure "$PDB_FILE" \
         --ligand_code "$LIGAND_CODE" \

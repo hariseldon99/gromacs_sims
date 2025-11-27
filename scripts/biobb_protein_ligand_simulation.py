@@ -117,10 +117,46 @@ def deprotonate_pdb(input_file, output_file):
             # Write all non-hydrogen lines (and non-ATOM/HETATM lines) to the output.
             outf.write(line)
 
+def protonate_with_openbabel(in_path, out_path, resname):
+        """Add hydrogens using OpenBabel OBConversion and force residue name."""
+        obconv = ob.OBConversion()
+        obconv.SetInAndOutFormats("pdb", "pdb")
+        mol_ob = ob.OBMol()
+        if not obconv.ReadFile(mol_ob, in_path):
+            raise RuntimeError("OpenBabel could not read ligand PDB")
+        mol_ob.AddHydrogens()
+        try:
+            mol_ob.PerceiveBondOrders()
+        except Exception:
+            pass
+        pdb_block = obconv.WriteString(mol_ob)
+        if not pdb_block:
+            raise RuntimeError("OpenBabel produced empty PDB output")
 
+        # Force residue name to resname (3 chars, upper) for all ATOM/HETATM lines
+        rn = resname[:3].upper()
+        out_lines = []
+        for ln in pdb_block.splitlines():
+            if ln.startswith(("ATOM  ", "HETATM")):
+                prefix = ln[:17] if len(ln) >= 17 else ln.ljust(17)
+                suffix = ln[20:] if len(ln) > 20 else ""
+                new_ln = prefix + ("{:<3}".format(rn)) + suffix
+                out_lines.append(new_ln)
+            else:
+                out_lines.append(ln)
+        with open(out_path, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(out_lines) + "\n")
+        return out_path
+
+def protonate_with_ambertools(in_path, out_path, properties):
+    """Add hydrogens using AmberTools reduce_add_hydrogens wrapper."""
+    reduce_add_hydrogens(input_path=in_path, output_path=out_path, properties=properties)
+    return out_path
 
 def molecular_dynamics(complex, protonated=True):
     """
+    Note: Protonation can be controlled with the PROTONATION_PREFER_AMBER environment variable.
+    
     Main function to set up a molecular dynamics simulation for a protein-ligand complex.
     This function performs the following steps:
     1. Extracts the ligand and protein from the input PDB file.
@@ -284,57 +320,56 @@ def molecular_dynamics(complex, protonated=True):
     prop = {
     'nuclear' : 'true'
 }   
-    # Note: reduce_add_hydrogens() (AmberTools) has been observed to produce
-    # molecules with odd electron counts that break downstream tools (e.g. acpype).
-    # Handle its failures or prefer alternative H-addition methods when possible.
-    #If ligand is protonated, then do nothing
+
+    # Decide protonation behavior
+    # If ligand is already protonated, just use the original ligand file
     if protonated:
         output_reduce_h = ligandFile
+        print("Ligand marked as protonated; skipping protonation step.")
     else:
-        try:
-            # Use OpenBabel OBConversion API to add hydrogens and produce a PDB string.
-            obconv = ob.OBConversion()
-            obconv.SetInAndOutFormats("pdb", "pdb")
-            mol_ob = ob.OBMol()
-            if not obconv.ReadFile(mol_ob, ligandFile):
-                raise RuntimeError("OpenBabel could not read ligand PDB")
-            # Add hydrogens (keeps coordinates when present)
-            mol_ob.AddHydrogens()
-            # Attempt to perceive bond orders/assign coordinates if needed (best-effort)
-            try:
-                mol_ob.PerceiveBondOrders()
-            except Exception:
-                pass
-            pdb_block = obconv.WriteString(mol_ob)
-            if not pdb_block:
-                raise RuntimeError("OpenBabel produced empty PDB output")
+        # Allow override via complex dict (preferred) or environment variable
+        # complex can contain 'amber_first': True to try AmberTools before OpenBabel
+        prefer_amber = os.environ.get('PROTONATION_PREFER_AMBER', '0') in ('1', 'true', 'True')
+        last_exc = None
 
-            # Force residue name to ligand code (first 3 chars, upper) for all ATOM/HETATM lines
-            resname = ligandCode[:3].upper()
-            out_lines = []
-            for ln in pdb_block.splitlines():
-                if ln.startswith(("ATOM  ", "HETATM")):
-                    prefix = ln[:17] if len(ln) >= 17 else ln.ljust(17)
-                    suffix = ln[20:] if len(ln) > 20 else ""
-                    new_ln = prefix + ("{:<3}".format(resname)) + suffix
-                    out_lines.append(new_ln)
-                else:
-                    out_lines.append(ln)
-            with open(output_reduce_h, "w", encoding="utf-8") as fh:
-                fh.write("\n".join(out_lines) + "\n")
-            print("Ligand protonated with OpenBabel AddH (resname forced):", output_reduce_h)
-        except Exception as ob_exc:
-            print("OpenBabel AddH failed:", ob_exc)
-            print("Falling back to reduce_add_hydrogens (AmberTools).")
+        success = False
+        if prefer_amber:
+            #try_amber_then_openbabel
             try:
-                reduce_add_hydrogens(input_path=ligandFile,
-                                    output_path=output_reduce_h,
-                                    properties=prop)
+                protonate_with_ambertools(ligandFile, output_reduce_h, prop)
                 print("Ligand protonated with reduce_add_hydrogens:", output_reduce_h)
-            except Exception as reduce_exc:
-                raise RuntimeError("Failed to add hydrogens with OpenBabel and reduce_add_hydrogens: "
-                                f"OpenBabel error: {ob_exc}; Reduce error: {reduce_exc}")
-    
+                success =  True
+            except Exception as red_exc:
+                last_exc = red_exc
+                print("reduce_add_hydrogens failed:", red_exc)
+                print("Falling back to OpenBabel AddH.")
+                try:
+                    protonate_with_openbabel(ligandFile, output_reduce_h, ligandCode)
+                    print("Ligand protonated with OpenBabel AddH (resname forced):", output_reduce_h)
+                    success = True
+                except Exception as ob_exc:
+                    last_exc = ob_exc
+                    success = False
+        else:
+            #try_openbabel_then_amber
+            try:
+                protonate_with_openbabel(ligandFile, output_reduce_h, ligandCode)
+                print("Ligand protonated with OpenBabel AddH (resname forced):", output_reduce_h)
+                success = True
+            except Exception as ob_exc:
+                last_exc = ob_exc
+                print("OpenBabel AddH failed:", ob_exc)
+                print("Falling back to reduce_add_hydrogens (AmberTools).")
+                try:
+                    protonate_with_ambertools(ligandFile, output_reduce_h, prop)
+                    print("Ligand protonated with reduce_add_hydrogens:", output_reduce_h)
+                    success = True
+                except Exception as red_exc:
+                    last_exc = red_exc
+                    success = False
+
+        if not success:
+            raise RuntimeError("Failed to add hydrogens with both OpenBabel and reduce_add_hydrogens. Last error: {}".format(last_exc))
     # ### Step 2: **Energetically minimize the system** with the new hydrogen atoms. 
 
     # Create Ligand system topology, STEP 2
