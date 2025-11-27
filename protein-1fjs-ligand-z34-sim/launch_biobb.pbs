@@ -23,12 +23,13 @@ module load cuda
 
 export PYFILE=$HOME/gitrepos/gromacs_sims/scripts/biobb_protein_ligand_simulation.py
 SIF_FILE="$HOME/images/gromacs_2024.5-GPU.sif"
+SIMDIR="$HOME/gitrepos/gromacs_sims/protein-1fjs-ligand-z34-sim/simulation"
 echo "Starting"
 echo '---------------------------------------------'
 
 
 # Run the biobb command with PBS_NCPUS
-singularity exec --nv -B ~/.Xauthority -B${PWD}:/host_pwd --pwd /host_pwd $SIF_FILE $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/simulation_complexes_protonationfixed/aminostep2012C.pdb --ligand_code Z34 --outdir simulation_new --nprocs $PBS_NCPUS --usegpu --protonated
+singularity exec --nv -B ~/.Xauthority -B${PWD}:/host_pwd --pwd /host_pwd $SIF_FILE $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/protein-1fjs-ligand-z34-sim/1fjs_protein_z34.pdb --ligand_code Z34 --outdir $SIMDIR --nprocs $PBS_NCPUS --usegpu --protonated
 
 #End time
 end=`date +%s.%N`
