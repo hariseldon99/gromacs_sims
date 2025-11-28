@@ -1,5 +1,26 @@
 
-# 🧬 HTVS Pipeline: Pocket Detection → GPU Docking → MM-GBSA Rescoring → GROMACS Equilibration
+# Comparative Analysis of Two Molecular Docking Strategies  
+**(EasyDock vs. HTVS Pipeline)**
+
+This report compares the scientific merits and limitations of two docking workflows based on the provided documents:
+
+1. **EasyDock** — a distributed high-throughput docking system built on AutoDock Vina / gnina / smina.  
+2. **HTVS Pipeline** — a multi-stage GPU-accelerated workflow including pocket detection, docking, ML rescoring, MM-GBSA, and short MD equilibration.
+
+---
+
+## Overview of the Two Strategies
+
+### **EasyDock (CPU-Distributed Docking Framework)**  
+
+A Python-based platform enabling large-scale CPU docking across distributed nodes using Dask, with automated ligand handling, workflow continuation, and support for Vina-family docking programs. Its focus is *throughput and automation*.
+
+### **HTVS Pipeline (GPU-Accelerated Multi-Stage Workflow)**  
+
+A modular pipeline designed for scientific rigor and accuracy: automated pocket detection, docking with GPUs, ML-based rescoring, MM-GBSA, and short MD equilibration. Its focus is *accuracy and physical realism*.
+
+
+# 🧬 HTVS Pipeline Details: Pocket Detection → GPU Docking → MM-GBSA Rescoring → GROMACS Equilibration
 
 This repository provides a reproducible, SLURM-ready pipeline for high-throughput virtual screening (HTVS) using open-source tools. It automates:
 
@@ -156,6 +177,8 @@ From: ubuntu:20.04
 
 ## 📚 References
 
+- [EasyDock](https://github.com/ci-lab-cz/easydock)
+- Minibaeva, G.; Ivanova, A.; Polishchuk, P., [Journal of Cheminformatics 2023, 15 (1), 102](https://doi.org/10.1186/s13321-023-00772-2).
 - [P2Rank](https://github.com/rdk/p2rank)  
 - [fpocket](https://github.com/Discngine/fpocket)  
 - [DOCK6](http://dock.compbio.ucsf.edu/)  
@@ -168,3 +191,94 @@ From: ubuntu:20.04
 - [AMBER MMPBSA.py](https://ambermd.org/)  
 - [GROMACS](http://www.gromacs.org/)  
 - [Singularity](https://apptainer.org/docs/)
+
+---
+
+## 2. Scientific Merits
+
+### **EasyDock Merits**
+- **High scalability across CPUs** via Dask, enabling screening of millions of ligands.  
+- **Automatic task resumption** with centralized SQLite database.  
+- **Multi-engine support** (AutoDock Vina, gnina, smina).  
+- **Boron-containing ligand support** with validated substitution protocol.  
+- **Predictive runtime model** improves throughput by prioritizing slow ligands.  
+- **Straightforward integration** through Python APIs.
+
+### **HTVS Pipeline Merits**
+- **End-to-end structure-based drug design workflow**: pocket detection → docking → rescoring → MD relaxation.  
+- **GPU docking** (PocketVina, Uni-Dock) offers orders-of-magnitude speed gains.  
+- **Higher physical accuracy** via MM-GBSA and MD equilibration.  
+- **Reduces false positives** by eliminating unstable complexes that collapse in MD.  
+- **Supports ML methods** (DiffDock, gnina) for improved pose prediction and rescoring.  
+- **SLURM-ready scripts** for HPC environments and reproducible containerized execution.
+
+---
+
+## 3. Scientific Demerits
+
+### **EasyDock Demerits**
+- **Only docking-based scoring** (Vina, gnina) → limited ranking accuracy.  
+- **No MM-GBSA or MD refinement**, making false positives more likely.  
+- **CPU-only focus** limits throughput relative to modern GPU-based engines.  
+- **No built-in pocket detection**, relies on user-specified grids.  
+- **No automatic stereoisomer enumeration** unless done manually.  
+- **Scaling beyond tested limits (20 nodes)** uncertain due to potential DB bottlenecks.
+
+### **HTVS Pipeline Demerits**
+- **Computationally expensive** due to MM-GBSA and MD.  
+- **More complex toolchain** with multiple points of failure.  
+- **Requires GPU cluster with SLURM**; less flexible than Dask-based scheduling.  
+- **No centralized DB or built-in restart system**.  
+- **More sensitive to ligand/force-field preparation issues**, which propagate into rescoring/MD.
+
+---
+
+## 4. Appropriate Scientific Use Cases
+
+### **Use EasyDock When:**
+- The goal is to screen **10⁶–10⁸ compounds** rapidly.  
+- CPU cluster or ad-hoc distributed environment is available.  
+- Integration into **generative design loops** or Python workflows is needed.  
+- Acceptable to rely on approximate Vina-family scoring.
+
+### **Use HTVS Pipeline When:**
+- You need **high accuracy** for ranking ~10³–10⁴ shortlisted ligands.  
+- GPU resources are available for docking and MD.  
+- You require **physically sound complexes** for MD or ABFE workflows.  
+- You want to exploit **ML-based pose prediction** and **MM-GBSA** refinement.
+
+---
+
+## 5. Recommended Combined Workflow
+A two-tier strategy is scientifically optimal:
+
+1. **EasyDock** for initial ultra-large docking (CPU distributed).  
+2. **HTVS pipeline** for rigorous evaluation of the top ~0.1–1% of ligands.
+
+This balances throughput and accuracy efficiently.
+
+---
+
+## 6. Final Comparison Table
+
+| Criterion | EasyDock (CPU Docking) | HTVS Pipeline (Docking + Physics) |
+|----------|-------------------------|-----------------------------------|
+| **Primary emphasis** | Throughput, scaling, automation | Physical realism, accuracy |
+| **Docking engines** | Vina, smina, gnina | PocketVina, Uni-Dock, Vina |
+| **GPU support** | None | Full (GPUs required for speed) |
+| **Scalability** | Excellent CPU scaling via Dask | GPU scaling strong but requires SLURM |
+| **Pocket detection** | Manual grid specification | Automated (P2Rank, fpocket, sphgen, rbcavity) |
+| **Post-processing** | None | MM-GBSA + MD refinement |
+| **False positives** | Higher (no physics filters) | Lower (MM-GBSA + MD reduce unstable hits) |
+| **Accuracy of ranking** | Moderate | Significantly higher |
+| **Ease of deployment** | Simple | Complex, multi-tool |
+| **Robustness** | High (single DB, auto-resume) | Moderate (toolchain-dependent) |
+| **Best for** | Very large first-pass screens | Final shortlisting and hit triage |
+
+---
+
+## 7. Summary
+
+EasyDock is a robust, scalable, and practical framework for **large-scale CPU-based docking** but is limited by the inherent shortcomings of docking scores. The HTVS pipeline is far more **scientifically rigorous**, combining docking, ML rescoring, MM-GBSA, and MD equilibration, at the cost of substantially higher computational requirements and workflow complexity.  
+
+A **combined two-phase strategy** — high-throughput CPU docking followed by GPU-based physics refinement — provides the best balance of speed and accuracy for modern virtual screening.
