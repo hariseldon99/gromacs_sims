@@ -44,7 +44,7 @@ conda run -n $CONDA_ENV_NAME $PYFILE --input_structure "$PDB_FILE" \
         --ligand_code "$LIGAND_CODE" \
         --outdir "$SIMDIR" \
         --nprocs $SLURM_CPUS_PER_TASK \
-        --usegpu --protonated
+        --usegpu 
 
 #End time
 end=`date +%s.%N`

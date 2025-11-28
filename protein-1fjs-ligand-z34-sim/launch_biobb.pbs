@@ -30,7 +30,7 @@ echo '---------------------------------------------'
 export PYTHONWARNINGS="ignore::SyntaxWarning"
 export PROTONATION_PREFER_AMBER="True"
 # Run the biobb command with PBS_NCPUS
-singularity exec --nv -B ~/.Xauthority -B${PWD}:/host_pwd --pwd /host_pwd $SIF_FILE $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/protein-1fjs-ligand-z34-sim/1fjs_protein_z34.pdb --ligand_code Z34 --outdir $SIMDIR --nprocs $PBS_NCPUS --usegpu --protonated
+singularity exec --nv -B ~/.Xauthority -B${PWD}:/host_pwd --pwd /host_pwd $SIF_FILE $PYFILE --input_structure $HOME/gitrepos/gromacs_sims/protein-1fjs-ligand-z34-sim/1fjs_protein_z34.pdb --ligand_code Z34 --outdir $SIMDIR --nprocs $PBS_NCPUS --usegpu 
 
 #End time
 end=`date +%s.%N`
