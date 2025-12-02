@@ -3,26 +3,21 @@
 #This sets the name of the job
 
 #SBATCH --partition=CPU
-#This sets the partition to the GPU partition. Important for GPU jobs
-
 #SBATCH --ntasks=1 
-#This sets the number of processes to 1.
-
 #SBATCH --cpus-per-task=1
-#This allocates the number of cpus per tasks. 
-
 #SBATCH --time=168:00:00 
-#This allocates the walltime to 5 minutes. The program will not run for longer.
-
 #SBATCH --qos=elevated 
-#This sets the quality of service to 'normal'
-
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=telegram:-1001215703472
 
-export ZENODO_TOKEN=<ZENODO_API_TOKEN>
+# Require a real token in the environment (do not hardcode)
+if [ -z "${ZENODO_TOKEN:-}" ]; then
+    echo "ERROR: ZENODO_TOKEN is not set. Export it before submitting the job." >&2
+    exit 1
+fi
 
-export PATH="$HOME/gitrepos/zenodo_upload:$PATH"
+# Use the actual repo directory (hyphen) and ensure scripts are found
+export PATH="$HOME/gitrepos/zenodo-upload:$PATH"
 export ZIPPATH=$HOME/gitrepos/gromacs_sims/Antimicrobial_Peptides/Pseudomonas_antibiotics/simulation/ndxgyra2007C
 
 # create destination directory and target zip path (use directory name of ZIPPATH)
@@ -39,23 +34,46 @@ zip -r "$DEST_ZIP" . -x '*.trr' '*.trr/*' || { echo "zip failed" >&2; exit 1; }
 # export the created archive path so later code can use it
 export UPLOAD_FILE="$DEST_ZIP"
 
-
 # Start timer (integer seconds only)
 start=$(date +%s)
 
-# create a new deposition and capture output
-create_out=$(zenodo_create.sh 2>&1) || { echo "zenodo_create.sh failed: $create_out" >&2; exit 1; }
-
-# extract numeric deposition id (first number in output) and export it
-DEPOSITION=$(printf '%s' "$create_out" | grep -oE '[0-9]+' | head -n1)
-if [ -z "$DEPOSITION" ]; then
-    echo "Failed to parse deposition id from zenodo_create.sh output:" >&2
+## Create a new empty deposition inline (no external script)
+echo "Creating new deposition..."
+create_out=$(curl --silent --show-error --fail \
+    --retry 5 --retry-delay 5 \
+    -H "Content-Type: application/json" \
+    -X POST --data '{}' \
+    "https://zenodo.org/api/deposit/depositions?access_token=${ZENODO_TOKEN}" 2>&1) || {
+    echo "ERROR: create deposition failed: $create_out" >&2
+    exit 1
+}
+DEPOSITION=$(printf '%s' "$create_out" | jq -r .id 2>/dev/null || echo "")
+if ! printf '%s' "$DEPOSITION" | grep -qE '^[0-9]+$'; then
+    echo "ERROR: failed to obtain deposition id; API output:" >&2
     printf '%s\n' "$create_out" >&2
     exit 1
 fi
 export DEPOSITION
+echo "Deposition ID: $DEPOSITION"
 
-zenodo_upload.sh $DEPOSITION $UPLOAD_FILE -v
+# Query bucket URL and verify
+ZENODO_ENDPOINT="https://zenodo.org"
+BUCKET=$(curl -sS "${ZENODO_ENDPOINT}/api/deposit/depositions/${DEPOSITION}?access_token=${ZENODO_TOKEN}" | jq -r .links.bucket // empty)
+if [ -z "$BUCKET" ] || [ "$BUCKET" = "null" ]; then
+    echo "ERROR: bucket URL is empty for deposition ${DEPOSITION}." >&2
+    echo "API response:" >&2
+    curl -sS "${ZENODO_ENDPOINT}/api/deposit/depositions/${DEPOSITION}?access_token=${ZENODO_TOKEN}" >&2
+    exit 1
+fi
+echo "Bucket URL: $BUCKET"
+
+# Upload file
+echo "Uploading file: $UPLOAD_FILE"
+curl --progress-bar --retry 5 --retry-delay 5 -o /dev/null --upload-file "$UPLOAD_FILE" "${BUCKET}/$(basename "$UPLOAD_FILE")?access_token=${ZENODO_TOKEN}" || {
+    echo "ERROR: upload failed" >&2
+    exit 1
+}
+
 # End timer
 end=$(date +%s)
 runtime=$((end - start))
