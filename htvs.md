@@ -1,14 +1,25 @@
 
 # Comparative Analysis of Two Molecular Docking Strategies  
-**(EasyDock vs. HTVS Pipeline)**
 
+## More modern alternative to the manual workflows:
+
+This one might be a better option than the detailed manual workflow given below
+
+Pandadock: https://github.com/pritampanda15/PandaDock
+
+Explore this with test cases. Compare with published protein-ligand crystal forms (1hsg with MK1): https://www.rcsb.org/structure/1HSG
+
+
+Original workflow suggestion follows:
+---
+**(EasyDock vs. HTVS Pipeline)**
 This report compares the scientific merits and limitations of two docking workflows based on the provided documents:
 
 1. **EasyDock** — a distributed high-throughput docking system built on AutoDock Vina / gnina / smina.  
 2. **HTVS Pipeline** — a multi-stage GPU-accelerated workflow including pocket detection, docking, ML rescoring, MM-GBSA, and short MD equilibration.
 
----
 
+---
 ## Overview of the Two Strategies
 
 ### **EasyDock (CPU-Distributed Docking Framework)**  
@@ -20,7 +31,7 @@ A Python-based platform enabling large-scale CPU docking across distributed node
 A modular pipeline designed for scientific rigor and accuracy: automated pocket detection, docking with GPUs, ML-based rescoring, MM-GBSA, and short MD equilibration. Its focus is *accuracy and physical realism*.
 
 
-# 🧬 HTVS Pipeline Details: Pocket Detection → GPU Docking → MM-GBSA Rescoring → GROMACS Equilibration
+#### 🧬 Manual HTVS Pipeline Details: Pocket Detection → GPU Docking → MM-GBSA Rescoring → GROMACS Equilibration
 
 This repository provides a reproducible, SLURM-ready pipeline for high-throughput virtual screening (HTVS) using open-source tools. It automates:
 
