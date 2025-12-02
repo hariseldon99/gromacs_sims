@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 from zenodo_client import Creator, Metadata, ensure_zenodo
 from pprint import pprint
 import zipfile
@@ -9,7 +10,7 @@ datadir = os.path.join(homedir, 'gitrepos/gromacs_sims/Antimicrobial_Peptides/Ps
 
 complexname = 'ndxgyra2007C'
 
-zipdir = os.path.join(datadir, complexname)
+datadir = os.path.join(datadir, complexname)
 # put the resulting zip file in the system temp directorydir = tempfile.gettempdir()
 zipdir = tempfile.gettempdir()
 zip_path = os.path.join(zipdir, f'{complexname}.zip')
@@ -17,12 +18,12 @@ if os.path.exists(zip_path):
     os.remove(zip_path)
 
 with zipfile.ZipFile(zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
-    for root, dirs, files in os.walk(zipdir):
+    for root, dirs, files in os.walk(datadir):
         for fname in files:
             if fname.endswith('.trr'):
                 continue
             full_path = os.path.join(root, fname)
-            arcname = os.path.relpath(full_path, zipdir)
+            arcname = os.path.relpath(full_path, datadir)
             zf.write(full_path, arcname)
 
 # Define the metadata that will be used on initial upload
