@@ -1,16 +1,21 @@
 
 # Comparative Analysis of Two Molecular Docking Strategies  
 
-## More modern alternative to the manual workflows:
+## Report of PandaDock:
 
-This one might be a better option than the detailed manual workflow given below
+This one should have been a better option than the detailed manual workflow given below
 
 Pandadock: https://github.com/pritampanda15/PandaDock
 
 Explore this with test cases. Compare with published protein-ligand crystal forms (1hsg with MK1): https://www.rcsb.org/structure/1HSG
 
+Preliminary results are bad, however. Comparison of 1htvs protein from RCSB docked with ligand MK1 (Indinavir: https://go.drugbank.com/drugs/DB00224) and comparing multiple basic settings of pandadock CPU and GPU algorithms showed poor comparison with the experimentally verified pose in the PDB. AMDock using autoligand, however, showed fairly good agreement with default settings.
 
-Original workflow suggestion follows:
+One thing left TODO is to test whether changing the default scoring in PandaDock (from physics based) to ML+MMGBSA might be better.
+
+The workflow below approaches AMDock's workflow closest.
+
+Workflow suggestion:
 ---
 **(EasyDock vs. HTVS Pipeline)**
 This report compares the scientific merits and limitations of two docking workflows based on the provided documents:
