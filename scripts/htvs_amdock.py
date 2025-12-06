@@ -25,28 +25,30 @@ except ImportError:
 
 
 # --- Configuration Constants (Derived from AMDock Logs) ---
+FORCE_FIELD = str(os.getenv("FORCE_FIELD", "AMBER")) # Force field for PDB2PQR
 
 # Protein preparation parameters (PDB2PQR/PROPKA)
-PH_VALUE = 7.40 # pH applied during PROPKA/PDB2PQR steps
-
+# pH applied during PROPKA/PDB2PQR steps
+PH_VALUE = float(os.getenv("PH_VALUE", 7.40)) # Allow override via env var
 # AutoGrid4 Parameters
 RECEPTOR_TYPES = "OA SA A C N NA HD" # Receptor atom types
 LIGAND_TYPES = "OA A C N NA" # Ligand atom types
 GRID_SPACING = 1.000 # Grid spacing (required 1 Å for AutoLigand)
 SMOOTH_RADIUS = 0.5 # Potentials smoothing radius
-DIELECTRIC_CONSTANT = -0.1465 # AD4 distance-dependent dielectric
 
-# Grid parameters calculated for the full protein extent (used by AutoGrid4)
-GRID_CENTER_FULL_PROTEIN = (15.9, 22.8, 3.7) # Midpoint coordinates extracted from logs (rounded)
-GRID_NPTS = (45, 61, 63) # Grid dimensions used based on logs
+# AD4 distance-dependent dielectric
+DIELECTRIC_CONSTANT = float(os.getenv("DIELECTRIC_CONSTANT", -0.1465)) # Allow override via env var
 
 # AutoLigand Parameters
-AUTOLIGAND_FILL_POINTS = 90 # Example fill points (often varied, but 90 used for tutorial demo)
+AUTOLIGAND_FILL_POINTS = int(os.getenv("AUTOLIGAND_FILL_POINTS", 90)) # Fill points for AutoLigand (default 90, can be overridden via env var)
+
+# Vina Box Size (Fixed for AutoLigand results)
 VINA_BOX_SIZE_TUPLE = (30, 30, 30) # Fixed size used by AMDock for AutoLigand results
 
 # AutoDock Vina Parallelization Control
-TOTAL_HTVS_CORES = multiprocessing.cpu_count()
-VINA_CPU_PER_JOB = 2 # Cores allocated to each individual Vina run. Set low for high HTVS throughput.
+TOTAL_HTVS_CORES = int(os.getenv('OMP_NUM_THREADS', multiprocessing.cpu_count()))  # Default to all available cores
+
+VINA_CPU_PER_JOB = int(os.getenv('VINA_CPU_PER_JOB', 1)) # Cores allocated to each individual Vina run. Set low for high HTVS throughput.
 
 
 # -----------------------------------------------------------
@@ -158,6 +160,28 @@ def calculate_geometric_center(coordinates):
             z_sum += z
         return (x_sum / N, y_sum / N, z_sum / N)
 
+def compute_grid_npts(min_xyz, max_xyz, spacing=1.0, padding=3.0, require_even=True):
+    """
+    Return (nx, ny, nz) for AutoGrid given receptor min/max coords.
+    - min_xyz, max_xyz: iterables of 3 floats
+    - spacing: grid spacing in Å (default 1.0)
+    - padding: margin added on each side in Å (total +2*padding)
+    - require_even: if True, force npts to be even (some autogrid builds require this)
+    """
+    import math
+    nx = math.ceil(((max_xyz[0] - min_xyz[0]) + 2*padding) / spacing)
+    ny = math.ceil(((max_xyz[1] - min_xyz[1]) + 2*padding) / spacing)
+    nz = math.ceil(((max_xyz[2] - min_xyz[2]) + 2*padding) / spacing)
+
+    def adjust(v):
+        v = int(v)
+        if v < 2:
+            v = 2
+        if require_even and (v % 2 != 0):
+            v += 1
+        return v
+
+    return (adjust(nx), adjust(ny), adjust(nz))
 
 def run_autoligand_and_parse_sites(base_dir, protein_name, log_file, fill_points):
     """
@@ -241,8 +265,8 @@ def run_amdock_pipeline(job_config):
     # --- 1. Prepare Target Protein (PDB2PQR + PROPKA) ---
     # AMDock uses PDB2PQR v3.6.1 and PROPKA v3.5.1 to apply pKa values at pH 7.40.
     pdb2pqr_cmd = (
-        f"pdb2pqr --ff=AMBER --with-ph {PH_VALUE} {protein_pdb} "
-        f"{protein_h_pdb.replace('.pdb', '.pqr')} --clean --nodebump -k --protonate-all"
+        f"pdb2pqr --ff={FORCE_FIELD} --with-ph {PH_VALUE} {protein_pdb} "
+        f"{protein_h_pdb.replace('.pdb', '.pqr')} --clean --nodebump -k --protonate-all --titration-state-method=propka --pH {PH_VALUE}"
     )
     if not execute_command(pdb2pqr_cmd, "PDB2PQR/PROPKA", log_file, base_dir): return False
 
@@ -272,9 +296,25 @@ def run_amdock_pipeline(job_config):
     ligand_prepare_cmd = f"prepare_ligand4 -l {ligand_pdb} -o {ligand_pdbqt}"
     if not execute_command(ligand_prepare_cmd, "Prepare_Ligand4", log_file, base_dir): return False
 
+    protein_coordinates = parse_pdb_coordinates(protein_pdb)
+    if not protein_coordinates:
+        print(f"[{os.path.basename(base_dir)}] ERROR: Unable to parse protein coordinates for grid setup.")
+        return False    
+    grid_center_full_protein = calculate_geometric_center(protein_coordinates)
+    grid_npts = compute_grid_npts(
+        min_xyz=(min(c[0] for c in protein_coordinates),
+                min(c[1] for c in protein_coordinates),
+                min(c[2] for c in protein_coordinates)),
+        max_xyz=(max(c[0] for c in protein_coordinates),
+                max(c[1] for c in protein_coordinates),
+                max(c[2] for c in protein_coordinates)),
+        spacing=GRID_SPACING,
+        padding=3.0,
+        require_even=True
+    )
     # --- 4. Generate AutoGrid4 GPF and Run AutoGrid4 (Prerequisite for AutoLigand) ---
-    gpf_content = generate_gpf_content(protein_pdbqt, GRID_CENTER_FULL_PROTEIN, GRID_NPTS)
-    
+    gpf_content = generate_gpf_content(protein_pdbqt, grid_center_full_protein, grid_npts)
+
     with open(os.path.join(base_dir, gpf_file), "w") as f:
         f.write(gpf_content)
     
@@ -300,17 +340,31 @@ def run_amdock_pipeline(job_config):
         log_file_vina = f"vina_site{i+1}.log"
         
         # Docking each site individually, as observed in AMDock output [315, 318, ...]
+        #        vina_cmd = (
+        #     f"vina --receptor {protein_pdbqt} "
+        #     f"--ligand {ligand_pdbqt} "
+        #     f"--center_x {cx} --center_y {cy} --center_z {cz} "
+        #     f"--size_x {sx} --size_y {sy} --size_z {sz} "
+        #     f"--cpu {VINA_CPU_PER_JOB} " 
+        #     f"--out {output_pdbqt} --log {log_file_vina}"
+        # )
+        # Build vina command without the unsupported --log option; redirect stdout/stderr
         vina_cmd = (
             f"vina --receptor {protein_pdbqt} "
             f"--ligand {ligand_pdbqt} "
             f"--center_x {cx} --center_y {cy} --center_z {cz} "
             f"--size_x {sx} --size_y {sy} --size_z {sz} "
-            f"--cpu {VINA_CPU_PER_JOB} " 
-            f"--out {output_pdbqt} --log {log_file_vina}"
+            f"--cpu {VINA_CPU_PER_JOB} "
+            f"--out {output_pdbqt} "
+            f"> {log_file_vina} 2>&1"
         )
 
         if execute_command(vina_cmd, f"AutoDock Vina (Site {i+1})", log_file, base_dir):
             successful_runs += 1
+            mol_out = list(pybel.readfile("pdbqt", os.path.join(base_dir, output_pdbqt)))
+            mol_out[0].write("pdb", os.path.join(base_dir, output_pdbqt.replace('.pdbqt', '.pdb')), overwrite=True)
+        else:
+            print(f"[{os.path.basename(base_dir)}] Vina docking failed for site {i+1}.")
             
     if successful_runs > 0:
         print(f"\n*** Docking for {protein_name} + {ligand_name} Complete (Total sites docked: {len(sites_to_dock)}). ***")
