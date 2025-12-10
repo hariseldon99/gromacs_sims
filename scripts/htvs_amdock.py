@@ -48,7 +48,7 @@ AUTOLIGAND_FILL_POINTS = int(os.getenv("AUTOLIGAND_FILL_POINTS", 90)) # Fill poi
 VINA_BOX_SIZE_TUPLE = (30, 30, 30) # Fixed size used by AMDock for AutoLigand results
 
 # AutoDock Vina Parallelization Control
-TOTAL_HTVS_CORES = int(os.getenv('OMP_NUM_THREADS', 1))  # Default to serial
+TOTAL_HTVS_CORES = int(os.getenv('OMP_NUM_THREADS', multiprocessing.cpu_count()))  # Default to all available cores
 
 VINA_CPU_PER_JOB = int(os.getenv('VINA_CPU_PER_JOB', multiprocessing.cpu_count())) # Cores allocated to each individual Vina run. Set low for high HTVS throughput. Otherwise default is all cores
 
@@ -90,6 +90,71 @@ def execute_command(command, step_name, log_file, cwd, verbose=False):
     except FileNotFoundError:
         print(f"[{os.path.basename(cwd)}] ERROR: Tool required for {step_name} not found. Ensure tools like pdb2pqr, AutoLigand.py, autogrid4, and vina are accessible in your PATH, preferably installed via Conda/Bioconda.")
         return False
+    
+def run_pdb2pqr_and_propka(protein_pdb, pqr_path, log_file, cwd='.', verbose=False):
+    """
+    Run pdb2pqr with PROPKA titration integration and also try to run propka separately
+    to reproduce the verbose PROPKA printout seen in the AMDock logs.  Results (stdout/stderr)
+    are appended to `log_file`.
+    """
+    import shutil
+    pdb2pqr_cmd = (
+        f"pdb2pqr --ff={FORCE_FIELD} --with-ph {PH_VALUE} "
+        f"{protein_pdb} {pqr_path} --clean --nodebump -k --protonate-all "
+        f"--titration-state-method=propka --pH {PH_VALUE}"
+    )
+    # run pdb2pqr and capture output
+    if verbose:
+        print(f"Running pdb2pqr: {pdb2pqr_cmd}")
+    try:
+        res = subprocess.run(pdb2pqr_cmd, shell=True, check=True, capture_output=True, text=True, cwd=cwd)
+    except subprocess.CalledProcessError as e:
+        with open(log_file, 'a') as f:
+            f.write("\n======== PDB2PQR/PROPKA FAILED STDOUT ========\n")
+            f.write(getattr(e, 'stdout', '') or '')
+            f.write("\n======== PDB2PQR/PROPKA FAILED STDERR ========\n")
+            f.write(getattr(e, 'stderr', '') or '')
+        if verbose:
+            print("pdb2pqr failed; see log.")
+        return False
+    else:
+        with open(log_file, 'a') as f:
+            f.write("\n======== PDB2PQR/PROPKA STDOUT ========\n")
+            f.write(res.stdout or '')
+            f.write("\n======== PDB2PQR/PROPKA STDERR ========\n")
+            f.write(res.stderr or '')
+
+    # Try to run standalone propka to reproduce the detailed PROPKA table AMDock logs show.
+    propka_cmd_candidates = ['propka3', 'propka', 'propka3.5']
+    found = None
+    for cmd in propka_cmd_candidates:
+        if shutil.which(cmd):
+            found = cmd
+            break
+
+    if found:
+        try:
+            # propka prints analysis to stdout; run on the generated PQR (or original pdb if PQR missing)
+            target_for_propka = pqr_path if os.path.exists(pqr_path) else protein_pdb
+            if verbose:
+                print(f"Running {found} on {target_for_propka}")
+            pr = subprocess.run([found, target_for_propka], check=True, capture_output=True, text=True, cwd=cwd)
+            with open(log_file, 'a') as f:
+                f.write(f"\n======== {found} STDOUT ========\n")
+                f.write(pr.stdout or '')
+                f.write(f"\n======== {found} STDERR ========\n")
+                f.write(pr.stderr or '')
+        except subprocess.CalledProcessError as e:
+            with open(log_file, 'a') as f:
+                f.write(f"\n======== {found} FAILED STDOUT ========\n")
+                f.write(getattr(e, 'stdout', '') or '')
+                f.write(f"\n======== {found} FAILED STDERR ========\n")
+                f.write(getattr(e, 'stderr', '') or '')
+    else:
+        # If standalone propka is not available, record that in the log (pdb2pqr still calls propka internally).
+        with open(log_file, 'a') as f:
+            f.write("\n======== PROPKA CLI not found: skipped separate propka run ========\n")
+    return True
 
 def generate_gpf_content(target_pdbqt, grid_center, npts):
     """Generates the AutoGrid GPF file content replicating AMDock's parameters."""
@@ -270,12 +335,11 @@ def run_amdock_pipeline(job_config, verbose=False):
     os.makedirs(base_dir, exist_ok=True)
     
     # --- 1. Prepare Target Protein (PDB2PQR + PROPKA) ---
-    # AMDock uses PDB2PQR v3.6.1 and PROPKA v3.5.1 to apply pKa values at pH 7.40.
-    pdb2pqr_cmd = (
-        f"pdb2pqr --ff={FORCE_FIELD} --with-ph {PH_VALUE} {protein_pdb} "
-        f"{protein_h_pdb.replace('.pdb', '.pqr')} --clean --nodebump -k --protonate-all --titration-state-method=propka --pH {PH_VALUE}"
-    )
-    if not execute_command(pdb2pqr_cmd, "PDB2PQR/PROPKA", log_file, base_dir, verbose=verbose): return False
+    # Run pdb2pqr in the working_dir and attempt a standalone propka run to reproduce AMDock verbosity.
+    pqr_path = os.path.join(base_dir, f"{protein_name}_h.pqr")
+    if not run_pdb2pqr_and_propka(protein_pdb, pqr_path, log_file, cwd=base_dir, verbose=verbose):
+        print(f"[{os.path.basename(base_dir)}] ERROR: pdb2pqr/propka step failed. See {log_file}")
+        return False
 
     # --- 2. Convert prepared Receptor PDB to PDBQT (Prepare_Receptor4) ---
     # Uses Gasteiger charges by default
