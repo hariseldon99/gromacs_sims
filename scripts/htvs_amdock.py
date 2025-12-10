@@ -8,6 +8,8 @@ To address your query regarding using Bioconda for better PDB parsing, while the
 
 import subprocess
 import os
+import sys
+import json
 import multiprocessing
 import glob
 import re
@@ -16,6 +18,10 @@ import platform
 import openbabel as ob
 from openbabel import pybel  # common import name for OpenBabel's Python wrapper
 from functools import partial
+from tabulate import tabulate
+
+from collections import defaultdict
+
 
 # Attempt to import numpy for robust numerical operations (recommended for Conda environment)
 try:
@@ -439,9 +445,265 @@ def run_htvs(jobs_to_run, verbose=False):
         print(f"\n--- HTVS Finished ---")
     print(f"Summary: {successful_jobs}/{len(jobs_to_run)} pairs successfully processed.")
 
+# -----------------------------------------------------------
+# ANALYZE HTVS RESULTS
+# -----------------------------------------------------------
+
+
+def read_file(path):
+    with open(path, 'r', errors='replace') as f:
+        return f.read().splitlines()
+
+def find_tool_versions(lines):
+    info = {}
+    for ln in lines:
+        m = re.search(r'PDB2PQR v?([0-9.]+)', ln, re.IGNORECASE)
+        if m: info['pdb2pqr'] = m.group(1)
+        m = re.search(r'propka(?:\s|3)?(?:\.\d+)?\s*([0-9.\-]*)', ln, re.IGNORECASE)
+        if m and 'propka' not in info:
+            # coarse capture (propka header lines are verbose)
+            if 'propka' in ln.lower() or ln.strip().lower().startswith('propka'):
+                info['propka_header'] = ln.strip()
+        m = re.search(r'AMDOCK.*Version\s*([0-9.]+)', ln, re.IGNORECASE)
+        if m: info['amdock'] = m.group(1)
+        m = re.search(r'AutoDock Vina', ln, re.IGNORECASE)
+        if m: info['vina'] = info.get('vina', 'present')
+    return info
+
+def extract_pdb2pqr_stats(lines):
+    stats = {}
+    for ln in lines:
+        m = re.search(r'Created biomolecule object with\s+(\d+)\s+residues\s+and\s+(\d+)\s+atoms', ln, re.IGNORECASE)
+        if m:
+            stats['residues'] = int(m.group(1))
+            stats['atoms'] = int(m.group(2))
+        m = re.search(r'Unable to find amino or nucleic acid definition for\s+(\S+)', ln)
+        if m:
+            stats.setdefault('unknown_components', []).append(m.group(1))
+        m = re.search(r'WARNING:Missing atom (\S+) in residue (\S+)\s+([A-Z])\s+(\d+)', ln)
+        if m:
+            stats.setdefault('missing_atoms', []).append({'atom':m.group(1),'residue':m.group(2),'chain':m.group(3),'resnum':m.group(4)})
+        m = re.search(r'Added atom (\S+) to residue (\S+) at coordinates\s*([-\d\.]+),\s*([-\d\.]+),\s*([-\d\.]+)', ln)
+        if m:
+            stats.setdefault('added_atoms',[]).append({'atom':m.group(1),'residue':m.group(2),'coords':(float(m.group(3)),float(m.group(4)),float(m.group(5)))})
+    return stats
+
+def extract_propka_pkas(lines):
+    # find the "INFO:pKa summary:" block and capture residue pKa lines following it
+    pkas = []
+    start = None
+    for i, ln in enumerate(lines):
+        if re.search(r'INFO:pKa summary', ln, re.IGNORECASE) or re.search(r'SUMMARY OF THIS PREDICTION', ln):
+            start = i
+            break
+    if start is None:
+        # fallback: find the dashed header that precedes the pKa summary table
+        for i, ln in enumerate(lines):
+            if re.match(r'-{5,}', ln):
+                start = i+1
+                break
+    if start is None:
+        return pkas
+    # scan forward for lines matching residue pKa entries
+    for ln in lines[start:]:
+        if not ln.strip():
+            # blank line often ends the table
+            if pkas:
+                break
+            else:
+                continue
+        # match lines like: "ASP  36 A   3.19     0 % ..."
+        m = re.match(r'\s*([A-Z]+)\s+(\d+)\s+([A-Z])\s+([0-9]+\.[0-9]+)', ln)
+        if m:
+            resname, resnum, chain, pka = m.group(1), m.group(2), m.group(3), float(m.group(4))
+            pkas.append({'residue': f"{resname} {resnum}{chain}", 'pKa': pka})
+        # also handle lines like "BTN  N1 A   4.20"
+        else:
+            m2 = re.match(r'\s*([A-Z0-9\-\+]+)\s+([A-Z0-9]+)\s+([A-Z])\s+([0-9]+\.[0-9]+)', ln)
+            if m2:
+                # coarse capture
+                pkas.append({'residue': f"{m2.group(1)} {m2.group(2)}{m2.group(3)}", 'pKa': float(m2.group(4))})
+    return pkas
+
+def extract_propka_metadata(lines):
+    meta = {}
+    for ln in lines:
+        m = re.search(r'propka([^\n]*)', ln, re.IGNORECASE)
+        if m and 'propka_banner' not in meta:
+            meta['propka_banner'] = ln.strip()
+        m2 = re.search(r'Applying pKa values at a pH of\s*([0-9.]+)', ln, re.IGNORECASE)
+        if m2:
+            meta['pH_applied'] = float(m2.group(1))
+        m3 = re.search(r'The pI is\s+([0-9.]+)', ln)
+        if m3:
+            meta['pI'] = float(m3.group(1))
+    return meta
+
+def extract_autoligand_outputs(lines):
+    # parse lines like "Output # 1  Total Volume =  234.0  Total Energy per Vol, EPV =  -0.2140784829"
+    outputs = []
+    for ln in lines:
+        m = re.search(r'Output\s*#\s*(\d+).*Total Volume\s*=\s*([0-9.]+).*EPV\s*=\s*([-\d\.]+)', ln)
+        if m:
+            outputs.append({'rank': int(m.group(1)), 'volume': float(m.group(2)), 'EPV': float(m.group(3))})
+    return outputs
+
+def extract_vina_affinities_from_log(lines):
+    # detect typical vina affinity lines or the generic "-----+" table used in some logs.
+    # Return a list of numeric affinities (floats) so callers can compute stats or format tables.
+    affinities = []
+    for i, ln in enumerate(lines):
+        # Vina lines like: "1    -7.3    0.000    ...", but many formats exist
+        m = re.match(r'^\s*\d+\s+([-\d\.]+)\s+', ln)
+        if m:
+            try:
+                affinities.append(float(m.group(1)))
+            except ValueError:
+                pass
+        # check for custom markers: previous pipeline used "-----+" followed by a line with affinity
+        if ln.startswith("-----+"):
+            if i+1 < len(lines):
+                parts = lines[i+1].split()
+                if len(parts) >= 2:
+                    try:
+                        affinities.append(float(parts[1]))
+                    except Exception:
+                        pass
+    # Return raw numeric affinities for downstream processing/formatting
+    return affinities
+
+def collect_warnings(lines):
+    warns = []
+    for ln in lines:
+        if 'WARNING:' in ln or ln.strip().startswith('WARNING') or ln.strip().upper().startswith('WARN'):
+            warns.append(ln.strip())
+    return warns
+
+def summarize_log(path):
+    lines = read_file(path)
+    summary = {}
+    summary['file'] = os.path.abspath(path)
+    summary['tools'] = find_tool_versions(lines)
+    summary['pdb2pqr'] = extract_pdb2pqr_stats(lines)
+    summary['propka_meta'] = extract_propka_metadata(lines)
+    pkas = extract_propka_pkas(lines)
+    summary['propka_pkas_count'] = len(pkas)
+    if pkas:
+        # compute extremes
+        sorted_pkas = sorted(pkas, key=lambda x: x['pKa'])
+        summary['propka_lowest'] = sorted_pkas[:5]
+        summary['propka_highest'] = sorted_pkas[-5:][::-1]
+    summary['autoligand_outputs'] = extract_autoligand_outputs(lines)
+    summary['vina_affinities_in_log'] = extract_vina_affinities_from_log(lines)
+    summary['warnings'] = collect_warnings(lines)
+    # try to find directory and parse vina_site*.log files if present
+    log_dir = os.path.dirname(path) or '.'
+    vina_files = sorted([os.path.join(log_dir, f) for f in os.listdir(log_dir) if re.match(r'vina.*\.log$', f, re.IGNORECASE)])
+    all_vina_affs = {}
+    for vf in vina_files:
+        try:
+            affs = extract_vina_affinities_from_log(read_file(vf))
+            if affs:
+                all_vina_affs[os.path.basename(vf)] = affs
+        except Exception:
+            pass
+    if all_vina_affs:
+        summary['vina_files'] = all_vina_affs
+    return summary
+
+def pretty_print(summary):
+    print("\n=== DOCKING LOG SUMMARY ===\n")
+    print(f"Log file: {summary.get('file')}\n")
+    tools = summary.get('tools', {})
+    if tools:
+        print("Detected tools / headers:")
+        for k,v in tools.items():
+            print(f"  - {k}: {v}")
+        print()
+    pdb2 = summary.get('pdb2pqr', {})
+    if pdb2:
+        print("PDB2PQR / structure info:")
+        if 'residues' in pdb2:
+            print(f"  Residues: {pdb2['residues']}, Atoms: {pdb2['atoms']}")
+        if pdb2.get('unknown_components'):
+            print(f"  Unknown residue/component definitions: {', '.join(pdb2['unknown_components'])}")
+        if pdb2.get('missing_atoms'):
+            print(f"  Missing atoms detected: {len(pdb2['missing_atoms'])} (see warnings)")
+        if pdb2.get('added_atoms'):
+            print(f"  Atoms added by PDB2PQR: {len(pdb2['added_atoms'])}")
+        print()
+    prop_meta = summary.get('propka_meta', {})
+    if prop_meta:
+        print("PROPKA / pKa application:")
+        if 'pH_applied' in prop_meta:
+            print(f"  pH applied: {prop_meta['pH_applied']}")
+        if 'pI' in prop_meta:
+            print(f"  Calculated pI (folded): {prop_meta['pI']}")
+        if 'propka_banner' in prop_meta:
+            print(f"  {prop_meta['propka_banner']}")
+        print(f"  pKa entries parsed: {summary.get('propka_pkas_count',0)}")
+        if summary.get('propka_lowest'):
+            print("  Lowest pKa residues (up to 5):")
+            for r in summary['propka_lowest']:
+                print(f"    {r['residue']:>12s}  pKa={r['pKa']:.2f}")
+        if summary.get('propka_highest'):
+            print("  Highest pKa residues (up to 5):")
+            for r in summary['propka_highest']:
+                print(f"    {r['residue']:>12s}  pKa={r['pKa']:.2f}")
+        print()
+    al = summary.get('autoligand_outputs', [])
+    if al:
+        print("AutoLigand (Automatic) site search:")
+        for out in al:
+            print(f"  Rank {out['rank']}: Volume={out['volume']:.1f}, EPV={out['EPV']:.4f}")
+        print()
+    vina_log_affs = summary.get('vina_affinities_in_log', [])
+    if vina_log_affs:
+        print("Affinities parsed from main log (may be aggregated):")
+        rows = [(f"pose_{i+1}", f"{aff:.3f}") for i, aff in enumerate(vina_log_affs)]
+        if rows:
+            print(tabulate(rows, headers=["Pose ID", "Affinity (kcal/mol)"]))
+        else:
+            print("  (no affinities parsed)")
+        print()
+
+    if summary.get('vina_files'):
+        print("Affinities found in vina log files:")
+        best_affinities = []
+        for fname, affs in summary['vina_files'].items():
+            short_name = os.path.basename(fname)
+            if affs:
+                best_aff = min(affs)
+                best_affinities.append(best_aff)
+            else:
+                print(f"  {short_name}: no affinities parsed")
+
+        if best_affinities:
+            rows = [(f"{i+1}", f"{float(aff):2.3f}") for i, aff in enumerate(best_affinities)]
+            # sort aggregated best affinities by numeric value (increasing)
+            rows.sort(key=lambda r: float(r[1]))
+            print("\nAggregated best affinities per pose:")
+            print(tabulate(rows, headers=["Pose ID", "Best Affinity (kcal/mol)"]))
+        print()
+
+
+def analyze_htvs_results(jobs_to_run):
+    """
+    Analyzes the log files from HTVS jobs and summarizes key information.
+    """
+    for job in jobs_to_run:
+        working_dir = job['working_dir']
+        log_file = os.path.join(working_dir, f"{job['protein_name']}_{job['ligand_name']}_pipeline.log")
+        if os.path.exists(log_file):
+            summary = summarize_log(log_file)
+            print(f"\n--- Summary for {job['protein_name']} + {job['ligand_name']} ---")
+            pretty_print(summary)
+            
+            print(f"--- End of Summary for {job['protein_name']} + {job['ligand_name']} ---\n")
+        else:
+            print(f"Log file not found for job: {log_file}")
 
 if __name__ == '__main__':
-    
     # =========================================================================
     # PREPARATION NOTES:
     # 1. ENVIRONMENT: Ensure a Conda environment is activated and contains: 
@@ -492,3 +754,4 @@ if __name__ == '__main__':
     ]
     
     run_htvs(jobs)
+    analyze_htvs_results(jobs)
