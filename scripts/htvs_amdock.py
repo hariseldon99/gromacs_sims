@@ -97,11 +97,11 @@ def run_pdb2pqr_and_propka(protein_pdb, pqr_path, log_file, cwd='.', verbose=Fal
     to reproduce the verbose PROPKA printout seen in the AMDock logs.  Results (stdout/stderr)
     are appended to `log_file`.
     """
-    import shutil
+    protonated_pdb = pqr_path.replace('.pqr', '_h.pdb')
     pdb2pqr_cmd = (
         f"pdb2pqr --ff={FORCE_FIELD} --with-ph {PH_VALUE} "
-        f"{protein_pdb} {pqr_path} --clean --nodebump -k --protonate-all "
-        f"--titration-state-method=propka --pH {PH_VALUE}"
+        f"{protein_pdb} {pqr_path} --nodebump -k --protonate-all "
+        f"--titration-state-method=propka --pH {PH_VALUE} -f {protonated_pdb}"
     )
     # run pdb2pqr and capture output
     if verbose:
@@ -123,37 +123,6 @@ def run_pdb2pqr_and_propka(protein_pdb, pqr_path, log_file, cwd='.', verbose=Fal
             f.write(res.stdout or '')
             f.write("\n======== PDB2PQR/PROPKA STDERR ========\n")
             f.write(res.stderr or '')
-
-    # Try to run standalone propka to reproduce the detailed PROPKA table AMDock logs show.
-    propka_cmd_candidates = ['propka3', 'propka', 'propka3.5']
-    found = None
-    for cmd in propka_cmd_candidates:
-        if shutil.which(cmd):
-            found = cmd
-            break
-
-    if found:
-        try:
-            # propka prints analysis to stdout; run on the generated PQR (or original pdb if PQR missing)
-            target_for_propka = pqr_path if os.path.exists(pqr_path) else protein_pdb
-            if verbose:
-                print(f"Running {found} on {target_for_propka}")
-            pr = subprocess.run([found, target_for_propka], check=True, capture_output=True, text=True, cwd=cwd)
-            with open(log_file, 'a') as f:
-                f.write(f"\n======== {found} STDOUT ========\n")
-                f.write(pr.stdout or '')
-                f.write(f"\n======== {found} STDERR ========\n")
-                f.write(pr.stderr or '')
-        except subprocess.CalledProcessError as e:
-            with open(log_file, 'a') as f:
-                f.write(f"\n======== {found} FAILED STDOUT ========\n")
-                f.write(getattr(e, 'stdout', '') or '')
-                f.write(f"\n======== {found} FAILED STDERR ========\n")
-                f.write(getattr(e, 'stderr', '') or '')
-    else:
-        # If standalone propka is not available, record that in the log (pdb2pqr still calls propka internally).
-        with open(log_file, 'a') as f:
-            f.write("\n======== PROPKA CLI not found: skipped separate propka run ========\n")
     return True
 
 def generate_gpf_content(target_pdbqt, grid_center, npts):
