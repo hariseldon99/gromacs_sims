@@ -13,7 +13,9 @@ import glob
 import re
 import shutil
 import platform
+import openbabel as ob
 from openbabel import pybel  # common import name for OpenBabel's Python wrapper
+from functools import partial
 
 # Attempt to import numpy for robust numerical operations (recommended for Conda environment)
 try:
@@ -46,18 +48,19 @@ AUTOLIGAND_FILL_POINTS = int(os.getenv("AUTOLIGAND_FILL_POINTS", 90)) # Fill poi
 VINA_BOX_SIZE_TUPLE = (30, 30, 30) # Fixed size used by AMDock for AutoLigand results
 
 # AutoDock Vina Parallelization Control
-TOTAL_HTVS_CORES = int(os.getenv('OMP_NUM_THREADS', multiprocessing.cpu_count()))  # Default to all available cores
+TOTAL_HTVS_CORES = int(os.getenv('OMP_NUM_THREADS', 1))  # Default to serial
 
-VINA_CPU_PER_JOB = int(os.getenv('VINA_CPU_PER_JOB', 1)) # Cores allocated to each individual Vina run. Set low for high HTVS throughput.
+VINA_CPU_PER_JOB = int(os.getenv('VINA_CPU_PER_JOB', multiprocessing.cpu_count())) # Cores allocated to each individual Vina run. Set low for high HTVS throughput. Otherwise default is all cores
 
 
 # -----------------------------------------------------------
 # UTILITY FUNCTIONS
 # -----------------------------------------------------------
 
-def execute_command(command, step_name, log_file, cwd):
+def execute_command(command, step_name, log_file, cwd, verbose=False):
     """Utility function to execute shell commands and log output."""
-    print(f"[{os.path.basename(cwd)}] Running: {step_name}")
+    if verbose:
+        print(f"[{os.path.basename(cwd)}] Executing: {command}")
     try:
         # We assume command-line tools are in PATH, consistent with AMDock methodology
         result = subprocess.run(
@@ -68,7 +71,8 @@ def execute_command(command, step_name, log_file, cwd):
             text=True, 
             cwd=cwd
         )
-        print(f"[{os.path.basename(cwd)}] {step_name} Successful.")
+        if verbose:
+            print(f"[{os.path.basename(cwd)}] {step_name} completed successfully.")
         with open(log_file, 'a') as f:
             f.write(f"\n======== {step_name} STDOUT ========\n")
             f.write(result.stdout)
@@ -183,7 +187,7 @@ def compute_grid_npts(min_xyz, max_xyz, spacing=1.0, padding=3.0, require_even=T
 
     return (adjust(nx), adjust(ny), adjust(nz))
 
-def run_autoligand_and_parse_sites(base_dir, protein_name, log_file, fill_points):
+def run_autoligand_and_parse_sites(base_dir, protein_name, log_file, fill_points, verbose=False):
     """
     Executes AutoLigand (Automatic Mode) and dynamically parses the output PDB files
     to define the Vina box centers.
@@ -191,7 +195,8 @@ def run_autoligand_and_parse_sites(base_dir, protein_name, log_file, fill_points
     
     protein_pdbqt_basename = f"{protein_name}_h.pdbqt"
     
-    print(f"[{os.path.basename(base_dir)}] --- Step 5a: Running AutoLigand (Automatic Mode) ---")
+    if verbose:
+        print(f"[{os.path.basename(base_dir)}] --- Running AutoLigand (Automatic Mode) ---")
     
     # AutoLigand.py requires the map base name and the fill points count.
     map_base_name = protein_pdbqt_basename.replace('.pdbqt', '')
@@ -200,7 +205,8 @@ def run_autoligand_and_parse_sites(base_dir, protein_name, log_file, fill_points
     if not execute_command(autoligand_cmd, "AutoLigand Site Search (Automatic)", log_file, base_dir):
         return []
 
-    print(f"[{os.path.basename(base_dir)}] --- Step 5b: Dynamically Parsing AutoLigand Output ---")
+    if verbose:       
+        print(f"[{os.path.basename(base_dir)}] AutoLigand command executed. Parsing generated FILL files...")
     
     discovered_sites = []
     
@@ -231,9 +237,10 @@ def run_autoligand_and_parse_sites(base_dir, protein_name, log_file, fill_points
                 "size": VINA_BOX_SIZE_TUPLE 
             }
             discovered_sites.append(site_info)
-            
-    print(f"[{os.path.basename(base_dir)}] AutoLigand identified {len(discovered_sites)} binding site(s).")
-    
+
+    if verbose:
+        print(f"[{os.path.basename(base_dir)}] AutoLigand identified {len(discovered_sites)} binding site(s).")
+
     # AMDock typically reports the top 10 sites found.
     return discovered_sites[:10]
 
@@ -242,7 +249,7 @@ def run_autoligand_and_parse_sites(base_dir, protein_name, log_file, fill_points
 # CORE DOCKING FUNCTION FOR HTVS
 # -----------------------------------------------------------
 
-def run_amdock_pipeline(job_config):
+def run_amdock_pipeline(job_config, verbose=False):
     """
     Performs the full AMDock-replicated pipeline (prep, grid, AutoLigand site search, Vina docking).
     """
@@ -268,7 +275,7 @@ def run_amdock_pipeline(job_config):
         f"pdb2pqr --ff={FORCE_FIELD} --with-ph {PH_VALUE} {protein_pdb} "
         f"{protein_h_pdb.replace('.pdb', '.pqr')} --clean --nodebump -k --protonate-all --titration-state-method=propka --pH {PH_VALUE}"
     )
-    if not execute_command(pdb2pqr_cmd, "PDB2PQR/PROPKA", log_file, base_dir): return False
+    if not execute_command(pdb2pqr_cmd, "PDB2PQR/PROPKA", log_file, base_dir, verbose=verbose): return False
 
     # --- 2. Convert prepared Receptor PDB to PDBQT (Prepare_Receptor4) ---
     # Uses Gasteiger charges by default
@@ -279,22 +286,30 @@ def run_amdock_pipeline(job_config):
     if not os.path.exists(pqr_path):
         print(f"ERROR: expected PQR not found: {pqr_path}")
         return False
-    
+
+    # Control the verbosity of OpenBabel
+    ob_outlvl = 2 if verbose else 0
+    ob.obErrorLog.SetOutputLevel(ob_outlvl) 
+    if not verbose:
+        pybel.ob.obErrorLog.StopLogging()
+
     # Convert PQR to PDB using pybel (OpenBabel)
     mols = list(pybel.readfile("pqr", pqr_path))
     if not mols:
         raise RuntimeError("No molecules read from PQR via pybel")
     out_path = os.path.join(base_dir, f"{protein_name}_h.pdb")
     mols[0].write("pdb", out_path, overwrite=True)
-    print(f"[{os.path.basename(base_dir)}] Converted PQR -> PDB using pybel: {out_path}")
+
+    if verbose:
+        print(f"[{os.path.basename(base_dir)}] Converted PQR -> PDB using pybel: {out_path}")
 
     # then use pdb_h_path for prepare_receptor4
     receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -o {os.path.basename(protein_pdbqt)}"
-    if not execute_command(receptor_prepare_cmd, "Prepare_Receptor4", log_file, base_dir): return False
+    if not execute_command(receptor_prepare_cmd, "Prepare_Receptor4", log_file, base_dir, verbose=verbose): return False
 
     # --- 3. Convert Ligand PDB to PDBQT (Prepare_Ligand4) ---
     ligand_prepare_cmd = f"prepare_ligand4 -l {ligand_pdb} -o {ligand_pdbqt}"
-    if not execute_command(ligand_prepare_cmd, "Prepare_Ligand4", log_file, base_dir): return False
+    if not execute_command(ligand_prepare_cmd, "Prepare_Ligand4", log_file, base_dir, verbose=verbose): return False
 
     protein_coordinates = parse_pdb_coordinates(protein_pdb)
     if not protein_coordinates:
@@ -319,11 +334,11 @@ def run_amdock_pipeline(job_config):
         f.write(gpf_content)
     
     autogrid_cmd = f"autogrid4 -p {gpf_file} -l grid.glg"
-    if not execute_command(autogrid_cmd, "AutoGrid4", log_file, base_dir): return False
+    if not execute_command(autogrid_cmd, "AutoGrid4", log_file, base_dir, verbose=verbose): return False
     
     # --- 5. Binding Site Detection using AutoLigand (Automatic Mode) ---
-    sites_to_dock = run_autoligand_and_parse_sites(base_dir, protein_name, log_file, AUTOLIGAND_FILL_POINTS)
-    
+    sites_to_dock = run_autoligand_and_parse_sites(base_dir, protein_name, log_file, AUTOLIGAND_FILL_POINTS, verbose=verbose)
+
     if not sites_to_dock:
         print(f"[{os.path.basename(base_dir)}] ERROR: AutoLigand site detection failed.")
         return False
@@ -339,16 +354,6 @@ def run_amdock_pipeline(job_config):
         output_pdbqt = f"{ligand_name}_pose_site{i+1}.pdbqt"
         log_file_vina = f"vina_site{i+1}.log"
         
-        # Docking each site individually, as observed in AMDock output [315, 318, ...]
-        #        vina_cmd = (
-        #     f"vina --receptor {protein_pdbqt} "
-        #     f"--ligand {ligand_pdbqt} "
-        #     f"--center_x {cx} --center_y {cy} --center_z {cz} "
-        #     f"--size_x {sx} --size_y {sy} --size_z {sz} "
-        #     f"--cpu {VINA_CPU_PER_JOB} " 
-        #     f"--out {output_pdbqt} --log {log_file_vina}"
-        # )
-        # Build vina command without the unsupported --log option; redirect stdout/stderr
         vina_cmd = (
             f"vina --receptor {protein_pdbqt} "
             f"--ligand {ligand_pdbqt} "
@@ -359,7 +364,7 @@ def run_amdock_pipeline(job_config):
             f"> {log_file_vina} 2>&1"
         )
 
-        if execute_command(vina_cmd, f"AutoDock Vina (Site {i+1})", log_file, base_dir):
+        if execute_command(vina_cmd, f"AutoDock Vina (Site {i+1})", log_file, base_dir, verbose=verbose):
             successful_runs += 1
             mol_out = list(pybel.readfile("pdbqt", os.path.join(base_dir, output_pdbqt)))
             mol_out[0].write("pdb", os.path.join(base_dir, output_pdbqt.replace('.pdbqt', '.pdb')), overwrite=True)
@@ -367,7 +372,9 @@ def run_amdock_pipeline(job_config):
             print(f"[{os.path.basename(base_dir)}] Vina docking failed for site {i+1}.")
             
     if successful_runs > 0:
-        print(f"\n*** Docking for {protein_name} + {ligand_name} Complete (Total sites docked: {len(sites_to_dock)}). ***")
+        if verbose:
+            print(f"[{os.path.basename(base_dir)}] Docking completed successfully.")
+            print(f"\n*** Docking for {protein_name} + {ligand_name} Complete (Total sites docked: {len(sites_to_dock)}). ***")
         return True
     else:
         print(f"\n*** Docking for {protein_name} + {ligand_name} FAILED ENTIRELY. ***")
@@ -377,7 +384,7 @@ def run_amdock_pipeline(job_config):
 # HTVS EXECUTION (PARALLELIZATION)
 # -----------------------------------------------------------
 
-def run_htvs(jobs_to_run):
+def run_htvs(jobs_to_run, verbose=False):
     """
     Sets up Python's multiprocessing to run multiple docking jobs in parallel (HTVS).
     """
@@ -385,16 +392,18 @@ def run_htvs(jobs_to_run):
     # Calculate max parallel HTVS processes based on total cores and Vina's internal use.
     max_processes = max(1, TOTAL_HTVS_CORES // VINA_CPU_PER_JOB)
     
-    print(f"\n--- Starting HTVS Parallel Execution ---")
-    print(f"Vina internal cores per job: {VINA_CPU_PER_JOB}")
-    print(f"Maximum simultaneous HTVS jobs: {max_processes}")
-    print(f"Total jobs requested: {len(jobs_to_run)}")
-    
+    if verbose:
+        print(f"\n--- Starting HTVS Parallel Execution ---")
+        print(f"Vina internal cores per job: {VINA_CPU_PER_JOB}")
+        print(f"Maximum simultaneous HTVS jobs: {max_processes}")
+        print(f"Total jobs requested: {len(jobs_to_run)}")
+
     with multiprocessing.Pool(processes=max_processes) as pool:
-        results = pool.map(run_amdock_pipeline, jobs_to_run)
+        results = pool.map(partial(run_amdock_pipeline, verbose=verbose), jobs_to_run)
         
     successful_jobs = sum(results)
-    print(f"\n--- HTVS Finished ---")
+    if verbose:
+        print(f"\n--- HTVS Finished ---")
     print(f"Summary: {successful_jobs}/{len(jobs_to_run)} pairs successfully processed.")
 
 
