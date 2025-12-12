@@ -19,7 +19,7 @@ import openbabel as ob
 from openbabel import pybel  # common import name for OpenBabel's Python wrapper
 from functools import partial
 from tabulate import tabulate
-
+import json
 from collections import defaultdict
 
 
@@ -63,6 +63,160 @@ VINA_CPU_PER_JOB = int(os.getenv('VINA_CPU_PER_JOB', multiprocessing.cpu_count()
 # UTILITY FUNCTIONS
 # -----------------------------------------------------------
 
+import re
+
+# Define charge & radius table for your metals
+DEFAULT_METAL_PARAMS = {
+    "FE":  {"charge":  0.0, "radius": 1.40},   # Fe2+  (e.g., non-heme Fe(II))
+    "MG":  {"charge": 0.0, "radius": 1.30},
+    "CA":  {"charge": 0.0, "radius": 1.98},
+    "MN":  {"charge": 0.0, "radius": 1.39},
+}
+#override these with environment variable to a json path if provided
+METAL_PARAMS = json.loads(os.getenv("METAL_PARAMS_JSON", json.dumps(DEFAULT_METAL_PARAMS)))
+
+def extract_metals_from_pdb(pdb_file):
+    metals = []
+    with open(pdb_file) as f:
+        for line in f:
+            if not line.startswith("HETATM"):
+                continue
+            resname = line[17:20].strip()
+            if resname in METAL_PARAMS:
+                metals.append(line.rstrip("\n"))
+    return metals
+
+def convert_pdb_line_to_pqr(pdb_line):
+    """
+    Write a strict PDB-style PQR line with correct fixed columns:
+    - residue name right-justified in cols 18-20
+    - chain in col 22
+    - resseq in cols 23-26
+    - coords in cols 31-54
+    - occupancy (charge) cols 55-60, bfactor (radius) cols 61-66
+    - element in cols 77-78
+    Returns a single line ending with '\n'.
+    """
+    import re
+
+    ln = pdb_line.rstrip("\n")
+    toks = ln.split()
+
+    record = (ln[0:6].strip() or (toks[0] if toks else "HETATM")).upper()
+
+    # serial may be fused with letters (e.g. "1396MG")
+    raw_serial = ln[6:11] if len(ln) >= 11 else (toks[1] if len(toks) > 1 else "0")
+    m = re.match(r"^\s*(\d+)([A-Za-z]{1,2})?\s*$", raw_serial)
+    if m:
+        serial = int(m.group(1))
+        fused_element = (m.group(2) or "").upper()
+    else:
+        digits = re.sub(r"\D", "", raw_serial or "")
+        serial = int(digits) if digits else (int(toks[1]) if len(toks) > 1 and toks[1].isdigit() else 0)
+        fused_element = ""
+
+    # atom name and resname (use fixed columns when available)
+    atom_name = ln[12:16].strip() if len(ln) >= 16 and ln[12:16].strip() else (toks[2] if len(toks) > 2 else "")
+    res_name = ln[17:20].strip() if len(ln) >= 20 and ln[17:20].strip() else (toks[3] if len(toks) > 3 else "")
+
+    # chain id (col 22) and residue number (cols 23-26)
+    chain = ln[21].strip() if len(ln) > 21 and ln[21].strip() else " "
+    resno_field = ln[22:26] if len(ln) >= 26 else (toks[5] if len(toks) > 5 else "")
+    resno_digits = re.sub(r"\D", "", resno_field or "")
+    res_no = int(resno_digits) if resno_digits else (int(toks[5]) if len(toks) > 5 and toks[5].isdigit() else 0)
+
+    # coordinates (fixed cols) with token fallback
+    try:
+        x = float(ln[30:38].strip()); y = float(ln[38:46].strip()); z = float(ln[46:54].strip())
+    except Exception:
+        x = y = z = 0.0
+        for i in range(len(toks)-2):
+            try:
+                tx = float(toks[i]); ty = float(toks[i+1]); tz = float(toks[i+2])
+                if all(-999.0 < v < 999.0 for v in (tx, ty, tz)):
+                    x, y, z = tx, ty, tz
+                    break
+            except Exception:
+                continue
+
+    # charge/radius tail (PQR style) if present
+    charge = None; radius = None
+    if len(ln) > 54:
+        tail = ln[54:].strip().split()
+        if len(tail) >= 2:
+            try:
+                charge = float(tail[0]); radius = float(tail[1])
+            except Exception:
+                charge = radius = None
+
+    # determine element: explicit col 77-78 > fused token > atom_name prefix > resname
+    element = ""
+    if len(ln) >= 78 and ln[76:78].strip():
+        element = ln[76:78].strip().capitalize()
+    elif fused_element:
+        element = fused_element.capitalize()
+    else:
+        m2 = re.match(r"([A-Za-z]{1,2})", atom_name or "")
+        if m2:
+            element = m2.group(1).capitalize()
+        else:
+            element = (res_name[:2].capitalize() if res_name else "").capitalize()
+    element = (element or "").rjust(2)[:2]
+
+    # fallback defaults
+    if charge is None or radius is None:
+        params = METAL_PARAMS.get(element.strip().upper(), METAL_PARAMS.get(res_name.upper(), {"charge": 1.00, "radius": 0.00}))
+        charge = params.get("charge", 1.00)
+        radius = params.get("radius", 0.00)
+
+    # prepare fields with exact justification: atom name left-justified in 4 cols,
+    # residue name RIGHT-justified in 3 cols (cols 18-20), altLoc is blank (col 17)
+    atom_name_field = (atom_name or element.strip()).capitalize()
+    res_name_field = (res_name or "").upper()[:3].rjust(3)
+
+    # Build fixed-column PDB line exactly placing fields in correct columns.
+    # Layout:
+    # 1-6 record, 7-11 serial, 12 blank, 13-16 atom name (left-just), 17 altLoc (space),
+    # 18-20 resName (right-just), 21 blank, 22 chain, 23-26 resSeq, 27-30 padding,
+    # 31-38 x, 39-46 y, 47-54 z, 55-60 occupancy, 61-66 tempFactor, pad to 76, element 77-78
+    core = (
+        f"{record:<6}"                  # 1-6
+        f"{serial:5d}"                  # 7-11
+        f" "                            # 12
+        f"{atom_name_field:<4}"         # 13-16
+        f" "                            # 17 altLoc
+        f"{res_name_field:>3}"          # 18-20 (right-justified)
+        f" "                            # 21
+        f"{chain:1s}"                   # 22
+        f"{res_no:4d}"                  # 23-26
+        f"   "                          # 27-29 (in total make up to col30)
+        f"{x:8.3f}{y:8.3f}{z:8.3f}"     # 31-54
+        f"{charge:6.2f}{radius:6.2f}"   # 55-66 (occupancy & bfactor)
+    )
+
+    # pad to column 76 then put element at 77-78
+    desired_core_len = 76
+    if len(core) > desired_core_len:
+        core = core[:desired_core_len]
+    core = core.ljust(desired_core_len)
+    element_field = element.capitalize().rjust(2)[:2]
+    return core + element_field + "\n"
+
+def merge_pqr_with_metals(pqr_file, metal_pqr_lines, output_file):
+    with open(pqr_file) as f:
+        pqr_lines = f.readlines()
+
+    # Strip END lines to append cleanly
+    pqr_lines = [ln for ln in pqr_lines if not ln.startswith("END")]
+
+    with open(output_file, "w") as out:
+        for ln in pqr_lines:
+            out.write(ln)
+        for m in metal_pqr_lines:
+            out.write(m + "\n")
+        out.write("END\n")
+
+
 def execute_command(command, step_name, log_file, cwd, verbose=False):
     """Utility function to execute shell commands and log output."""
     if verbose:
@@ -105,8 +259,7 @@ def run_pdb2pqr_and_propka(protein_pdb, pqr_path, log_file, cwd='.', verbose=Fal
     """
     protonated_pdb = pqr_path.replace('.pqr', '_h.pdb')
     pdb2pqr_cmd = (
-        f"pdb2pqr --ff={FORCE_FIELD} --with-ph {PH_VALUE} "
-        f"{protein_pdb} {pqr_path} --nodebump -k --protonate-all "
+        f"pdb2pqr --keep-chain --noopt --ff={FORCE_FIELD} --with-ph {PH_VALUE} " f"{protein_pdb} {pqr_path} --nodebump -k --protonate-all "
         f"--titration-state-method=propka --pH {PH_VALUE} -f {protonated_pdb}"
     )
     # run pdb2pqr and capture output
@@ -131,31 +284,136 @@ def run_pdb2pqr_and_propka(protein_pdb, pqr_path, log_file, cwd='.', verbose=Fal
             f.write(res.stderr or '')
     return True
 
-def generate_gpf_content(target_pdbqt, grid_center, npts):
-    """Generates the AutoGrid GPF file content replicating AMDock's parameters."""
+def detect_atom_types_from_pdbqt(pdbqt_path):
+    """
+    Return ordered list of unique AD4 atom-type tokens found in a PDBQT receptor file.
+    Heuristics (in order):
+    1. trailing whitespace-separated token on ATOM/HETATM lines
+    2. element symbol in columns 77-78 (PDB element column)
+    3. element inferred from atom name (cols 12-16)
+    4. single-letter fallback tokens (preserve if present)
+    """
+    tokens = []
+    seen = set()
+    if not os.path.exists(pdbqt_path):
+        return tokens
+
+    with open(pdbqt_path, "r") as fh:
+        for ln in fh:
+            if not ln.startswith(("ATOM", "HETATM")):
+                continue
+            ln_stripped = ln.rstrip("\n\r")
+            # 1) trailing token
+            parts = ln_stripped.split()
+            token = None
+            if parts:
+                last = parts[-1].strip()
+                # accept if contains letters (e.g. "OA", "NA", "Mg", "HD", "A")
+                if re.search(r"[A-Za-z]", last):
+                    token = last
+            # 2) element in fixed columns 77-78 (1-based)
+            if not token:
+                if len(ln_stripped) >= 78:
+                    elem_col = ln_stripped[76:78].strip()
+                    if elem_col and re.match(r"^[A-Za-z]{1,2}$", elem_col):
+                        token = elem_col
+            # 3) atom name-based fallback (cols 13-16)
+            if not token:
+                if len(ln_stripped) >= 16:
+                    atom_name = ln_stripped[12:16].strip()
+                    if atom_name:
+                        m = re.match(r"^([A-Za-z]{1,2})", atom_name)
+                        if m:
+                            token = m.group(1)
+            # 4) final fallback: single-letter tokens from anywhere in last few columns
+            if not token:
+                tail = ln_stripped[-10:].strip() if len(ln_stripped) >= 10 else ln_stripped.strip()
+                m = re.search(r"([A-Za-z])\b", tail)
+                if m:
+                    token = m.group(1)
+
+            if token:
+                # normalize case to preserve what AutoGrid/prepare_receptor4 sees - keep original case
+                if token not in seen:
+                    seen.add(token)
+                    tokens.append(token)
+
+    return tokens
+
+
+def detect_receptor_types_from_pdbqt(pdbqt_path):
+    """Return a space-separated string of unique atom types found in a PDBQT (simple heuristic)."""
+    types = []
+    if not os.path.exists(pdbqt_path):
+        return None
+    with open(pdbqt_path, 'r') as fh:
+        for ln in fh:
+            if ln.startswith(("ATOM", "HETATM")):
+                parts = ln.strip().split()
+                if not parts:
+                    continue
+                # heuristic: last token often contains the AD4 atom type / element token
+                last = parts[-1]
+                # ignore coordinate/charge numeric tokens
+                if last.isalpha():
+                    types.append(last)
+                else:
+                    # fallback: try to extract element from columns (element symbol usually at end)
+                    # simple attempt: take 1-2 char element from atom name field
+                    atom_name = parts[2] if len(parts) > 2 else ""
+                    elem = re.sub(r'[^A-Za-z]', '', atom_name).strip()[:2].upper()
+                    if elem:
+                        types.append(elem)
+    unique = sorted(set(types), key=lambda x: (len(x), x))
+    return " ".join(unique) if unique else None
+
+def generate_gpf_content(target_pdbqt, grid_center, npts, receptor_types=None, ligand_types=None):
+    """
+    Generate GPF content. Accepts receptor_types/ligand_types as lists (preferred) or space-separated strings.
+    Emits exactly one 'map base.TYPE.map' line per ligand type token (AutoGrid expects maps for ligand_types).
+    """
     cx, cy, cz = grid_center
     nx, ny, nz = npts
-    
-    # Grid parameters must match those required for AutoLigand (1 Å spacing, specific maps)
-    gpf_content = f"""
-npts {nx} {ny} {nz} # num.grid points in xyz
-gridfld {target_pdbqt.replace('.pdbqt', '.maps.fld')} # grid_data_file
-spacing {GRID_SPACING} # spacing(A)
-receptor_types {RECEPTOR_TYPES} # receptor atom types
-ligand_types {LIGAND_TYPES} # ligand atom types
-receptor {target_pdbqt} # macromolecule
-gridcenter {cx} {cy} {cz} # xyz-coordinates
-smooth {SMOOTH_RADIUS} # store minimum energy w/in rad(A)
-map {target_pdbqt.replace('.pdbqt', '.OA.map')} # atom-specific affinity map
-map {target_pdbqt.replace('.pdbqt', '.A.map')} # atom-specific affinity map
-map {target_pdbqt.replace('.pdbqt', '.C.map')} # atom-specific affinity map
-map {target_pdbqt.replace('.pdbqt', '.N.map')} # atom-specific affinity map
-map {target_pdbqt.replace('.pdbqt', '.NA.map')} # atom-specific affinity map
-elecmap {target_pdbqt.replace('.pdbqt', '.e.map')} # electrostatic potential map
-dsolvmap {target_pdbqt.replace('.pdbqt', '.d.map')} # desolvation potential map
-dielectric {DIELECTRIC_CONSTANT} # AD4 distance-dependent dielectric
-"""
-    return gpf_content
+
+    def norm(x, fallback):
+        if not x:
+            x = fallback
+        if isinstance(x, str):
+            toks = [t for t in re.split(r'\s+', x.strip()) if t]
+        else:
+            toks = list(x)
+        # preserve order & uniqueness
+        out = []
+        seen = set()
+        for t in toks:
+            if t not in seen:
+                seen.add(t)
+                out.append(t)
+        return out
+
+    receptor_tokens = norm(receptor_types, RECEPTOR_TYPES)
+    ligand_tokens = norm(ligand_types, LIGAND_TYPES)
+
+    base = os.path.splitext(os.path.basename(target_pdbqt))[0]
+    # IMPORTANT: AutoGrid expects one "map" line per ligand atom type (not receptor types)
+    map_lines = "\n".join(f"map {base}.{t}.map" for t in ligand_tokens)
+
+    lines = [
+        f"npts {nx} {ny} {nz} # num.grid points in xyz",
+        f"gridfld {base}.maps.fld # grid_data_file",
+        f"spacing {GRID_SPACING} # spacing(A)",
+        f"receptor_types {' '.join(receptor_tokens)} # receptor atom types",
+        f"ligand_types {' '.join(ligand_tokens)} # ligand atom types",
+        f"receptor {base}.pdbqt # macromolecule",
+        f"gridcenter {cx} {cy} {cz} # xyz-coordinates",
+        f"smooth {SMOOTH_RADIUS} # store minimum energy w/in rad(A)",
+        map_lines,
+        f"elecmap {base}.e.map",
+        f"dsolvmap {base}.d.map",
+        f"dielectric {DIELECTRIC_CONSTANT}",
+        ""
+    ]
+    return "\n".join(lines)
 
 
 # -----------------------------------------------------------
@@ -299,6 +557,7 @@ def run_amdock_pipeline(job_config, verbose=False):
     ligand_pdb = job_config['ligand_pdb']
     protein_name = job_config['protein_name']
     ligand_name = job_config['ligand_name']
+    keep_metals = job_config.get('keep_metals', False)
 
     # Define intermediate file names
     protein_h_pdb = os.path.join(base_dir, f"{protein_name}_h.pdb")
@@ -316,7 +575,15 @@ def run_amdock_pipeline(job_config, verbose=False):
         print(f"[{os.path.basename(base_dir)}] ERROR: pdb2pqr/propka step failed. See {log_file}")
         return False
 
-    # --- 2. Convert prepared Receptor PDB to PDBQT (Prepare_Receptor4) ---
+    # If metals are to be kept, extract and merge them into the PQR
+
+    if keep_metals:
+        metals = extract_metals_from_pdb(protein_pdb)
+        metal_pqr_lines = [convert_pdb_line_to_pqr(m) for m in metals]
+        merge_pqr_with_metals(pqr_path, metal_pqr_lines, pqr_path)
+        if verbose:
+            print(f"[{os.path.basename(base_dir)}] Merged {len(metal_pqr_lines)} metal ions into PQR.")
+    
     # Uses Gasteiger charges by default
     pdb_h_path = os.path.join(base_dir, f"{protein_name}_h.pdb")
 
@@ -342,7 +609,13 @@ def run_amdock_pipeline(job_config, verbose=False):
         print(f"[{os.path.basename(base_dir)}] Converted PQR -> PDB using pybel: {pdb_h_path}")
 
     # then use pdb_h_path for prepare_receptor4
-    receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -o {os.path.basename(protein_pdbqt)}"
+    if keep_metals:
+        #Extract the names of the metal atoms
+        metal_atom_names = [line[12:16].strip() for line in metals]
+        metal_atoms_string = ' '.join(metal_atom_names)
+        receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -C -p {metal_atoms_string} -U nphs_lps_waters_nonstdres_deleteAltB -o {os.path.basename(protein_pdbqt)}"
+    else:
+        receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -o {os.path.basename(protein_pdbqt)}"
     if not execute_command(receptor_prepare_cmd, "Prepare_Receptor4", log_file, base_dir, verbose=verbose): return False
 
     # --- 3. Convert Ligand PDB to PDBQT (Prepare_Ligand4) ---
@@ -366,10 +639,12 @@ def run_amdock_pipeline(job_config, verbose=False):
         require_even=True
     )
     # --- 4. Generate AutoGrid4 GPF and Run AutoGrid4 (Prerequisite for AutoLigand) ---
-    gpf_content = generate_gpf_content(protein_pdbqt, grid_center_full_protein, grid_npts)
-
-    with open(os.path.join(base_dir, gpf_file), "w") as f:
-        f.write(gpf_content)
+    # detect receptor atom types from the pdbqt and use them in the GPF to avoid autogrid mismatch
+    receptor_tokens = detect_atom_types_from_pdbqt(os.path.join(base_dir, protein_pdbqt))
+    ligand_tokens = detect_atom_types_from_pdbqt(os.path.join(base_dir, ligand_pdbqt))
+    gpf = generate_gpf_content(protein_pdbqt, grid_center_full_protein, grid_npts, receptor_types=receptor_tokens, ligand_types=ligand_tokens)
+    with open(os.path.join(base_dir, gpf_file), "w") as fh:
+        fh.write(gpf)
     
     autogrid_cmd = f"autogrid4 -p {gpf_file} -l grid.glg"
     if not execute_command(autogrid_cmd, "AutoGrid4", log_file, base_dir, verbose=verbose): return False
