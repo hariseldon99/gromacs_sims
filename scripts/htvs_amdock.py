@@ -318,7 +318,6 @@ def run_amdock_pipeline(job_config, verbose=False):
 
     # --- 2. Convert prepared Receptor PDB to PDBQT (Prepare_Receptor4) ---
     # Uses Gasteiger charges by default
-    pqr_path = os.path.join(base_dir, f"{protein_name}_h.pqr")
     pdb_h_path = os.path.join(base_dir, f"{protein_name}_h.pdb")
 
     # ensure pdb2pqr created the PQR
@@ -336,11 +335,10 @@ def run_amdock_pipeline(job_config, verbose=False):
     mols = list(pybel.readfile("pqr", pqr_path))
     if not mols:
         raise RuntimeError("No molecules read from PQR via pybel")
-    out_path = os.path.join(base_dir, f"{protein_name}_h.pdb")
-    mols[0].write("pdb", out_path, overwrite=True)
+    mols[0].write("pdb", pdb_h_path, overwrite=True)
 
     if verbose:
-        print(f"[{os.path.basename(base_dir)}] Converted PQR -> PDB using pybel: {out_path}")
+        print(f"[{os.path.basename(base_dir)}] Converted PQR -> PDB using pybel: {pdb_h_path}")
 
     # then use pdb_h_path for prepare_receptor4
     receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -o {os.path.basename(protein_pdbqt)}"
