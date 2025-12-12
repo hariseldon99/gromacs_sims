@@ -332,6 +332,7 @@ def run_amdock_pipeline(job_config, verbose=False):
         pybel.ob.obErrorLog.StopLogging()
 
     # Convert PQR to PDB using pybel (OpenBabel)
+    # Maybe something wrong here!!!!!
     mols = list(pybel.readfile("pqr", pqr_path))
     if not mols:
         raise RuntimeError("No molecules read from PQR via pybel")
