@@ -15,6 +15,7 @@ import glob
 import re
 import shutil
 import platform
+from networkx import radius
 import openbabel as ob
 from openbabel import pybel  # common import name for OpenBabel's Python wrapper
 from functools import partial
@@ -48,7 +49,7 @@ SMOOTH_RADIUS = 0.5 # Potentials smoothing radius
 DIELECTRIC_CONSTANT = float(os.getenv("DIELECTRIC_CONSTANT", -0.1465)) # Allow override via env var
 
 # AutoLigand Parameters
-AUTOLIGAND_FILL_POINTS = int(os.getenv("AUTOLIGAND_FILL_POINTS", 90)) # Fill points for AutoLigand (default 90, can be overridden via env var)
+AUTOLIGAND_FILL_POINTS = int(os.getenv("AUTOLIGAND_FILL_POINTS", 250)) # Fill points for AutoLigand (default 250, can be overridden via env var)
 
 # Vina Box Size (Fixed for AutoLigand results)
 VINA_BOX_SIZE_TUPLE = (30, 30, 30) # Fixed size used by AMDock for AutoLigand results
@@ -71,6 +72,7 @@ DEFAULT_METAL_PARAMS = {
     "MG":  {"charge": 0.0, "radius": 1.30},
     "CA":  {"charge": 0.0, "radius": 1.98},
     "MN":  {"charge": 0.0, "radius": 1.39},
+    "ZN": {"charge": 0.0, "radius": 1.39},
 }
 #override these with environment variable to a json path if provided
 METAL_PARAMS = json.loads(os.getenv("METAL_PARAMS_JSON", json.dumps(DEFAULT_METAL_PARAMS)))
@@ -86,25 +88,32 @@ def extract_metals_from_pdb(pdb_file):
                 metals.append(line.rstrip("\n"))
     return metals
 
-def convert_pdb_line_to_pqr(pdb_line):
+def convert_pdb_line_to_pqr(pdb_line, metal_params=None):
     """
-    Write a strict PDB-style PQR line with correct fixed columns:
-    - residue name right-justified in cols 18-20
-    - chain in col 22
-    - resseq in cols 23-26
-    - coords in cols 31-54
-    - occupancy (charge) cols 55-60, bfactor (radius) cols 61-66
-    - element in cols 77-78
-    Returns a single line ending with '\n'.
+    Convert a PDB HETATM line (metal ion) to proper PQR format.
+    
+    CRITICAL FIXES:
+    1. Atom name should be the ELEMENT SYMBOL (e.g., "Mg") not residue name
+    2. Residue name should be RIGHT-justified in 3 chars: " MG"
+    3. Element symbol should be properly capitalized (Mg, Ca, Fe, etc.)
+    
+    Example INPUT (from your grep):
+    HETATM 2849 MG   MG  A 201       7.473  44.046  16.148  1.00  0.00          Mg
+    
+    Example OUTPUT (correct format):
+    HETATM 2849 Mg    MG A 201       7.473  44.046  16.148  1.00  0.00          Mg
+                ^^^^  ^^^
+              "Mg  " " MG"  ← Note the difference!
     """
-    import re
-
+    if metal_params is None:
+        metal_params = DEFAULT_METAL_PARAMS
+    
     ln = pdb_line.rstrip("\n")
     toks = ln.split()
 
     record = (ln[0:6].strip() or (toks[0] if toks else "HETATM")).upper()
 
-    # serial may be fused with letters (e.g. "1396MG")
+    # Parse serial number
     raw_serial = ln[6:11] if len(ln) >= 11 else (toks[1] if len(toks) > 1 else "0")
     m = re.match(r"^\s*(\d+)([A-Za-z]{1,2})?\s*$", raw_serial)
     if m:
@@ -112,94 +121,100 @@ def convert_pdb_line_to_pqr(pdb_line):
         fused_element = (m.group(2) or "").upper()
     else:
         digits = re.sub(r"\D", "", raw_serial or "")
-        serial = int(digits) if digits else (int(toks[1]) if len(toks) > 1 and toks[1].isdigit() else 0)
+        serial = int(digits) if digits else 0
         fused_element = ""
 
-    # atom name and resname (use fixed columns when available)
-    atom_name = ln[12:16].strip() if len(ln) >= 16 and ln[12:16].strip() else (toks[2] if len(toks) > 2 else "")
-    res_name = ln[17:20].strip() if len(ln) >= 20 and ln[17:20].strip() else (toks[3] if len(toks) > 3 else "")
-
-    # chain id (col 22) and residue number (cols 23-26)
-    chain = ln[21].strip() if len(ln) > 21 and ln[21].strip() else " "
-    resno_field = ln[22:26] if len(ln) >= 26 else (toks[5] if len(toks) > 5 else "")
+    # Parse fields from fixed columns
+    atom_name_orig = ln[12:16].strip() if len(ln) >= 16 else ""
+    res_name = ln[17:20].strip() if len(ln) >= 20 else ""
+    chain = ln[21].strip() if len(ln) > 21 else " "
+    
+    resno_field = ln[22:26] if len(ln) >= 26 else ""
     resno_digits = re.sub(r"\D", "", resno_field or "")
-    res_no = int(resno_digits) if resno_digits else (int(toks[5]) if len(toks) > 5 and toks[5].isdigit() else 0)
+    res_no = int(resno_digits) if resno_digits else 0
 
-    # coordinates (fixed cols) with token fallback
+    # Parse coordinates
     try:
-        x = float(ln[30:38].strip()); y = float(ln[38:46].strip()); z = float(ln[46:54].strip())
-    except Exception:
+        x = float(ln[30:38].strip())
+        y = float(ln[38:46].strip())
+        z = float(ln[46:54].strip())
+    except:
         x = y = z = 0.0
-        for i in range(len(toks)-2):
-            try:
-                tx = float(toks[i]); ty = float(toks[i+1]); tz = float(toks[i+2])
-                if all(-999.0 < v < 999.0 for v in (tx, ty, tz)):
-                    x, y, z = tx, ty, tz
-                    break
-            except Exception:
-                continue
 
-    # charge/radius tail (PQR style) if present
-    charge = None; radius = None
-    if len(ln) > 54:
-        tail = ln[54:].strip().split()
-        if len(tail) >= 2:
-            try:
-                charge = float(tail[0]); radius = float(tail[1])
-            except Exception:
-                charge = radius = None
+    # Parse occupancy and B-factor
+    try:
+        occupancy = float(ln[54:60].strip()) if len(ln) >= 60 else 1.00
+        bfactor = float(ln[60:66].strip()) if len(ln) >= 66 else 0.00
+    except:
+        occupancy = 1.00
+        bfactor = 0.00
 
-    # determine element: explicit col 77-78 > fused token > atom_name prefix > resname
+    # Determine element symbol
     element = ""
     if len(ln) >= 78 and ln[76:78].strip():
-        element = ln[76:78].strip().capitalize()
+        element = ln[76:78].strip()
     elif fused_element:
-        element = fused_element.capitalize()
+        element = fused_element
     else:
-        m2 = re.match(r"([A-Za-z]{1,2})", atom_name or "")
+        # For metals, extract element from residue name or atom name
+        m2 = re.match(r"([A-Za-z]{1,2})", atom_name_orig or "")
         if m2:
-            element = m2.group(1).capitalize()
-        else:
-            element = (res_name[:2].capitalize() if res_name else "").capitalize()
-    element = (element or "").rjust(2)[:2]
+            element = m2.group(1)
+        elif res_name:
+            element = res_name[:2]
+    
+    element = element.strip()
+    
+    # KEY FIX: For metals, use properly capitalized element symbol as atom name
+    # Check if this is a known metal
+    is_metal = res_name.upper() in metal_params or element.upper() in metal_params
+    
+    if is_metal:
+        # Use element symbol with proper capitalization for atom name
+        # Example: Mg, Ca, Fe, Mn, Zn (first letter uppercase, rest lowercase)
+        atom_name = element[0].upper() + element[1:].lower() if len(element) > 1 else element.upper()
+        element_cap = atom_name  # Keep consistent
+    else:
+        # Not a metal - use original atom name
+        atom_name = atom_name_orig
+        element_cap = element[0].upper() + element[1:].lower() if len(element) > 1 else element.upper()
 
-    # fallback defaults
-    if charge is None or radius is None:
-        params = METAL_PARAMS.get(element.strip().upper(), METAL_PARAMS.get(res_name.upper(), {"charge": 1.00, "radius": 0.00}))
-        charge = params.get("charge", 1.00)
-        radius = params.get("radius", 0.00)
+    # Get charge/radius from METAL_PARAMS
+    params = metal_params.get(element.upper(), 
+                              metal_params.get(res_name.upper(), 
+                                             {"charge": 0.0, "radius": 1.30}))
+    charge = params.get("charge", 0.0)
+    radius = params.get("radius", 1.30)
 
-    # prepare fields with exact justification: atom name left-justified in 4 cols,
-    # residue name RIGHT-justified in 3 cols (cols 18-20), altLoc is blank (col 17)
-    atom_name_field = (atom_name or element.strip()).capitalize()
-    res_name_field = (res_name or "").upper()[:3].rjust(3)
+    # FORMAT FIELDS CORRECTLY
+    # Atom name: LEFT-justified in 4 chars
+    # For 1-2 char elements, pad with spaces on RIGHT
+    atom_name_field = f"{atom_name:<4}"[:4]  # "Mg  " or "Ca  "
+    
+    # Residue name: RIGHT-justified in 3 chars
+    res_name_field = f"{res_name.upper():>3}"  # " MG" or " CA"
+    
+    # Element: RIGHT-justified in 2 chars  
+    element_field = f"{element_cap:>2}"[:2]  # "Mg" or "Ca"
 
-    # Build fixed-column PDB line exactly placing fields in correct columns.
-    # Layout:
-    # 1-6 record, 7-11 serial, 12 blank, 13-16 atom name (left-just), 17 altLoc (space),
-    # 18-20 resName (right-just), 21 blank, 22 chain, 23-26 resSeq, 27-30 padding,
-    # 31-38 x, 39-46 y, 47-54 z, 55-60 occupancy, 61-66 tempFactor, pad to 76, element 77-78
+    # Build PQR line with exact PDB column positioning
     core = (
-        f"{record:<6}"                  # 1-6
-        f"{serial:5d}"                  # 7-11
-        f" "                            # 12
-        f"{atom_name_field:<4}"         # 13-16
-        f" "                            # 17 altLoc
-        f"{res_name_field:>3}"          # 18-20 (right-justified)
-        f" "                            # 21
-        f"{chain:1s}"                   # 22
-        f"{res_no:4d}"                  # 23-26
-        f"   "                          # 27-29 (in total make up to col30)
-        f"{x:8.3f}{y:8.3f}{z:8.3f}"     # 31-54
-        f"{charge:6.2f}{radius:6.2f}"   # 55-66 (occupancy & bfactor)
+        f"{record:<6}"                    # 1-6: record type
+        f"{serial:5d}"                    # 7-11: serial number
+        f" "                              # 12: space
+        f"{atom_name_field}"              # 13-16: atom name (LEFT-justified)
+        f" "                              # 17: altLoc (space)
+        f"{res_name_field}"               # 18-20: residue name (RIGHT-justified)
+        f" "                              # 21: space
+        f"{chain:1s}"                     # 22: chain ID
+        f"{res_no:4d}"                    # 23-26: residue sequence number
+        f"    "                           # 27-30: padding
+        f"{x:8.3f}{y:8.3f}{z:8.3f}"       # 31-54: coordinates
+        f"{charge:6.2f}{radius:6.2f}"     # 55-66: charge and radius (PQR format)
     )
-
-    # pad to column 76 then put element at 77-78
-    desired_core_len = 76
-    if len(core) > desired_core_len:
-        core = core[:desired_core_len]
-    core = core.ljust(desired_core_len)
-    element_field = element.capitalize().rjust(2)[:2]
+    
+    # Pad to column 76, then add element at 77-78
+    core = core.ljust(76)
     return core + element_field + "\n"
 
 def merge_pqr_with_metals(pqr_file, metal_pqr_lines, output_file):
@@ -216,6 +231,96 @@ def merge_pqr_with_metals(pqr_file, metal_pqr_lines, output_file):
             out.write(m + "\n")
         out.write("END\n")
 
+def convert_pqr_to_pdb_manually(pqr_path, pdb_path):
+    """
+    Convert PQR to PDB format WITHOUT using OpenBabel.
+    Preserves exact formatting (especially residue name right-justification).
+    
+    PQR: cols 55-66 are charge/radius
+    PDB: cols 55-60 occ, 61-66 B-factor, 77-78 element
+    """
+    with open(pqr_path, 'r') as f_in, open(pdb_path, 'w') as f_out:
+        for line in f_in:
+            line = line.rstrip('\n')
+            
+            # Skip headers (except TER and END)
+            if line.startswith(('REMARK', 'COMPND', 'AUTHOR', 'CRYST', 'MODEL', 'ENDMDL')):
+                continue
+            
+            if line.startswith('TER'):
+                f_out.write(line + '\n')
+                continue
+            
+            if line.startswith('END'):
+                f_out.write('END\n')
+                break
+            
+            # Process ATOM/HETATM lines
+            if line.startswith(('ATOM', 'HETATM')):
+                if len(line) < 66:
+                    f_out.write(line + '\n')
+                    continue
+                
+                # Extract core (cols 1-54) - THIS PRESERVES YOUR CORRECT FORMATTING
+                core = line[:54]
+                
+                # Parse PQR charge/radius (cols 55-66)
+                try:
+                    charge_radius = line[54:66].strip().split()
+                    if len(charge_radius) >= 2:
+                        charge = float(charge_radius[0])
+                        radius = float(charge_radius[1])
+                    else:
+                        charge = 0.0
+                        radius = 0.0
+                except:
+                    charge = 0.0
+                    radius = 0.0
+                
+                # PDB format: occupancy + B-factor
+                occupancy = 1.00
+                # CRITICAL FIX: Cap B-factor to prevent column overflow
+                # B-factor field is %6.2f which can only hold values up to 99.99
+                # Without capping, values ≥100 cause formatting issues
+                bfactor = radius * 100.0 if radius > 0 else 0.00
+                bfactor = min(bfactor, 99.99)  # Cap at 99.99
+                
+                # Extract element from atom name
+                atom_name = line[12:16].strip() if len(line) >= 16 else ""
+                res_name = line[17:20].strip() if len(line) >= 20 else ""
+                
+                # Determine element (proper capitalization)
+                # CRITICAL: Extract only the actual element symbol, not atom type
+                # Must handle ambiguous cases like CA (C-alpha vs Calcium)
+                import re
+                
+                # Known 2-letter metal elements
+                metal_elements = {'MG', 'CA', 'FE', 'MN', 'ZN', 'CU', 'NI', 'CO', 'BR', 'CL', 'SE'}
+                
+                # Is this a metal ion? (check residue name first, then atom name)
+                if res_name.upper() in metal_elements:
+                    # Residue is a metal → element is the metal
+                    element = res_name[0].upper() + res_name[1:].lower()
+                elif atom_name.upper() in metal_elements and (res_name.upper() == atom_name.upper() or res_name == ''):
+                    # Atom name matches metal AND (residue matches OR is empty) → it's a metal
+                    element = atom_name[0].upper() + atom_name[1:].lower()
+                else:
+                    # Not a metal → extract first letter only
+                    # Examples: "HA" → "H", "CA" → "C", "CB" → "C", "N" → "N"
+                    m = re.match(r"([A-Z])", atom_name.upper())
+                    element = m.group(1) if m else "  "
+                
+                # Build PDB line - CORE PRESERVES YOUR FORMATTING!
+                pdb_line = (
+                    f"{core}"                           # Cols 1-54 (preserved!)
+                    f"{occupancy:6.2f}{bfactor:6.2f}"   # Cols 55-66
+                    f"          "                        # Cols 67-76
+                    f"{element:>2}"                      # Cols 77-78
+                )
+                
+                f_out.write(pdb_line + '\n')
+            else:
+                f_out.write(line + '\n')
 
 def execute_command(command, step_name, log_file, cwd, verbose=False):
     """Utility function to execute shell commands and log output."""
@@ -593,27 +698,31 @@ def run_amdock_pipeline(job_config, verbose=False):
         return False
 
     # Control the verbosity of OpenBabel
-    ob_outlvl = 2 if verbose else 0
-    ob.obErrorLog.SetOutputLevel(ob_outlvl) 
-    if not verbose:
-        pybel.ob.obErrorLog.StopLogging()
+    #ob_outlvl = 2 if verbose else 0
+    #ob.obErrorLog.SetOutputLevel(ob_outlvl) 
+    #if not verbose:
+    #    pybel.ob.obErrorLog.StopLogging()
 
     # Convert PQR to PDB using pybel (OpenBabel)
     # Maybe something wrong here!!!!!
-    mols = list(pybel.readfile("pqr", pqr_path))
-    if not mols:
-        raise RuntimeError("No molecules read from PQR via pybel")
-    mols[0].write("pdb", pdb_h_path, overwrite=True)
+    #mols = list(pybel.readfile("pqr", pqr_path))
+    #if not mols:
+    #    raise RuntimeError("No molecules read from PQR via pybel")
+    #mols[0].write("pdb", pdb_h_path, overwrite=True)
 
-    if verbose:
-        print(f"[{os.path.basename(base_dir)}] Converted PQR -> PDB using pybel: {pdb_h_path}")
+    #if verbose:
+    #    print(f"[{os.path.basename(base_dir)}] Converted PQR -> PDB using pybel: {pdb_h_path}")
+
+
+    # NEW CODE (USE THIS):
+    # Convert PQR to PDB manually (preserves formatting)
+    convert_pqr_to_pdb_manually(pqr_path, pdb_h_path)
 
     # then use pdb_h_path for prepare_receptor4
     if keep_metals:
         #Extract the names of the metal atoms
         metal_atom_names = [line[12:16].strip() for line in metals]
-        metal_atoms_string = ' '.join(metal_atom_names)
-        receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -C -p {metal_atoms_string} -U nphs_lps_waters_nonstdres_deleteAltB -o {os.path.basename(protein_pdbqt)}"
+        receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -U nphs_lps_waters_deleteAltB -o {os.path.basename(protein_pdbqt)}"
     else:
         receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -o {os.path.basename(protein_pdbqt)}"
     if not execute_command(receptor_prepare_cmd, "Prepare_Receptor4", log_file, base_dir, verbose=verbose): return False
@@ -666,7 +775,6 @@ def run_amdock_pipeline(job_config, verbose=False):
         
         output_pdbqt = f"{ligand_name}_pose_site{i+1}.pdbqt"
         log_file_vina = f"vina_site{i+1}.log"
-        
         vina_cmd = (
             f"vina --receptor {protein_pdbqt} "
             f"--ligand {ligand_pdbqt} "
