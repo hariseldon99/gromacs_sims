@@ -721,7 +721,6 @@ def run_amdock_pipeline(job_config, verbose=False):
     # then use pdb_h_path for prepare_receptor4
     if keep_metals:
         #Extract the names of the metal atoms
-        metal_atom_names = [line[12:16].strip() for line in metals]
         receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -U nphs_lps_waters_deleteAltB -o {os.path.basename(protein_pdbqt)}"
     else:
         receptor_prepare_cmd = f"prepare_receptor4 -r {os.path.basename(pdb_h_path)} -o {os.path.basename(protein_pdbqt)}"
