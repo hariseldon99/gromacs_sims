@@ -216,12 +216,12 @@ echo "[$(date)] Done."
       * Launch: Multiwfn ligand_resp.fchk (after ulimit -s unlimited).
       * Path: 7 → 18 → 1.
       * Pd Radius: When prompted, input 1.63 Å.
-   3. Output: Save the results as PDL_small_opt.chg.
+   3. Output: Save the results as `PDL_small_opt.chg`.
 
 
 ## 🏗 Step 3: Topology & Coordinate Automation
 ## 3.1. Generate the Organic Scaffold
-Remove the Pd atom from your optimized PDB (manually) and run acpype:
+Remove the Pd atom from your optimized PDB (manually) and run `acpype`:
 
 ```bash
 acpype -i organic_only.pdb -c bcc -n 0 -f
@@ -323,6 +323,100 @@ To ensure the ligand (including the metal) can be equilibrated without flying aw
    gmx mdrun -v -deffnm em -nt 12 -nb gpu -pme gpu -pmefft gpu
    ```
 
-## TODO
+## Post-processing
+
+Note that `PyMol` or `VMD` might not be able to guess the presence of `Pd-N` bonds. Nonetheless, they're there in the topology. 
+
+1. To visualize them in `VMD`, load the single frame or full trajectory data and then
+   1. Get the atom indices for the `Pd` and 'N' atoms
+      * Press key "1" to enter atom picking mode.
+      * Select the atom of interest by clicking on it with left mouse button.
+      * All information about the selected atom, including the atom index (note, the counting starts from zero), is printed into the console window.
+   2. Let's say that the `Pd` index is `0`, and the `N` indices are `7,8,19,20`. Then, in the   `tcl` console, run
+    ```tcl
+    # Bond Pd (atom 0) to N1 (atom 7) - VMD uses 0-based indexing
+    vmd > topo addbond 0 7
+    vmd > topo addbond 0 8
+    vmd > topo addbond 0 19
+    vmd > topo addbond 0 20
+    # Refresh the display to show the new bonds
+    vmd > display update
+    ```
+2. I failed to visualize them in `PyMol`, but in `avogadro2` it worked:
+   First, load the original pdb in avogadro and determine the indices of the co-ordinating atoms. Then, load the snapshot pdb. To draw bonds manually in Avogadro, you use the Draw Tool (pencil icon). This tool allows you to establish connections between existing atoms or create new atoms with bonds attached. 
+    #### 🛠️ Drawing Bonds Manually
+   1. Select the Draw Tool: Click the Pencil icon on the main toolbar.
+   2. Connect Existing Atoms: Left-click on the first atom (e.g., your Pd center) and drag the mouse to the second atom (e.g., the coordinating Nitrogen). A bond will appear between them as you release the mouse.
+   3. Adjust Bond Order: To change a single bond to a double or triple bond, left-click directly on the existing bond with the Draw Tool selected. 
+    #### 🧪 Specific Tips for Transition Metals
+    Disable "Adjust Hydrogens": Before drawing your Pd-N bonds, ensure the "Adjust Hydrogens" option in the Draw Tool settings is unchecked. This prevents Avogadro from automatically adding unwanted hydrogens to the atoms as you connect them.
+
+### Trajectory Analysis
+Using tools like `MDAnalysis` or `MDTraj` with your Palladium-ligand complex will generally work, but you will encounter "bond detection" issues similar to what you saw in `PyMOL` and `VMD`.
+Since these tools are built for organic chemistry, they will not "see" the $Pd-N$ bonds unless you explicitly define them in the library's topology object.
+
+#### 🏗️ 1. MDAnalysis Considerations
+`MDAnalysis` uses its own internal "guessers" to determine which atoms are bonded. It will almost certainly treat the Palladium as a free-floating ion.
+##### ⚠️ The Problem
+If you try to run `HydrogenBondAnalysis`, it shouldn't crash, but if the Palladium is involved in any coordination that mimics a hydrogen bond (e.g., a water molecule coordinating the metal), the tool will likely ignore it.
+##### ✅ The Fix
+You must manually add the bonds to the Universe object after loading:
+```python
+import MDAnalysis as mda
+u = mda.Universe("em.tpr", "md.xtc")# Add bonds manually (0-based indexing)# Assuming Pd is index 0 and Nitrogens are 7, 8, 19, 20
+u.add_TopologyAttr('bonds', [(0, 7), (0, 8), (0, 19), (0, 20)])
+```
+#### 🏗️ 2. MDTraj Considerations
+`MDTraj` is very strict about its Topology object. If the $Pd-N$ bonds aren't in the .pdb or .tpr file you use as a topology source, functions like `md.compute_neighbors` or `md.wigner_d_matrices` might yield incomplete results.
+##### ✅ The Fix
+Load your trajectory using the .tpr file as the topology. Since your .tpr contains the manual `[ bonds ]` you added to the .itp, `MDTraj` should recognize them automatically.
+```python
+import mdtraj as mdtraj = md.load('md.xtc', top='em.tpr')# Check if bonds exist:
+print([b for b in traj.topology.bonds if b[0].element.symbol == 'Pd'])
+```
+#### 🕵️‍♂️ 3. Hydrogen Bond Analysis Specifics
+Most H-bond tools (including GROMACS's `gmx hbond`) use a Geometric Criterion:
+
+* Distance: $D \dots A < 3.5$ Å
+* Angle: $\angle DHA > 150^\circ$
+
+The Palladium Factor:
+If the Palladium "steals" a Nitrogen's lone pair (which it does in your complex), that Nitrogen becomes a much poorer H-bond acceptor. Standard post-processing tools won't know this. They will just see a Nitrogen near a Hydrogen and count it as a bond.
+
+* Recommendation: Use these tools with caution. You may need to manually filter out "H-bonds" that involve the coordinating Nitrogens, as they are chemically unavailable.
+This script defines a "clean" universe where the metal's coordination sphere is excluded from the H-bond analysis.
+```python
+import MDAnalysis as mda
+from MDAnalysis.analysis.hydrogenbondanalysis import HydrogenBondAnalysis
+
+# 1. Load your system
+# Use the .tpr as topology to ensure atom names/masses are correct
+u = mda.Universe("em.tpr", "md.xtc")
+
+# 2. Define the "Forbidden" Nitrogens
+# Replace 'N1 N2 N3 N4' with the exact atom names in your PDL_final.itp
+metal_nitrogens_selection = "resname PDL and name N1 N2 N9 N10"
+
+# 3. Create a selection of valid acceptors
+# We exclude the metal nitrogens from the global acceptor pool
+valid_acceptors = f"(protein and (name O* or name N*)) or (resname PDL and name N* and not ({metal_nitrogens_selection}))"
+valid_donors = "protein or resname PDL"
+
+# 4. Run H-Bond Analysis
+hbonds = HydrogenBondAnalysis(
+    universe=u,
+    donors_sel=valid_donors,
+    acceptors_sel=valid_acceptors,
+    d_a_cutoff=3.5,  # Angstroms
+    d_h_a_angle=150   # Degrees
+)
+
+hbonds.run()
+
+# 5. Review Results
+print(f"Detected {len(hbonds.results.hbonds)} valid hydrogen bonds.")
+```
+
+# TODO
 
 Try using FOSS QM software such as `ORCA` or `GAMESS` instead of `Gaussian16` for the optimization.
