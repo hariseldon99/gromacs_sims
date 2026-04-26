@@ -1,0 +1,40 @@
+============================================================
+  Ligand PDB Prep: best_docked_ligandonly.pdb
+============================================================
+
+  Parsed 47 atoms from best_docked_ligandonly.pdb
+
+  Stripped 6 virtual/dummy atoms:
+    Removed: serial=28 name=H00 elem_raw='BH' — d=0.859 Å to N00 (N)
+    Removed: serial=29 name=H00 elem_raw='BH' — d=0.860 Å to N00 (N)
+    Removed: serial=37 name=H2a elem_raw='H' — d=0.859 Å to N2 (N)
+    Removed: serial=38 name=H2b elem_raw='H' — d=0.859 Å to N2 (N)
+    Removed: serial=46 name=H2a elem_raw='H' — d=0.859 Å to N2 (N)
+    Removed: serial=47 name=H2b elem_raw='H' — d=0.860 Å to N2 (N)
+  Remaining atoms: 41
+
+  Metal: Pd1 (serial 1)  xyz = (21.696, 39.902, 19.187)
+  Coordination environment (d < 2.8 Å):
+    N2     (N )  serial=  9  d=2.006 Å
+    N1     (N )  serial=  8  d=2.007 Å
+    N9     (N )  serial= 20  d=2.025 Å
+    N10    (N )  serial= 21  d=2.027 Å
+
+  Ion serial for mcpb.in:  ion_ids 1
+
+  Detected 46 covalent bonds (cov-radii + 0.40 Å tolerance)
+  → Written: PDL_prep.pdb
+
+============================================================
+  CHECKLIST before proceeding:
+  1. Verify PDL_prep.pdb visually in VMD/PyMOL.
+  2. Confirm total charge & spin for QM:
+       Current assumption: Pd(II) square-planar, total_charge=0,
+       spin_multiplicity=1 (diamagnetic d8).
+       Adjust mcpb.in if ligand is cationic/anionic.
+  3. Add missing H atoms:
+       reduce PDL_prep.pdb > PDL_prep_H.pdb  (AmberTools)
+       Then set original_pdb PDL_prep_H.pdb in mcpb.in.
+  4. ion_ids in mcpb.in should match Pd serial in PDL_prep.pdb.
+============================================================
+
