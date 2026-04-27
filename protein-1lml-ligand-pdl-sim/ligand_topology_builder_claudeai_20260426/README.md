@@ -127,6 +127,8 @@ Avogadro just put an extra H on N10, so I manually got rid of it in `PyMol` and 
   ```
  
    3. SLURM Batch Submission: Use a .sh script to request enough memory for the Hessian calculation.
+   
+
 ```bash
 #!/bin/bash
 #SBATCH --job-name=g16_smopt
@@ -204,6 +206,7 @@ echo "[$(date)] Done."
 ```
 
 
+
 ## 🧪 Step 2: RESP Charge Calculation (Multiwfn)
 
    1. Convert gaussian chk file to formatted chk
@@ -228,7 +231,22 @@ acpype -i organic_only.pdb -c bcc -n 0 -f
 ```
 
 ## 3.2. Automated Topology Grafting
-Use this script to inject the Palladium, shift all 64 organic atom indices by +1, and apply RESP charges.
+Use this script to inject the Palladium, shift all 64 organic atom indices by +1, and apply RESP charges. 
+Note the following:
+The bond distances were automatically estimated by Google gemini. For future use with other ligands, coding might be necessary:
+
+#### How the calculation was done:
+Using the coordinates from your PDL_small_opt.chg:
+```bash
+Pd (Atom 1): (0.000697, 0.000282, -0.001851)
+N1 (Atom 8): (-1.827026, 0.407366, 0.677960)
+N2 (Atom 9): (1.829357, -0.408002, -0.680232)
+N9 (Atom 20): (-0.467325, -1.971155, 0.021851)
+N10 (Atom 21): (0.467898, 1.972083, -0.025266)
+```
+
+The Math: Simply calculate $\Delta x, \Delta y, \Delta x$ and bond distance $b_0=\sqrt{\Delta^2 x + \Delta^2 y + \Delta^2 z}$, then convert from Angstrom in the `.chg` file to nm for ``gromacs`. This was done in AI. The force constant $k_b=250000 kJ mol^{-1}  nm^{-2}$ is a standard "stiff" value for metal-ligand coordination in classical force fields.
+It ensures the Palladium stays centered in the square-planar pocket without being so rigid that the simulation becomes unstable 
 
 ```python
 import re
