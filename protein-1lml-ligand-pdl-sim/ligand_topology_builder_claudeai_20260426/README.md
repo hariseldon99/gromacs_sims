@@ -313,15 +313,36 @@ To ensure the ligand (including the metal) can be equilibrated without flying aw
 
 ## 🚀 Step 6: Launching the Simulation of ligand in-vacuo
 
-   1. Grompp:
-   ```bash 
-   gmx grompp -f em.mdp -c boxed.gro -p topol.top -o em.tpr -v
-   ```
-   
-   2. GPU Run:
    ```bash
-   gmx mdrun -v -deffnm em -nt 12 -nb gpu -pme gpu -pmefft gpu
+   # 1. Box and Centering
+    echo 0 | gmx editconf -f PDL_GMX.gro -bt octahedron -d 1.0 -c -princ -o boxed.gro
+
+    # 2. Energy Minimization (EM)
+    gmx grompp -f em.mdp -c boxed.gro -p PDL_GMX.top -o em.tpr -v
+    # Run EM using all available threads (-nt 0 uses all detected cores)
+    gmx mdrun -nt 6 -v -deffnm em
+
+    # 3. Production MD (GPU PME Offload)
+    gmx grompp -f md.mdp -c em.gro -p PDL_GMX.top -o md.tpr -r em.gro
+    # -nt 0: Use all CPU threads
+    # -nb gpu: Non-bonded interactions on GPU
+    # -pme gpu: PME calculations on GPU
+    # -pmefft gpu: PME FFT on GPU (if supported by your GMX version)
+    gmx mdrun -nt 6 -nb gpu -pme gpu -pmefft gpu -v -deffnm md
    ```
+
+## Final: Alignment with docked pose
+
+The python script in step 3.2 prepared a `gro` file with its own alignment. Best to re-align it with the docked pose, which was protonated and optimized in the beginning.
+Load both files in `PyMol`:
+```bash
+$ pymol PDL_H_optimized.pdb PDL.topol/PDL_GMX.gro
+```
+Then, align with the `PyMol` command:
+```tcl
+align (PDL_GMX and resn PDL), (PDL_H_optimized and resn LIG)
+```
+Save the final structure in the `gro`  file to a pdb and use that in protein-ligand simulations. Make sure to click `Original atom order (according to rank)` before exporting.
 
 ## Post-processing
 
