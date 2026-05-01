@@ -1,6 +1,6 @@
 #!/usr/local/bin/vmd
 # VMD script written by save_state $Revision: 1.48 $
-# VMD version: 2.0.0a4
+# VMD version: 2.0.1a1
 set viewplist {}
 set fixedlist {}
 proc vmdrestoremymaterials {} {
@@ -299,10 +299,10 @@ mol addfile /home/daneel/gitrepos/gromacs_sims/protein-1lml-ligand-pdl-sim/1lml_
 mol addfile /home/daneel/gitrepos/gromacs_sims/protein-1lml-ligand-pdl-sim/1lml_pdl_complex/sys_equi/sys_equi/01_equi_CA/traj_fit.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol addfile /home/daneel/gitrepos/gromacs_sims/protein-1lml-ligand-pdl-sim/1lml_pdl_complex/sys_equi/sys_equi/02_equi_CA_LOW/traj_fit.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol delrep 0 top
-mol representation NewCartoon 0.300000 10.000000 4.100000 0
-mol color ResType
+mol representation NewRibbons 0.300000 12.000000 3.000000 0 0
+mol color ResName
 mol selection {protein}
-mol material AOChalky
+mol material Transparent
 mol addrep top
 mol selupdate 0 top 0
 mol colupdate 0 top 0
@@ -333,10 +333,10 @@ mol clipplane center 5 0 top {0.0 0.0 0.0}
 mol clipplane color  5 0 top {0.5 0.5 0.5 }
 mol clipplane normal 5 0 top {0.0 0.0 1.0}
 mol clipplane status 5 0 top {0}
-mol representation Licorice 0.300000 12.000000 12.000000 0 0
-mol color Name
+mol representation CPK 1.000000 0.300000 12.000000 12.000000 0 0
+mol color Type
 mol selection {resname PDL}
-mol material AOEdgy
+mol material RTChrome
 mol addrep top
 mol selupdate 1 top 0
 mol colupdate 1 top 0
@@ -370,7 +370,7 @@ mol clipplane status 5 1 top {0}
 mol representation VDW 1.000000 12.000000
 mol color Name
 mol selection {resname ZN}
-mol material AOEdgy
+mol material AOChalky
 mol addrep top
 mol selupdate 2 top 0
 mol colupdate 2 top 0
@@ -402,7 +402,7 @@ mol clipplane color  5 2 top {0.5 0.5 0.5 }
 mol clipplane normal 5 2 top {0.0 0.0 1.0}
 mol clipplane status 5 2 top {0}
 mol rename top 1lml_pdl_complex.gro
-set viewpoints([molinfo top]) {{{1 0 0 -51.9679} {0 1 0 -52.0818} {0 0 1 -37.061} {0 0 0 1}} {{0.870602 -0.0504963 -0.489389 0} {0.0289083 0.99825 -0.0515753 0} {0.491137 0.0307544 0.870539 0} {0 0 0 1}} {{0.0338716 0 0 0} {0 0.0338716 0 0} {0 0 0.0338716 0} {0 0 0 1}} {{1 0 0 -0.62} {0 1 0 -0.93} {0 0 1 0} {0 0 0 1}}}
+set viewpoints([molinfo top]) {{{1 0 0 -51.9679} {0 1 0 -52.0818} {0 0 1 -37.061} {0 0 0 1}} {{0.995218 -0.0691285 0.0690025 0} {0.0680591 0.997523 0.0177357 0} {-0.0700591 -0.0129543 0.997458 0} {0 0 0 1}} {{0.0397484 0 0 0} {0 0.0397484 0 0} {0 0 0.0397484 0} {0 0 0 1}} {{1 0 0 -0.94} {0 1 0 -1.1} {0 0 1 0} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 set topmol [molinfo top]
 # done with molecule 0
@@ -576,6 +576,7 @@ color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
     {color Conformation {all} blue}
     {color Molecule {0} blue}
     {color Molecule {zeb_hb_phz_complex.gro} blue}
+    {color Molecule {1lml_pdl_complex.gro} blue}
     {color Structure {3_10_Helix} blue}
     {color Surface {Grasp} gray}
     {color Labels {Springs} orange}
