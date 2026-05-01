@@ -4,7 +4,7 @@
 #PBS -N 1lml_pdl_prod
 # queue select
 #PBS -q workq
-#PBS -l select=1:ncpus=32:host=kuhpcgn1
+#PBS -l select=1:ncpus=32:mpiprocs=32:host=kuhpcgn1
 # Name of stdout output file (default)
 #PBS -o 1lml_pdl_prod.out 
 # stdout output file
@@ -26,7 +26,7 @@ module load cuda
 #Load singularity
 module load singularity
 export SIFPATH=$HOME/images
-export SIFIMG=gromacs_2024.4-GPU.sif
+export SIFIMG=gromacs_2024.5-GPU.sif
 
 echo "Starting"
 echo '---------------------------------------------'
