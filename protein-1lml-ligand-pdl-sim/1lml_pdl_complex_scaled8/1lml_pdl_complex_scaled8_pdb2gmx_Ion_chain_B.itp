@@ -1,0 +1,33 @@
+;
+;	File '1lml_pdl_complex_scaled8_pdb2gmx_Ion_chain_B.itp' was generated
+;	By user: unknown (0)
+;	On host: 9f449d7b1e5e
+;	At date: Wed Apr 29 11:35:05 2026
+;
+;	This is a include topology file
+;
+;	Created by:
+;	              :-) GROMACS - gmx pdb2gmx, 2024.5-conda_forge (-:
+;	
+;	Executable:   /venv/main/bin.AVX2_256/gmx
+;	Data prefix:  /venv/main
+;	Working dir:  /home/admin/gitrepos/gromacs_sims/protein-1lml-ligand-pdl-sim/1lml_pdl_complex_scaled8
+;	Command line:
+;	  gmx pdb2gmx -f ../1lml_pdl.pdb -o 1lml_pdl_complex_scaled8_pdb2gmx.pdb -p 1lml_pdl_complex_scaled8_pdb2gmx.top -i 1lml_pdl_complex_scaled8_posre.itp -water tip3p -ff amber99sb-ildn -ignh
+;	Force field was read from the standard GROMACS share directory.
+;
+
+[ moleculetype ]
+; Name            nrexcl
+Ion_chain_B         3
+
+[ atoms ]
+;   nr       type  resnr residue  atom   cgnr     charge       mass  typeB    chargeB      massB
+; residue 578 ZN  rtp ZN   q +2.0
+     1         Zn    578     ZN     Zn      1          2       65.4   ; qtot 2
+
+; Include Position restraint file
+#ifdef POSRES
+#include "1lml_pdl_complex_scaled8_posre_Ion_chain_B.itp"
+#endif
+
