@@ -1,18 +1,18 @@
 #!/bin/bash
 #--------------------------------------------------
 # Job name
-#PBS -N 1lml_pdl_prod
+#PBS -N 1lml_pdl_s8equi
 # queue select
 #PBS -q workq
 #PBS -l select=1:ncpus=32:mpiprocs=32:host=kuhpcgn1
 # Name of stdout output file (default)
-#PBS -o 1lml_pdl_prod.out 
+#PBS -o 1lml_pdl_s8equi.out 
 # stdout output file
 #PBS -j oe
 #PBS -l walltime=96:00:00 
 #--------------------------------------------------
 
-IPYNB="1lml_pdl_mdsim.ipynb"
+IPYNB="1lml_pdl_mdsim_scaled8.ipynb"
 export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
 
 #Start time
