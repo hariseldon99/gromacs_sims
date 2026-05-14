@@ -1,0 +1,64 @@
+#!/bin/bash
+#--------------------------------------------------
+# Job name
+#PBS -N run3d-conf
+# queue select
+#PBS -q workq
+#PBS -l select=1:ncpus=32:mpiprocs=32
+# Name of stdout output file (default)
+#PBS -o run3d-conf.out 
+# stdout output file
+#PBS -j oe
+#PBS -l walltime=96:00:00 
+#--------------------------------------------------
+
+RUNSCRIPT="../scripts/generate_3d_conformer.py"
+CONDA_ENV="htvs"
+INPUT_SDF="pmbn_pubchem.sdf"
+OUTPUT_PREFIX="polymyxin_b_3d"
+TEMPLATE_PDB="polymyxin_b_pubchem_residues.pdb"
+NUM_CONFORMERS=200
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
+
+#Start time
+start=`date +%s.%N`
+# Change to submission directory
+cd $PBS_O_WORKDIR
+#Load basic OHPC tools
+module load ohpc
+
+echo "Starting"
+echo '---------------------------------------------'
+
+
+conda run -n ${CONDA_ENV} python ${RUNSCRIPT} \
+		--input ${INPUT_SDF} \
+		--output-prefix ${OUTPUT_PREFIX} \
+		--template-pdb ${TEMPLATE_PDB} \
+		--keep-existing-hydrogens \
+		--num-conformers ${NUM_CONFORMERS} \
+		--num-threads ${PBS_NCPUS}
+
+#End time
+end=`date +%s.%N`
+
+
+echo "NUM_THREADS= ${PBS_NCPUS}"
+RUNTIME=$( echo "$end - $start" | bc -l )
+
+echo '---------------------------------------------'
+echo "Runtime: "$RUNTIME" sec"
+echo '---------------------------------------------'
+#----------------------------------------------------------
+# Communicate job status to ntfy.sh
+#----------------------------------------------------------
+# Define login node
+LOGIN_NODE="kuhpchn"
+# Define the ntfy.sh URL
+NTFY_URL="https://ntfy.sh/kuhpchn"
+
+# Generate the message  text
+MESSAGE="${bell} PBS job exiting now. Job name : ${PBS_JOBNAME}. Job id : ${PBS_JOBID}. Job dir : ${PBS_O_WORKDIR}. Job start-time : ${start}. Job end-time : ${end}. Job runtime : ${RUNTIME} secs."
+
+# SSH into the login node and execute the curl command remotely
+sshpass -f $HOME/.password ssh "$LOGIN_NODE" "curl -X POST -d \"$MESSAGE\" \"$NTFY_URL\""
