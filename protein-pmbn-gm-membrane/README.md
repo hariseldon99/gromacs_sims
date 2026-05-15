@@ -202,84 +202,144 @@
 
    This is the preferred route because CHARMM-GUI correctly handles the LPS/Lipid-A glycan topology (ECLIPA) during CHARMM→GROMACS conversion, which is very error-prone to do manually.
 
-   #### Step A1 — Upload the equilibrated membrane
+   > **Note on "Add Molecules to Bilayer System":** This Bilayer Builder sub-option was attempted first but does not work for the G-OM system. Uploading `GOM_last.pdb` causes CHARMM-GUI to run CGenFF on all residues in the PDB. The LPS glycan residues (AGAL, AGLC, AHEP, AKDO, ECLI) are not in CGenFF's database, producing the error *"CGenFF failed to parameterize force field for your molecule"*. There is no PSF upload field in the interface to suppress this. The solution is to rebuild the G-OM membrane fresh using **Build New Bilayer** and request GROMACS output directly, then add PMB manually to the resulting GROMACS files.
 
-   Go to [CHARMM-GUI Membrane Builder → Bilayer Builder](https://charmm-gui.org/?doc=input/membrane.bilayer). On the Bilayer Builder landing page, select **"Add Molecules to Bilayer System"** (the second option, not "Build New Bilayer"). When prompted:
+   #### Step A1 — Rebuild G-OM in CHARMM-GUI Bilayer Builder with GROMACS output
 
-   - **Input type:** PDB file
-   - **PDB Format:** select **CHARMM** (not PDB) — `GOM_last.pdb` was produced by CHARMM-GUI and uses 4-character residue names (e.g. `ECLI` from `ECLIPA`), which shift the chain ID column out of standard PDB position; selecting CHARMM format avoids the "expected chain ID at column 22" parse error
-   - **Upload:** `GOM_last.pdb` (a copy of `G-OM-last.pdb` with hyphens removed from the filename — CHARMM-GUI rejects filenames containing `-`)
-   - Confirm the box dimensions detected match 81.44 × 81.44 × 129.69 Å. If CHARMM-GUI reports different values, manually override with those from `step5_assembly.str`.
+   Go to [CHARMM-GUI Membrane Builder → Bilayer Builder](https://charmm-gui.org/?doc=input/membrane.bilayer). On the landing page, select **"Build New Bilayer"**. Configure as follows:
 
-   #### Step A2 — Add PMB above the outer leaflet
+   **Membrane composition** — match the original G-OM system exactly:
 
-   Use the pre-built CHARMM topology from the validated Ligand Reader job (`PMB_topol/charmm-gui-7883126705`) rather than re-uploading the SDF. Re-uploading the SDF would cause CHARMM-GUI to re-run CGenFF from scratch, potentially producing a different atom ordering, different partial charges, or different penalty scores — making the new `PMB.itp` inconsistent with the already-validated one. Instead, on the "Add Molecules" panel:
+   | Leaflet | Lipid | Count |
+   |---|---|---|
+   | Outer | ECLIPA (E. coli R1 core-Lipid A) | 35 |
+   | Inner | PPPE (PE 16:0/16:1 9Z) | 75 |
+   | Inner | PVPG (PG 16:0/18:1 11Z) | 20 |
+   | Inner | PVCL2 (CL 16:0/18:1 11Z) | 5 |
 
-   - **Input type:** Pre-built CHARMM molecule (PSF + PDB)
-   - **Upload the following three files:**
+   **System settings:**
+   - Box size: 81.44 × 81.44 Å lateral (X/Y); Z will be determined automatically (~130 Å)
+   - Water model: TIP3P
+   - Temperature: 310.15 K
+   - Ion concentration: 0.15 M NaCl + neutralising Ca²⁺ for LPS (CHARMM-GUI will suggest amounts based on LPS charge)
 
-     | File | Role |
-     |---|---|
-     | `PMB_topol/charmm-gui-7883126705/ligandrm.psf` | CHARMM PSF — bonds, angles, dihedrals, atom types (188 atoms, charge +5) |
-     | `PMB_topol/charmm-gui-7883126705/ligandrm.pdb` | Coordinates with CHARMM-style atom names (`O1`, `N12`, `C56`, …) |
-     | `PMB_topol/charmm-gui-7883126705/ligandrm.str` | CGenFF stream — partial charges and missing parameters |
+   **Force field / output page:**
+   - Force field: **CHARMM36**
+   - Output format: **GROMACS**
 
-   - **Number of molecules:** 1
-   - **Placement:** Place PMB above the outer leaflet (the LPS/Lipid-A face). Set the z-translation so the PMB acyl tail (MOA1) is approximately 15–20 Å above the average phosphate plane of the outer leaflet. Orient the molecule with the fatty acid tail pointing toward the membrane and the five cationic DAB side chains facing the LPS phosphate groups. If CHARMM-GUI offers a "flat-bottom" or "above membrane" placement option, use it.
-
-   #### Step A3 — Request GROMACS output
-
-   On the "Force Field Options" page:
-
-   - **Force field:** CHARMM36m (for the lipids and ions) with CHARMM36 for the ligand
-   - **Water model:** TIP3P (consistent with the original G-OM equilibration)
-   - **Output format:** GROMACS
-
-   CHARMM-GUI will produce a new staged input package. Download it and extract. The key GROMACS files will be in `gromacs/`:
+   Download the resulting package. The key GROMACS files will be in `gromacs/`:
 
    | File | Contents |
    |---|---|
-   | `gromacs/step5_charmm2gmx.pdb` | System coordinates after CHARMM→GROMACS conversion |
-   | `gromacs/topol.top` | Master topology including ECLIPA, PPPE, PVPG, PVCL2, PMB, water, ions |
-   | `gromacs/PMB.itp` | PMB molecule topology (verify charge = +5, atom count = 188) |
-   | `gromacs/step6.x_equilibration.mdp` | Six staged GROMACS equilibration `.mdp` files |
+   | `gromacs/step5_charmm2gmx.pdb` | Assembled system coordinates in GROMACS-compatible PDB |
+   | `gromacs/topol.top` | Master topology (ECLIPA, PPPE, PVPG, PVCL2, water, ions) |
+   | `gromacs/step6.x_equilibration.mdp` | Six staged equilibration `.mdp` files |
    | `gromacs/step7_production.mdp` | Production `.mdp` |
 
-   #### Step A4 — Verify the combined topology
+   #### Step A2 — Manually insert PMB into the GROMACS system
 
-   Before running, verify the PMB topology matches the validated one:
+   PMB is added by merging its coordinates into the membrane GRO file and updating the topology. Use the pre-built CHARMM-GUI Ligand Reader output from `PMB_topol/charmm-gui-7883126705` — do not re-run CGenFF or re-upload the SDF, as that would produce a different atom ordering and potentially different partial charges.
 
-   ```bash
-   # Check total PMB charge in the new PMB.itp
-   awk '/^\[ atoms \]/{a=1;next} /^\[ bonds \]/{a=0} a && $1 ~ /^[0-9]+$/ {q+=$7} END {printf "PMB total charge = %.6f\n", q}' gromacs/PMB.itp
-
-   # Check total system charge (should be negative due to LPS; add Na+/Ca2+ to neutralise later if needed)
-   grep -A5 '\[ molecules \]' gromacs/topol.top
-   ```
-
-   The PMB charge must be `+5.000000`. If it reads `0.000`, the SDF was uploaded without protonation — discard and restart from Step A1 with `polymyxin_b_3d_plus5.sdf`.
-
-   #### Step A5 — Convert coordinates to GROMACS GRO format
-
+   **2a. Convert system PDB to GRO:**
    ```bash
    cd gromacs/
-   gmx editconf -f step5_charmm2gmx.pdb -o system.gro -d 0 -c no
+   gmx editconf -f step5_charmm2gmx.pdb -o membrane.gro
    ```
 
-   #### Step A6 — Run the GROMACS equilibration pipeline
+   **2b. Place PMB above the outer leaflet:**
 
-   CHARMM-GUI generates six staged GROMACS equilibration `.mdp` files that mirror the CHARMM restraint schedule above. Each stage progressively relaxes position restraints on lipid head groups, tails, and the LPS glycan rings. Because the membrane coordinates come from an already-equilibrated trajectory, these stages are shorter than the original CHARMM equilibration; their main purpose is to let PMB relax into position without disrupting the lipid packing.
+   Determine the z-coordinate of the outer leaflet phosphate plane. The outer leaflet of G-OM contains ECLIPA; its phosphate groups are the topmost layer. Estimate from the membrane GRO or from the original box (z ≈ 65 Å above the box midpoint for a ~130 Å tall box):
+
+   ```bash
+   # Find approximate z of outer leaflet phosphate atoms (e.g. PB atom in ECLI)
+   grep " PB " membrane.gro | awk '{print $NF}' | sort -n | tail -5
+   ```
+
+   Translate the PMB PDB so its acyl tail (MOA1, atom 1 in `ligandrm.pdb`) sits ~15–20 Å above that z value:
+
+   ```bash
+   gmx editconf -f ../PMB_topol/charmm-gui-7883126705/ligandrm.pdb \
+       -o pmb_placed.gro -translate 0 0 <z_offset_nm>
+   ```
+
+   (GROMACS uses nm; divide the Å value by 10.)
+
+   **2c. Merge coordinates** by concatenating the atom blocks. The simplest approach is a Python or shell merge:
+
+   ```bash
+   # Strip END/ENDMDL lines, concatenate, then fix atom count on line 2
+   python3 - <<'EOF'
+   import re
+
+   with open("membrane.gro") as f:
+       lines = f.readlines()
+   title = lines[0]
+   natoms_mem = int(lines[1].strip())
+   mem_atoms = lines[2:2+natoms_mem]
+   box = lines[2+natoms_mem]
+
+   with open("pmb_placed.gro") as f:
+       plines = f.readlines()
+   natoms_pmb = int(plines[1].strip())
+   pmb_atoms = plines[2:2+natoms_pmb]
+
+   with open("system.gro", "w") as out:
+       out.write(title)
+       out.write(f"{natoms_mem + natoms_pmb}\n")
+       out.writelines(mem_atoms)
+       out.writelines(pmb_atoms)
+       out.write(box)
+   EOF
+   ```
+
+   **2d. Update the topology** — add `PMB.itp` and one PMB molecule entry to `topol.top`:
+
+   ```bash
+   # Copy the validated PMB itp into the gromacs/ directory
+   cp ../PMB_topol/charmm-gui-7883126705/gromacs/PMB.itp .
+   ```
+
+   Edit `topol.top`:
+   - After the last `#include` line for lipid/water force field files, add:
+     ```
+     #include "PMB.itp"
+     ```
+   - At the end of the `[ molecules ]` block, add:
+     ```
+     PMB               1
+     ```
+
+   #### Step A3 — Verify the combined topology
+
+   ```bash
+   # Check total PMB charge
+   awk '/^\[ atoms \]/{a=1;next} /^\[ bonds \]/{a=0} a && $1 ~ /^[0-9]+$/ {q+=$7} END {printf "PMB total charge = %.6f\n", q}' PMB.itp
+
+   # Quick sanity check — grompp should complete without fatal errors
+   gmx grompp -f step6.1_equilibration.mdp -c system.gro -p topol.top -o test.tpr -maxwarn 5
+   ```
+
+   The PMB charge must be `+5.000000`. Fix any `grompp` warnings about missing position-restraint files by generating them:
+
+   ```bash
+   gmx genrestr -f system.gro -o posre_pmb.itp -fc 1000 1000 1000
+   # Select the PMB atom group when prompted
+   ```
+
+   #### Step A4 — Run the GROMACS equilibration pipeline
+
+   CHARMM-GUI generates six staged GROMACS equilibration `.mdp` files that progressively relax position restraints on lipid head groups, tails, and the LPS glycan rings. Because PMB is newly placed, these stages allow it to relax into position without disrupting lipid packing.
 
    ```bash
    # Energy minimization
-   gmx grompp -f step6.0_minimization.mdp -c system.gro -p topol.top -o em.tpr -maxwarn 2
+   gmx grompp -f step6.0_minimization.mdp -c system.gro -p topol.top -o em.tpr -maxwarn 5
    gmx mdrun -v -deffnm em
 
    # Staged equilibration (repeat for steps 6.1 through 6.6)
    for step in 6.1 6.2 6.3 6.4 6.5 6.6; do
        prev=$(echo $step | awk -F. '{if ($2==1) print "em"; else printf "step%s.%s", $1, $2-1}')
        gmx grompp -f step${step}_equilibration.mdp -c ${prev}.gro -p topol.top \
-           -r ${prev}.gro -o step${step}.tpr -maxwarn 2
+           -r ${prev}.gro -o step${step}.tpr -maxwarn 5
        gmx mdrun -v -deffnm step${step}
    done
 
@@ -289,16 +349,15 @@
    gmx mdrun -v -deffnm md -nb gpu -pme gpu
    ```
 
-   On an HPC cluster, replace the `gmx mdrun` calls with the appropriate scheduler script (PBS/Slurm). Use at least NPT ensemble with semi-isotropic pressure coupling (`Pcoupltype = semiisotropic`) for a membrane system.
+   On an HPC cluster, replace the `gmx mdrun` calls with the appropriate scheduler script (PBS/Slurm). Use NPT ensemble with semi-isotropic pressure coupling (`Pcoupltype = semiisotropic`) for a membrane system.
 
-   #### Step A7 — Record PMB atom-number offset for analysis
+   #### Step A5 — Record PMB atom-number offset for analysis
 
-   After topology generation, the PMB molecule will be appended after all lipid, water, and ion atoms. Find the first atom number of PMB in the final system:
+   After topology generation, PMB will be the last molecule block. Find the first atom number of PMB in the final system:
 
    ```bash
-   # In the combined system topology, grep for the PMB molecule block offset
    gmx make_ndx -f md.tpr -o interaction_groups.ndx
-   # At the prompt, identify the PMB group number, note the atom range
+   # At the prompt, identify the PMB group and note the atom range
    ```
 
    Add the offset to the `PMB.itp` atom numbers in the fragment map (section 2.ii above) to get the system-level atom numbers for each PMB fragment. Save the final index groups to `interaction_groups.ndx` before post-processing.
