@@ -41,6 +41,80 @@
 2. Structure of Pomymyxin-B from [PubChem id: 49800004](https://pubchem.ncbi.nlm.nih.gov/compound/49800004)
    1. The [pubchem sdf file](pmbn_pubchem.sdf) does not contain residue ids, but the residue sequence is available on their website:![Polymyxin-B residue sequence](pmbn_seq.svg)
    2. The residue-labelled PDB generated from the PubChem SDF is [polymyxin_b_pubchem_residues.pdb](polymyxin_b_pubchem_residues.pdb). It uses the residue sequence `MOA-DAB-THR-DAB-DAB-DDB-DPH-LEU-DAB-DAB-THR`, where `MOA` is the 6-methyloctanoyl acyl group, `DDB` is D-Dab, and `DPH` is D-Phe. The lactam ring closure is preserved in the PDB `CONECT` records between `DAB 5 ND` and `THR 11 C`.
+
+      Keep the following fragment map before sending the structure to CHARMM-GUI/CGenFF. If topology generation treats polymyxin B as one ligand residue, this table preserves the atom groups needed later for per-fragment membrane interaction-energy analysis. The `PDB atom serials` column applies to `polymyxin_b_pubchem_residues.pdb` and `polymyxin_b_3d.pdb`; the `SDF atom IDs` column applies to `pmbn_pubchem.sdf` and `polymyxin_b_3d.sdf`.
+
+      | Fragment group | Chemical fragment | PDB atom serials | SDF atom IDs | Atom names |
+      |---|---|---:|---|---|
+      | `PMB_MOA1` | 6-methyloctanoyl tail | 1-27 | 73,12,58,43,39,34,33,44,71,57,90-92,97,98,103-106,127-131,146-148 | C,O,C2,C3,C4,C5,C6,C7,C8,CM,H01-H17 |
+      | `PMB_DAB2` | Dab 2 | 28-42 | 24,61,75,13,74,79,29,134,151,152,154,162,163,182,183 | N,CA,C,O,CB,CG,ND,H01-H08 |
+      | `PMB_THR3` | Thr 3 | 43-56 | 23,59,69,11,70,8,80,132,145,153,164-166,174 | N,CA,C,O,CB,OG1,CG2,H01-H07 |
+      | `PMB_DAB4` | Dab 4 | 57-71 | 20,49,60,7,62,76,27,115,135,136,139,155,156,177,178 | N,CA,C,O,CB,CG,ND,H01-H08 |
+      | `PMB_DAB5` | Dab 5, lactam side-chain N | 72-85 | 18,37,52,3,41,54,22,95,100,101,122,123,125,142 | N,CA,C,O,CB,CG,ND,H01-H07 |
+      | `PMB_DAB6` | Dab 6, verify D/L assignment | 86-100 | 17,40,53,4,51,72,26,99,120,121,124,149-150,171,172 | N,CA,C,O,CB,CG,ND,H01-H08 |
+      | `PMB_DPH7` | D-Phe 7 | 101-120 | 16,35,42,2,45,67,81-85,93,107,108,119,167,168,175,176,181 | N,CA,C,O,CB,CG,CD1,CD2,CE1,CE2,CZ,H01-H09 |
+      | `PMB_LEU8` | Leu 8 | 121-139 | 14,30,38,1,31,32,46,47,86-89,96,109-114 | N,CA,C,O,CB,CG,CD1,CD2,H01-H11 |
+      | `PMB_DAB9` | Dab 9 | 140-154 | 15,36,55,5,48,66,25,94,102,116,117,143,144,169,170 | N,CA,C,O,CB,CG,ND,H01-H08 |
+      | `PMB_DAB10` | Dab 10 | 155-169 | 19,50,64,9,63,77,28,118,133,137,138,157,158,179,180 | N,CA,C,O,CB,CG,ND,H01-H08 |
+      | `PMB_THR11` | Thr 11, lactam carbonyl | 170-183 | 21,56,68,10,65,6,78,126,140,141,159-161,173 | N,CA,C,O,CB,OG1,CG2,H01-H07 |
+
+      For GROMACS interaction-energy reruns, make one index group per fragment using the final topology atom numbers. The successful charged CHARMM-GUI Ligand Reader run in `PMB_topol/charmm-gui-7883126705` uses the SDF atom order for atoms 1-183 and appends the five added ammonium hydrogens as atoms 184-188. Also verify residue 6 before production: canonical polymyxin B usually has `D-Phe` as the D-amino-acid residue, while the current template labels residue 6 as `DDB`/D-Dab.
+
+      Final PMB fragment groups for postprocessing with `PMB_topol/charmm-gui-7883126705/gromacs/PMB.itp`:
+
+      | Fragment group | Final `PMB.itp` atom numbers | Notes |
+      |---|---|---|
+      | `PMB_MOA1` | 12,33,34,39,43,44,57,58,71,73,90-92,97,98,103-106,127-131,146-148 | 6-methyloctanoyl tail |
+      | `PMB_DAB2` | 13,24,29,61,74,75,79,134,151,152,154,162,163,182,183,188 | Free Dab side-chain ammonium; added H is 188 |
+      | `PMB_THR3` | 8,11,23,59,69,70,80,132,145,153,164-166,174 | Thr 3 |
+      | `PMB_DAB4` | 7,20,27,49,60,62,76,115,135,136,139,155,156,177,178,186 | Free Dab side-chain ammonium; added H is 186 |
+      | `PMB_DAB5` | 3,18,22,37,41,52,54,95,100,101,122,123,125,142 | Lactam side-chain N; no added ammonium H |
+      | `PMB_DAB6` | 4,17,26,40,51,53,72,99,120,121,124,149,150,171,172,185 | Free Dab side-chain ammonium; added H is 185 |
+      | `PMB_DPH7` | 2,16,35,42,45,67,81-85,93,107,108,119,167,168,175,176,181 | D-Phe 7 |
+      | `PMB_LEU8` | 1,14,30-32,38,46,47,86-89,96,109-114 | Leu 8 |
+      | `PMB_DAB9` | 5,15,25,36,48,55,66,94,102,116,117,143,144,169,170,184 | Free Dab side-chain ammonium; added H is 184 |
+      | `PMB_DAB10` | 9,19,28,50,63,64,77,118,133,137,138,157,158,179,180,187 | Free Dab side-chain ammonium; added H is 187 |
+      | `PMB_THR11` | 6,10,21,56,65,68,78,126,140,141,159-161,173 | Thr 11; lactam carbonyl |
+
+      When PMB is inserted into a solvated membrane system, add the PMB molecule's atom-number offset to these final `PMB.itp` atom numbers. For example, if PMB begins at atom `50001` in the system, then `PMB_DAB9` is system atoms `50005,50015,50025,...,50184`. Save the exact system-level groups in the index file used for analysis.
+
+      Interaction-energy analysis after MD:
+
+      1. Build fragment and membrane index groups from the final run input or final coordinates. Use the fragment map above, but convert it to the final solvated-system atom numbers after topology generation. For the membrane, make groups that match the question being asked, for example `LPS`, `LipidA`, `Phosphate`, `InnerLeaflet`, `OuterLeaflet`, `PPPE`, `PVPG`, or `PVCL2`.
+
+          ```bash
+          gmx make_ndx -f md.tpr -o interaction_groups.ndx
+          ```
+
+          Name the polymyxin groups consistently with the table, for example `PMB_DAB2`, `PMB_THR3`, `PMB_DPH7`, and so on. Save a copy of the exact final atom-number ranges used, because these are the analysis definitions.
+
+      2. Prepare a rerun `.mdp` that writes pair energies between the selected groups. Keep the physical settings compatible with the production system, but set `energygrps` to the fragment and membrane groups:
+
+          ```ini
+          energygrps = PMB_MOA1 PMB_DAB2 PMB_THR3 PMB_DAB4 PMB_DAB5 PMB_DAB6 PMB_DPH7 PMB_LEU8 PMB_DAB9 PMB_DAB10 PMB_THR11 LPS PPPE PVPG PVCL2
+          ```
+
+          For a focused calculation, use fewer groups, such as one PMB fragment and one membrane group. Too many `energygrps` can make the rerun slow and creates a large `.edr` file.
+
+      3. Recompute energies on the saved trajectory. This does not change the trajectory; it only recalculates energies for the frames in `md.xtc`.
+
+          ```bash
+          gmx grompp -f rerun_energy.mdp -c md.gro -p topol.top -n interaction_groups.ndx -t md.cpt -o rerun_energy.tpr
+          gmx mdrun -s rerun_energy.tpr -rerun md.xtc -deffnm rerun_energy
+          gmx energy -f rerun_energy.edr -o pmb_membrane_interactions.xvg
+          ```
+
+          Extract terms such as `Coul-SR:PMB_DAB2-LPS` and `LJ-SR:PMB_DAB2-LPS`. The usual descriptive interaction energy is:
+
+          ```text
+          E_interaction = Coul-SR(fragment, membrane) + LJ-SR(fragment, membrane)
+          ```
+
+      4. Interpret the result as a nonbonded energy decomposition, not a binding free energy. The rerun reports force-field short-range Coulomb and Lennard-Jones terms between the chosen groups under the simulation settings. It does not include entropy, conformational reorganization, solvent free energy, long-range electrostatic decomposition in a simple residue-pair sense, or membrane deformation cost. It is useful for ranking which PMB fragments contact the membrane strongly, especially when paired with contacts, distances, and H-bond occupancies.
+
+      5. Analyze hydrogen bonds separately. H-bonds are not an energy term in the CHARMM/GROMACS nonbonded decomposition; they emerge from electrostatics and geometry. Use MDAnalysis or `gmx hbond` to calculate PMB-fragment to membrane H-bond counts, occupancies, donor/acceptor identities, and lifetimes. The fragment map above can be reused to build the MDAnalysis atom selections.
+
+      6. Treat MM/PBSA or MM/GBSA as a separate follow-up analysis. It can estimate a more binding-like free-energy decomposition, but it has stronger assumptions for membranes, charged ligands, ions, and lipid/water boundaries. Read the method details before using it for final claims, and use the GROMACS rerun energies plus H-bond/contact analysis as the first-pass diagnostic.
    3. A 3D conformer can be generated with the RDKit script [../scripts/generate_3d_conformer.py](../scripts/generate_3d_conformer.py):
 
         ```bash
@@ -54,3 +128,43 @@
         ```
 
         The script writes `polymyxin_b_3d.pdb` and `polymyxin_b_3d.sdf`. The `--template-pdb` option keeps the residue labels from `polymyxin_b_pubchem_residues.pdb`; `--keep-existing-hydrogens` keeps the PubChem SDF atom order aligned with that template. On an HPC node, increase `--num-conformers` for a broader conformer search and set `--num-threads` to the scheduler-allocated CPU count, or leave it as `0` to let RDKit use all visible cores.
+   4. Protonate PMB and generate the GROMACS topology with CHARMM-GUI Ligand Reader & Modeler using the charged PMB state.
+
+        The neutral PubChem SDF gives total charge `0`, which is not appropriate for the usual PMB membrane-binding simulation because the Dab side chains should be cationic and interact strongly with LPS/lipid A phosphate groups. Before uploading to CHARMM-GUI, generate a charged `+5` SDF with [protonate_pmb_dab.py](protonate_pmb_dab.py):
+
+        ```bash
+        conda run -n hpc python ./protonate_pmb_dab.py \
+          --input polymyxin_b_3d.sdf \
+          --output polymyxin_b_3d_plus5.sdf
+        ```
+
+        The script preserves the original 183-atom order and appends one new hydrogen to each of the five free Dab side-chain amines. Upload `polymyxin_b_3d_plus5.sdf` to Ligand Reader & Modeler, not PDB Reader.
+
+        Protonated these free side-chain nitrogens:
+
+        | Fragment | Atom in template | SDF atom ID | Expected state |
+        |---|---|---:|---|
+        | `PMB_DAB2` | `DAB 2 ND` | 29 | `-NH3+` |
+        | `PMB_DAB4` | `DAB 4 ND` | 27 | `-NH3+` |
+        | `PMB_DAB6` | `DAB/DDB 6 ND` | 26 | `-NH3+` |
+        | `PMB_DAB9` | `DAB 9 ND` | 25 | `-NH3+` |
+        | `PMB_DAB10` | `DAB 10 ND` | 28 | `-NH3+` |
+
+        Did not protonate `DAB 5 ND` (`SDF atom ID 22`) as a free side-chain amine: it forms the lactam ring closure with `THR 11 C`. The backbone/amide nitrogens should remain neutral amides.
+
+        Note that the charged SDF has 188 atoms rather than 183 because five new side-chain amine hydrogens are appended at the end. The original SDF atom IDs in the fragment map remain valid for the original heavy atoms and hydrogens. After CHARMM-GUI topology generation, rebuild the final analysis atom map from the generated `PMB.itp`/coordinates because CHARMM-GUI may rename atoms.
+
+        After downloading the CHARMM-GUI output, check the generated files before using them:
+
+        ```bash
+        awk '/^\[ atoms \]/{a=1;next} /^\[ bonds \]/{a=0} a && $1 ~ /^[0-9]+$/ {q+=$7} END {printf "PMB total charge = %.6f\n", q}' gromacs/PMB.itp
+        grep -n '^RESI' pmb/pmb.rtf
+        ```
+
+        The accepted topology should report approximately `+5.000000` in `PMB.itp`, and the CHARMM residue line should be `RESI pmb 5.000` or equivalent. If it reports `0.000`, discard that topology and rerun Ligand Reader with the side-chain amines protonated.
+
+        The successful charged topology is in `PMB_topol/charmm-gui-7883126705`. It contains `188` PMB atoms and total charge `+5.000000` in `gromacs/PMB.itp`. CHARMM-GUI completed normally with no unknown coordinates, `ligandrm.str` reports `SET NCHARGE = 5`, and `pmb/pmb.rtf` reports `RESI pmb 5.000 ! param penalty=4.600 ; charge penalty=4.252`. CGenFF penalties below 10 indicate fair analogies, so these values are acceptable for this first model. CHARMM-GUI renamed atoms generically (`O1`, `N12`, `C56`, etc.); use the final fragment table above when building future GROMACS index groups.
+        
+        **Update:** The vacuum simulation ran okay. 
+        * [rungmx.sh](PMB_topol/charmm-gui-7883126705/gromacs/rungmx.sh)
+        * [video](PMB_topol/charmm-gui-7883126705/gromacs/gromacs_sim.mp4)
