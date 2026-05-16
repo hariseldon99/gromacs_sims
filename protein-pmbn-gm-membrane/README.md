@@ -227,6 +227,8 @@
    - Force field: **CHARMM36**
    - Output format: **GROMACS**
 
+   **Note:** [Job url (finite lifetime)](https://charmm-gui.org/?doc=input/membrane.bilayer&jobid=7891412003&project=membrane_bilayer_only) 
+   
    Download the resulting package. The key GROMACS files will be in `gromacs/`:
 
    | File | Contents |
