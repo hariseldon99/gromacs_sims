@@ -233,19 +233,21 @@
 
    | File | Contents |
    |---|---|
-   | `gromacs/step5_charmm2gmx.pdb` | Assembled system coordinates in GROMACS-compatible PDB |
+   | `gromacs/step5_input.pdb` | Assembled system coordinates in GROMACS-compatible PDB |
    | `gromacs/topol.top` | Master topology (ECLIPA, PPPE, PVPG, PVCL2, water, ions) |
    | `gromacs/step6.x_equilibration.mdp` | Six staged equilibration `.mdp` files |
    | `gromacs/step7_production.mdp` | Production `.mdp` |
 
    #### Step A2 — Manually insert PMB into the GROMACS system
+   First, copy the contents of the `gromacs/` directory mentioned above to a new 
+   `simulation` directory. It has a [README](simulation/README).
 
    PMB is added by merging its coordinates into the membrane GRO file and updating the topology. Use the pre-built CHARMM-GUI Ligand Reader output from `PMB_topol/charmm-gui-7883126705` — do not re-run CGenFF or re-upload the SDF, as that would produce a different atom ordering and potentially different partial charges.
 
    **2a. Convert system PDB to GRO:**
    ```bash
    cd gromacs/
-   gmx editconf -f step5_charmm2gmx.pdb -o membrane.gro
+   gmx editconf -f step5_input.pdb -o membrane.gro
    ```
 
    **2b. Place PMB above the outer leaflet:**
@@ -254,14 +256,19 @@
 
    ```bash
    # Find approximate z of outer leaflet phosphate atoms (e.g. PB atom in ECLI)
-   grep " PB " membrane.gro | awk '{print $NF}' | sort -n | tail -5
+   $ grep " PB " membrane.gro | awk '{print $NF}' | sort -n | tail -5
+    11.666
+    11.667
+    11.668
+    11.668
+    11.669
    ```
 
-   Translate the PMB PDB so its acyl tail (MOA1, atom 1 in `ligandrm.pdb`) sits ~15–20 Å above that z value:
+   Translate the PMB PDB so its acyl tail (MOA1, atom 1 in `ligandrm.pdb`) sits ~15–20 Å above that z value ($11.669+2=13.669$):
 
    ```bash
    gmx editconf -f ../PMB_topol/charmm-gui-7883126705/ligandrm.pdb \
-       -o pmb_placed.gro -translate 0 0 <z_offset_nm>
+       -o pmb_placed.gro -translate 0 0 13.669
    ```
 
    (GROMACS uses nm; divide the Å value by 10.)
@@ -293,6 +300,8 @@
        out.write(box)
    EOF
    ```
+   
+    **Note:** Finished till here on 20260517. Need to commit the PMBN itp files from work compu first before I can continue.
 
    **2d. Update the topology** — add `PMB.itp` and one PMB molecule entry to `topol.top`:
 
@@ -333,25 +342,71 @@
    CHARMM-GUI generates six staged GROMACS equilibration `.mdp` files that progressively relax position restraints on lipid head groups, tails, and the LPS glycan rings. Because PMB is newly placed, these stages allow it to relax into position without disrupting lipid packing.
 
    ```bash
+   nprocs=48
    # Energy minimization
    gmx grompp -f step6.0_minimization.mdp -c system.gro -p topol.top -o em.tpr -maxwarn 5
-   gmx mdrun -v -deffnm em
-
+   gmx mdrun -v -deffnm em -nt ${nprocs}
+    
    # Staged equilibration (repeat for steps 6.1 through 6.6)
    for step in 6.1 6.2 6.3 6.4 6.5 6.6; do
        prev=$(echo $step | awk -F. '{if ($2==1) print "em"; else printf "step%s.%s", $1, $2-1}')
        gmx grompp -f step${step}_equilibration.mdp -c ${prev}.gro -p topol.top \
            -r ${prev}.gro -o step${step}.tpr -maxwarn 5
-       gmx mdrun -v -deffnm step${step}
+       gmx mdrun -v -deffnm step${step} -nb gpu -pme gpu -bonded gpu -nt ${nprocs} -gpu_id 0
    done
 
    # Production MD
    gmx grompp -f step7_production.mdp -c step6.6.gro -t step6.6.cpt \
        -p topol.top -o md.tpr -maxwarn 2
-   gmx mdrun -v -deffnm md -nb gpu -pme gpu
+   gmx mdrun -v -deffnm md -nb gpu -pme gpu -bonded gpu -nt ${nprocs} -gpu_id 0
    ```
 
    On an HPC cluster, replace the `gmx mdrun` calls with the appropriate scheduler script (PBS/Slurm). Use NPT ensemble with semi-isotropic pressure coupling (`Pcoupltype = semiisotropic`) for a membrane system.
+
+##### Simulation Times
+For observing PMB insertion/translocation through a membrane, **1 ns is far too short**. Typical timescales:
+
+| Goal | Time needed |
+|---|---|
+| PMB docking to outer leaflet | 10–100 ns |
+| Partial insertion into LPS headgroup region | 100–500 ns |
+| Full translocation through outer membrane | 1–10 µs (rarely seen in unbiased MD) |
+
+**Practical recommendation: 100–500 ns** for a first test.
+
+- At 100 ns you should see whether PMB adsorbs and begins inserting into the LPS/Lipid A headgroup region — the most relevant event for its antimicrobial mechanism
+- At 500 ns you have a reasonable chance of observing deeper penetration
+
+If you want to observe full translocation within a feasible compute budget, consider **enhanced sampling methods** instead of plain MD:
+- **Steered MD (SMD)** — pull PMB through the membrane along Z with a constant force; fast but biased
+- **Umbrella sampling** — compute the PMB translocation free energy profile (PMF) along Z
+- **REST2 or metadynamics** — accelerate conformational sampling without a fixed reaction coordinate
+
+For a first exploratory run on a cluster, set `nsteps = 50000000` (100 ns) and see if PMB contacts the outer leaflet phosphates. That result will tell you whether full translocation is feasible with unbiased MD or whether enhanced sampling is needed.
+
+##### Runtime Estimate
+Rough estimate requires knowing the system atom count first. From the README:
+
+| Component | Count | ~Atoms |
+|---|---|---|
+| ECLIPA (35 × ~280 atoms) | 35 lipids | ~9,800 |
+| PPPE/PVPG/PVCL2 (100 lipids) | 100 lipids | ~5,500 |
+| Water (14,934 molecules) | — | ~44,800 |
+| Ions (Na⁺/Cl⁻/Ca²⁺) | ~285 | ~285 |
+| PMB | 188 atoms | 188 |
+| **Total** | | **~60,000–70,000 atoms** |
+
+**Expected performance on V100 + 48 CPUs:** ~100–200 ns/day for a system this size with CHARMM36 (LPS topology is heavier than a simple bilayer due to complex sugar bonded terms).
+
+| Target simulation | Estimated wall time |
+|---|---|
+| 100 ns | **12–24 hours** |
+| 500 ns | **3–5 days** |
+
+**Caveats:**
+- Use `-nb gpu -pme gpu -bonded gpu` in `mdrun` to offload as much as possible to the V100
+- If PME stays on CPU (common with 48 CPUs available), performance may land closer to the lower end
+- Run a short benchmark first (`gmx mdrun -nsteps 5000 -resetstep 4000 -v`) — it will print `Performance: X ns/day` so you get an exact number before committing to a long queue submission
 
    #### Step A5 — Record PMB atom-number offset for analysis
 
