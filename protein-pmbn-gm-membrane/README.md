@@ -152,7 +152,7 @@
 
         Did not protonate `DAB 5 ND` (`SDF atom ID 22`) as a free side-chain amine: it forms the lactam ring closure with `THR 11 C`. The backbone/amide nitrogens should remain neutral amides.
 
-        Note that the charged SDF has 188 atoms rather than 183 because five new side-chain amine hydrogens are appended at the end. The original SDF atom IDs in the fragment map remain valid for the original heavy atoms and hydrogens. After CHARMM-GUI topology generation, rebuild the final analysis atom map from the generated `PMB.itp`/coordinates because CHARMM-GUI may rename atoms.
+        > **Note:** The charged SDF has 188 atoms rather than 183 because five new side-chain amine hydrogens are appended at the end. The original SDF atom IDs in the fragment map remain valid for the original heavy atoms and hydrogens. After CHARMM-GUI topology generation, rebuild the final analysis atom map from the generated `PMB.itp`/coordinates because CHARMM-GUI may rename atoms.
 
         After downloading the CHARMM-GUI output, check the generated files before using them:
 
@@ -226,8 +226,6 @@
    **Force field / output page:**
    - Force field: **CHARMM36**
    - Output format: **GROMACS**
-
-   **Note:** [Job url (finite lifetime)](https://charmm-gui.org/?doc=input/membrane.bilayer&jobid=7891412003&project=membrane_bilayer_only) 
    
    Download the resulting package. The key GROMACS files will be in `gromacs/`:
 
@@ -311,10 +309,6 @@
    
    The merge script (`merge_coordinates.py`) copies the box vector line from `membrane.gro` into `system.gro`, so using `step5_input.gro` as the source guarantees the correct box is propagated.
 
-   **Note:** Finished till here on 20260517. Need to commit the PMBN itp files from work compu first before I can continue.
-
-   **Note:** Completed step 2a–2d on 20260518.
-
    **2d. Update the topology** — add `PMB.itp` and one PMB molecule entry to `topol.top`:
 
    ```bash
@@ -370,7 +364,7 @@
    # WARNING lines mean unknown residue names — add them to MEMB_RES or SOLV_RES in the script
    ```
 
-   Note: ECLIPA (LPSA in `topol.top`) is split into multiple glycan residue names in the GRO (`ECLIP`, `ARHM`, `AGAL`, `BMANN`, `BGLCN`, `AHEP`, `AKDO`, `AGLC`, `BGLC`); all are assigned to `MEMB`.
+   > **Note:** ECLIPA (LPSA in `topol.top`) is split into multiple glycan residue names in the GRO (`ECLIP`, `ARHM`, `AGAL`, `BMANN`, `BGLCN`, `AHEP`, `AKDO`, `AGLC`, `BGLC`); all are assigned to `MEMB`.
 
    **Neutralise the system.** The pre-existing ions in the membrane system were balanced for lipid charges only. PMB adds +5, leaving the system with a net charge of +5. Ewald electrostatics (PME) requires a neutral system; running with net charge causes a uniform background charge correction and serious artefacts. Add 5 Cl⁻ counter-ions by replacing water molecules.
 
@@ -407,6 +401,8 @@
    #### Step A4 — Run the GROMACS equilibration pipeline
 
    CHARMM-GUI generates six staged GROMACS equilibration `.mdp` files that progressively relax position restraints on lipid head groups, tails, and the LPS glycan rings. Because PMB is newly placed, these stages allow it to relax into position without disrupting lipid packing.
+
+   **Equilibration protocol summary (from `simulation/step6.x_equilibration.mdp`):** The six stages total ~1.875 ns of MD. Steps 6.1 and 6.2 (125 ps each, dt = 1 fs) are **NVT** runs using V-rescale temperature coupling at 310.15 K applied separately to the `MEMB` and `SOLV` groups; velocities are generated at the start of step 6.1. Steps 6.3–6.6 switch to **NPT** with C-rescale semi-isotropic pressure coupling (τ_p = 5 ps, P_ref = 1 bar), and the timestep is doubled to 2 fs for 500 ps per stage. Lipid head-group position restraints (`POSRES_FC_LIPID`, kJ mol⁻¹ nm⁻²) and dihedral restraints (`DIHRES_FC`, kJ mol⁻¹ rad⁻²) are relaxed progressively across the six stages: 1000/1000 → 400/400 → 400/200 → 200/200 → 40/100 → 0/0 (unrestrained). PMB carries no `POSRES` block in its ITP and is therefore unconstrained throughout all equilibration stages. All stages use the Verlet cutoff scheme, PME electrostatics with r_c = 1.2 nm, a force-switched Lennard-Jones cutoff (r_switch = 1.0 nm, r_c = 1.2 nm), and LINCS constraints on all hydrogen bonds.
 
    For better PP, I chose to run the EM locally on workstn:
    ```bash
