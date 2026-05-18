@@ -1,0 +1,159 @@
+#!/bin/bash
+#--------------------------------------------------
+# Job name
+#PBS -N pmbn-gm-eqprd
+# queue select
+#PBS -q workq
+#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn2
+# Name of stdout output file (default)
+#PBS -o pmbn-gm-eqprd.out 
+# stdout output file
+#PBS -j oe
+#PBS -l walltime=168:00:00 
+#--------------------------------------------------
+
+START_CHUNK=1
+MAX_CHUNK=10
+
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
+SIF_PATH="/home/arunima/images/gromacs_2024.5-GPU.sif"
+
+SINGULARITY() {
+	singularity exec --nv -B ~/.Xauthority -B "${PWD}:/host_pwd" --pwd /host_pwd "$SIF_PATH" "$@"
+}
+
+#Start time
+start=`date +%s.%N`
+# Change to submission directory
+cd $PBS_O_WORKDIR
+#Load basic OHPC tools
+module load ohpc
+#Load cuda
+module load cuda
+
+echo "Starting"
+echo '---------------------------------------------'
+
+# Staged equilibration (steps 6.1 through 6.6)
+for step in 6.1 6.2 6.3 6.4 6.5 6.6; do
+    prev=$(echo $step | awk -F. '{if ($2==1) print "em"; else printf "step%s.%s", $1, $2-1}')
+    echo ">>> Starting equilibration step${step} (prev: ${prev})"
+    SINGULARITY bash -c "gmx grompp \
+        -f step${step}_equilibration.mdp \
+        -c ${prev}.gro -r system.gro \
+        -p topol.top \
+        -n index.ndx \
+        -o step${step}.tpr -maxwarn 5"
+    SINGULARITY bash -c "gmx mdrun -nobackup -nocopyright \
+		-v -deffnm step${step} -nb gpu -pme gpu -bonded gpu \
+		-nt ${PBS_NCPUS} -gpu_id 0"
+    echo ">>> Completed equilibration step${step}. Checkpoint: step${step}.cpt"
+done
+echo ">>> All equilibration stages complete."
+
+# Production MD — run in chunks to fit HPC queue time limits.
+# Each chunk restarts from the checkpoint of the previous one (-t flag).
+# Adjust set_cntmax to match your target simulation time given the per-chunk nsteps in step7_production.mdp.
+# To restart after interruption, set cnt_start to the last completed chunk number + 1.
+cnt_start=$START_CHUNK
+set_cntmax=$MAX_CHUNK
+for cnt in $(seq ${cnt_start} ${set_cntmax}); do
+    pcnt=$((cnt - 1))
+    istep=step7_${cnt}
+    echo ">>> Starting production chunk ${cnt}/${set_cntmax}: ${istep}"
+    if [ ${cnt} -eq 1 ]; then
+        pstep=step6.6
+        SINGULARITY bash -c "gmx grompp \
+            -f step7_production.mdp \
+            -c ${pstep}.gro \
+            -p topol.top \
+            -n index.ndx \
+            -o ${istep}.tpr -maxwarn 2"
+    else
+        pstep=step7_${pcnt}
+        SINGULARITY bash -c "gmx grompp \
+            -f step7_production.mdp \
+            -c ${pstep}.gro -t ${pstep}.cpt \
+            -p topol.top \
+            -n index.ndx \
+            -o ${istep}.tpr -maxwarn 2"
+    fi
+    SINGULARITY bash -c "gmx mdrun -nobackup -nocopyright \
+		-v -deffnm ${istep} -nb gpu -pme gpu -bonded gpu \
+		-nt ${PBS_NCPUS} -gpu_id 0"
+    echo ">>> Completed production chunk ${cnt}/${set_cntmax}. Checkpoint: ${istep}.cpt"
+done
+echo ">>> All production chunks complete."
+
+#----------------------------------------------------------
+# Post-processing: remove PBC artefacts and strip solvent
+# (production trajectories only — equilibration not processed)
+#----------------------------------------------------------
+echo ">>> Post-processing production trajectories..."
+
+# 1. Concatenate all production chunk XTC files into a single trajectory.
+#    -cat skips the time-overlap check so chunks restart cleanly from checkpoints.
+xtc_list=$(ls -v step7_*.xtc 2>/dev/null | tr '\n' ' ')
+if [ -z "${xtc_list}" ]; then
+    echo "WARNING: No step7_*.xtc files found. Skipping post-processing."
+else
+    SINGULARITY bash -c "gmx -nobackup -nocopyright trjcat \
+        -f ${xtc_list} \
+        -o traj_prod.xtc -cat"
+    echo ">>> Concatenated chunks → traj_prod.xtc"
+
+    # 2. Make all molecules whole across PBC (repair bonds broken at box edges).
+    #    Output the full system (all atoms) so the cluster step in step 3
+    #    can correctly cluster every molecule around the membrane centre.
+    SINGULARITY bash -c "echo 'System' | gmx -nobackup -nocopyright trjconv \
+        -s step7_1.tpr \
+        -f traj_prod.xtc \
+        -pbc whole \
+        -o traj_whole.xtc"
+    echo ">>> PBC-whole repair done → traj_whole.xtc"
+
+    # 3. Cluster all molecules around the MEMB centre of mass, centre MEMB in
+    #    the box, and strip water + ions in a single pass.
+    #    The two stdin lines select: (1) centering group → MEMB,
+    #                                (2) output group   → MEMB.
+    #    MEMB contains: all lipids (LPSA/PPPE/PVPG/PVCL2), all LPS glycan
+    #    residues, and PMB — i.e. everything needed for analysis.
+    #    -pbc cluster : clusters all molecules around MEMB before any wrapping
+    #    -ur compact  : folds into the most compact representation of the cell
+    SINGULARITY bash -c "printf 'MEMB\nMEMB\n' | gmx -nobackup -nocopyright trjconv \
+        -s step7_1.tpr \
+        -f traj_whole.xtc \
+        -n index.ndx \
+        -center -pbc cluster -ur compact \
+        -o traj_dry.xtc"
+    echo ">>> Dry trajectory ready → traj_dry.xtc"
+    echo "    (MEMB group: lipids + LPS glycans + PMB; water and ions removed)"
+
+    # Clean up intermediate files to save disk space
+    rm -f traj_whole.xtc
+    echo ">>> Removed intermediate traj_whole.xtc"
+fi
+
+#End time
+end=`date +%s.%N`
+
+
+echo "NUM_THREADS= ${PBS_NCPUS}"
+RUNTIME=$( echo "$end - $start" | bc -l )
+
+echo '---------------------------------------------'
+echo "Runtime: "$RUNTIME" sec"
+echo '---------------------------------------------'
+#----------------------------------------------------------
+# Communicate job status to ntfy.sh
+#----------------------------------------------------------
+# Define login node
+LOGIN_NODE="kuhpchn"
+# Define the ntfy.sh URL
+NTFY_URL="https://ntfy.sh/kuhpchn"
+
+# Generate the message  text
+MESSAGE="${bell} PBS job exiting now. Job name : ${PBS_JOBNAME}. Job id : ${PBS_JOBID}. Job dir : ${PBS_O_WORKDIR}. Job start-time : ${start}. Job end-time : ${end}. Job runtime : ${RUNTIME} secs."
+
+# SSH into the login node and execute the curl command remotely
+sshpass -f $HOME/.password ssh "$LOGIN_NODE" "curl -X POST -d \"$MESSAGE\" \"$NTFY_URL\""
