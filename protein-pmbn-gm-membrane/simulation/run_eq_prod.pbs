@@ -1,159 +1,387 @@
 #!/bin/bash
 #--------------------------------------------------
-# Job name
+# PBS SETTINGS
+#--------------------------------------------------
 #PBS -N pmbn-gm-eqprd
-# queue select
 #PBS -q workq
-#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn2
-# Name of stdout output file (default)
-#PBS -o pmbn-gm-eqprd.out 
-# stdout output file
+#PBS -l select=1:ncpus=48:host=kuhpcgn1
+#PBS -o pmbn-gm-eqprd.out
 #PBS -j oe
-#PBS -l walltime=168:00:00 
+#PBS -l walltime=168:00:00
 #--------------------------------------------------
 
-START_CHUNK=1
+set -euo pipefail
+
+#--------------------------------------------------
+# USER SETTINGS
+#--------------------------------------------------
+
+# Toggle equilibration stages (6.1 -> 6.6)
+RUN_EQUIL=false
+
+# Production chunk range
+# For resume after completed step7_6, set to START_CHUNK=7, else 1
+START_CHUNK=7
 MAX_CHUNK=10
 
-export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
+# Singularity container
 SIF_PATH="/home/arunima/images/gromacs_2024.5-GPU.sif"
 
-SINGULARITY() {
-	singularity exec --nv -B ~/.Xauthority -B "${PWD}:/host_pwd" --pwd /host_pwd "$SIF_PATH" "$@"
-}
+#--------------------------------------------------
+# INITIALIZATION
+#--------------------------------------------------
 
-#Start time
-start=`date +%s.%N`
-# Change to submission directory
-cd $PBS_O_WORKDIR
-#Load basic OHPC tools
+cd "$PBS_O_WORKDIR"
+
+LOGFILE="wrapper_$(date +%Y%m%d_%H%M%S).log"
+
+# Persistent unbuffered logging
+exec > >(stdbuf -oL tee -a "$LOGFILE")
+exec 2>&1
+
+echo "================================================="
+echo "PBS JOB START"
+echo "================================================="
+echo "Date        : $(date)"
+echo "Hostname    : $(hostname)"
+echo "Working dir : $(pwd)"
+echo "PBS_JOBID   : ${PBS_JOBID}"
+echo "PBS_JOBNAME : ${PBS_JOBNAME}"
+echo "================================================="
+
+#--------------------------------------------------
+# MODULES
+#--------------------------------------------------
+
 module load ohpc
-#Load cuda
 module load cuda
 
-echo "Starting"
-echo '---------------------------------------------'
+export PBS_NCPUS=$(wc -l "$PBS_NODEFILE" | awk '{print $1}')
 
-# Staged equilibration (steps 6.1 through 6.6)
-for step in 6.1 6.2 6.3 6.4 6.5 6.6; do
-    prev=$(echo $step | awk -F. '{if ($2==1) print "em"; else printf "step%s.%s", $1, $2-1}')
-    echo ">>> Starting equilibration step${step} (prev: ${prev})"
-    SINGULARITY bash -c "gmx grompp \
-        -f step${step}_equilibration.mdp \
-        -c ${prev}.gro -r system.gro \
-        -p topol.top \
-        -n index.ndx \
-        -o step${step}.tpr -maxwarn 5"
-    SINGULARITY bash -c "gmx mdrun -nobackup -nocopyright \
-		-v -deffnm step${step} -nb gpu -pme gpu -bonded gpu \
-		-nt ${PBS_NCPUS} -gpu_id 0"
-    echo ">>> Completed equilibration step${step}. Checkpoint: step${step}.cpt"
-done
-echo ">>> All equilibration stages complete."
+echo "[INFO] Detected PBS_NCPUS=${PBS_NCPUS}"
 
-# Production MD — run in chunks to fit HPC queue time limits.
-# Each chunk restarts from the checkpoint of the previous one (-t flag).
-# Adjust set_cntmax to match your target simulation time given the per-chunk nsteps in step7_production.mdp.
-# To restart after interruption, set cnt_start to the last completed chunk number + 1.
-cnt_start=$START_CHUNK
-set_cntmax=$MAX_CHUNK
-for cnt in $(seq ${cnt_start} ${set_cntmax}); do
-    pcnt=$((cnt - 1))
-    istep=step7_${cnt}
-    echo ">>> Starting production chunk ${cnt}/${set_cntmax}: ${istep}"
-    if [ ${cnt} -eq 1 ]; then
-        pstep=step6.6
-        SINGULARITY bash -c "gmx grompp \
-            -f step7_production.mdp \
-            -c ${pstep}.gro \
-            -p topol.top \
-            -n index.ndx \
-            -o ${istep}.tpr -maxwarn 2"
-    else
-        pstep=step7_${pcnt}
-        SINGULARITY bash -c "gmx grompp \
-            -f step7_production.mdp \
-            -c ${pstep}.gro -t ${pstep}.cpt \
-            -p topol.top \
-            -n index.ndx \
-            -o ${istep}.tpr -maxwarn 2"
-    fi
-    SINGULARITY bash -c "gmx mdrun -nobackup -nocopyright \
-		-v -deffnm ${istep} -nb gpu -pme gpu -bonded gpu \
-		-nt ${PBS_NCPUS} -gpu_id 0"
-    echo ">>> Completed production chunk ${cnt}/${set_cntmax}. Checkpoint: ${istep}.cpt"
-done
-echo ">>> All production chunks complete."
+#--------------------------------------------------
+# SINGULARITY WRAPPER
+#--------------------------------------------------
 
-#----------------------------------------------------------
-# Post-processing: remove PBC artefacts and strip solvent
-# (production trajectories only — equilibration not processed)
-#----------------------------------------------------------
-echo ">>> Post-processing production trajectories..."
+SINGULARITY() {
+    singularity exec \
+        --nv \
+        -B "${PWD}:/host_pwd" \
+        --pwd /host_pwd \
+        "$SIF_PATH" "$@"
+}
 
-# 1. Concatenate all production chunk XTC files into a single trajectory.
-#    -cat skips the time-overlap check so chunks restart cleanly from checkpoints.
-xtc_list=$(ls -v step7_*.xtc 2>/dev/null | tr '\n' ' ')
-if [ -z "${xtc_list}" ]; then
-    echo "WARNING: No step7_*.xtc files found. Skipping post-processing."
+#--------------------------------------------------
+# START TIMER
+#--------------------------------------------------
+
+start=$(date +%s.%N)
+
+#--------------------------------------------------
+# EQUILIBRATION
+#--------------------------------------------------
+
+if [ "$RUN_EQUIL" = true ]; then
+
+    echo
+    echo "================================================="
+    echo "RUNNING EQUILIBRATION STAGES"
+    echo "================================================="
+
+    for step in 6.1 6.2 6.3 6.4 6.5 6.6; do
+
+        prev=$(echo $step | awk -F. '{
+            if ($2==1)
+                print "em";
+            else
+                printf "step%s.%s", $1, $2-1
+        }')
+
+        echo
+        echo "-------------------------------------------------"
+        echo "[$(date)] Starting equilibration step${step}"
+        echo "Previous structure: ${prev}"
+        echo "-------------------------------------------------"
+
+        test -f "${prev}.gro"
+
+        echo "[INFO] Running grompp for step${step}"
+
+        SINGULARITY bash -c "
+            gmx grompp \
+                -f step${step}_equilibration.mdp \
+                -c ${prev}.gro \
+                -r system.gro \
+                -p topol.top \
+                -n index.ndx \
+                -o step${step}.tpr \
+                -maxwarn 5
+        "
+
+        test -f "step${step}.tpr"
+
+        echo "[INFO] Starting mdrun for step${step}"
+
+        SINGULARITY bash -c "
+            gmx mdrun \
+                -nobackup \
+                -nocopyright \
+                -v \
+                -deffnm step${step} \
+                -nb gpu \
+                -pme gpu \
+                -bonded gpu \
+                -nt ${PBS_NCPUS} \
+                -gpu_id 0
+        "
+
+        echo "[INFO] mdrun completed for step${step}"
+
+        test -f "step${step}.gro"
+        test -f "step${step}.cpt"
+        test -f "step${step}.log"
+
+        echo ">>> Completed equilibration step${step}"
+        echo ">>> Checkpoint: step${step}.cpt"
+
+    done
+
+    echo
+    echo "================================================="
+    echo "ALL EQUILIBRATION STAGES COMPLETE"
+    echo "================================================="
+
 else
-    SINGULARITY bash -c "gmx -nobackup -nocopyright trjcat \
-        -f ${xtc_list} \
-        -o traj_prod.xtc -cat"
-    echo ">>> Concatenated chunks → traj_prod.xtc"
 
-    # 2. Make all molecules whole across PBC (repair bonds broken at box edges).
-    #    Output the full system (all atoms) so the cluster step in step 3
-    #    can correctly cluster every molecule around the membrane centre.
-    SINGULARITY bash -c "echo 'System' | gmx -nobackup -nocopyright trjconv \
-        -s step7_1.tpr \
-        -f traj_prod.xtc \
-        -pbc whole \
-        -o traj_whole.xtc"
-    echo ">>> PBC-whole repair done → traj_whole.xtc"
+    echo
+    echo "================================================="
+    echo "SKIPPING EQUILIBRATION STAGES"
+    echo "RUN_EQUIL=false"
+    echo "================================================="
 
-    # 3. Cluster all molecules around the MEMB centre of mass, centre MEMB in
-    #    the box, and strip water + ions in a single pass.
-    #    The two stdin lines select: (1) centering group → MEMB,
-    #                                (2) output group   → MEMB.
-    #    MEMB contains: all lipids (LPSA/PPPE/PVPG/PVCL2), all LPS glycan
-    #    residues, and PMB — i.e. everything needed for analysis.
-    #    -pbc cluster : clusters all molecules around MEMB before any wrapping
-    #    -ur compact  : folds into the most compact representation of the cell
-    SINGULARITY bash -c "printf 'MEMB\nMEMB\n' | gmx -nobackup -nocopyright trjconv \
-        -s step7_1.tpr \
-        -f traj_whole.xtc \
-        -n index.ndx \
-        -center -pbc cluster -ur compact \
-        -o traj_dry.xtc"
-    echo ">>> Dry trajectory ready → traj_dry.xtc"
-    echo "    (MEMB group: lipids + LPS glycans + PMB; water and ions removed)"
-
-    # Clean up intermediate files to save disk space
-    rm -f traj_whole.xtc
-    echo ">>> Removed intermediate traj_whole.xtc"
 fi
 
-#End time
-end=`date +%s.%N`
+#--------------------------------------------------
+# PRODUCTION SAFETY CHECK
+#--------------------------------------------------
 
+if [ "$START_CHUNK" -gt 1 ]; then
 
-echo "NUM_THREADS= ${PBS_NCPUS}"
-RUNTIME=$( echo "$end - $start" | bc -l )
+    prev_chunk=$((START_CHUNK - 1))
 
-echo '---------------------------------------------'
-echo "Runtime: "$RUNTIME" sec"
-echo '---------------------------------------------'
-#----------------------------------------------------------
-# Communicate job status to ntfy.sh
-#----------------------------------------------------------
-# Define login node
-LOGIN_NODE="kuhpchn"
-# Define the ntfy.sh URL
+    echo
+    echo "[INFO] Resume mode detected"
+    echo "[INFO] Expecting checkpoint from step7_${prev_chunk}"
+
+    test -f "step7_${prev_chunk}.gro"
+    test -f "step7_${prev_chunk}.cpt"
+
+fi
+
+#--------------------------------------------------
+# PRODUCTION MD
+#--------------------------------------------------
+
+cnt_start=$START_CHUNK
+set_cntmax=$MAX_CHUNK
+
+echo
+echo "================================================="
+echo "STARTING PRODUCTION RUNS"
+echo "Chunks ${cnt_start} -> ${set_cntmax}"
+echo "================================================="
+
+for cnt in $(seq ${cnt_start} ${set_cntmax}); do
+
+    pcnt=$((cnt - 1))
+    istep="step7_${cnt}"
+
+    echo
+    echo "-------------------------------------------------"
+    echo "[$(date)] Starting production chunk ${cnt}/${set_cntmax}"
+    echo "Current chunk : ${istep}"
+    echo "-------------------------------------------------"
+
+    if [ ${cnt} -eq 1 ]; then
+
+        pstep="step6.6"
+
+        test -f "${pstep}.gro"
+
+        echo "[INFO] Running grompp for ${istep}"
+
+        SINGULARITY bash -c "
+            gmx grompp \
+                -f step7_production.mdp \
+                -c ${pstep}.gro \
+                -p topol.top \
+                -n index.ndx \
+                -o ${istep}.tpr \
+                -maxwarn 2
+        "
+
+    else
+
+        pstep="step7_${pcnt}"
+
+        test -f "${pstep}.gro"
+        test -f "${pstep}.cpt"
+
+        echo "[INFO] Running grompp for ${istep}"
+
+        SINGULARITY bash -c "
+            gmx grompp \
+                -f step7_production.mdp \
+                -c ${pstep}.gro \
+                -t ${pstep}.cpt \
+                -p topol.top \
+                -n index.ndx \
+                -o ${istep}.tpr \
+                -maxwarn 2
+        "
+
+    fi
+
+    test -f "${istep}.tpr"
+
+    echo "[INFO] Starting mdrun for ${istep}"
+
+    SINGULARITY bash -c "
+        gmx mdrun \
+            -nobackup \
+            -nocopyright \
+            -v \
+            -deffnm ${istep} \
+            -nb gpu \
+            -pme gpu \
+            -bonded gpu \
+            -nt ${PBS_NCPUS} \
+            -gpu_id 0
+    "
+
+    echo "[INFO] mdrun completed for ${istep}"
+
+    test -f "${istep}.gro"
+    test -f "${istep}.cpt"
+    test -f "${istep}.log"
+
+    echo ">>> Completed production chunk ${cnt}/${set_cntmax}"
+    echo ">>> Checkpoint: ${istep}.cpt"
+
+done
+
+echo
+echo "================================================="
+echo "ALL PRODUCTION CHUNKS COMPLETE"
+echo "================================================="
+
+#--------------------------------------------------
+# POST-PROCESSING
+#--------------------------------------------------
+
+echo
+echo "================================================="
+echo "POST-PROCESSING"
+echo "================================================="
+
+rm -f traj_prod.xtc
+rm -f traj_whole.xtc
+rm -f traj_dry.xtc
+
+xtc_list=$(ls -v step7_*.xtc 2>/dev/null | tr '\n' ' ')
+
+if [ -z "${xtc_list}" ]; then
+
+    echo "[WARNING] No production XTC files found."
+    echo "[WARNING] Skipping post-processing."
+
+else
+
+    echo "[INFO] Concatenating trajectories"
+
+    SINGULARITY bash -c "
+        gmx trjcat \
+            -f ${xtc_list} \
+            -o traj_prod.xtc \
+            -cat
+    "
+
+    test -f traj_prod.xtc
+
+    echo ">>> Concatenated trajectory created: traj_prod.xtc"
+
+    echo "System" > trjconv_whole.in
+
+    echo "[INFO] Running whole-PBC repair"
+
+    SINGULARITY bash -c "
+        gmx trjconv \
+            -s step7_1.tpr \
+            -f traj_prod.xtc \
+            -pbc whole \
+            -o traj_whole.xtc \
+            < trjconv_whole.in
+    "
+
+    test -f traj_whole.xtc
+
+    echo ">>> Whole trajectory created: traj_whole.xtc"
+
+    printf "MEMB\nMEMB\n" > trjconv_dry.in
+
+    echo "[INFO] Creating dry clustered trajectory"
+
+    SINGULARITY bash -c "
+        gmx trjconv \
+            -s step7_1.tpr \
+            -f traj_whole.xtc \
+            -n index.ndx \
+            -center \
+            -pbc cluster \
+            -ur compact \
+            -o traj_dry.xtc \
+            < trjconv_dry.in
+    "
+
+    test -f traj_dry.xtc
+
+    echo ">>> Dry trajectory created: traj_dry.xtc"
+
+    rm -f traj_whole.xtc
+    rm -f trjconv_whole.in
+    rm -f trjconv_dry.in
+
+    echo "[INFO] Intermediate files cleaned"
+
+fi
+
+#--------------------------------------------------
+# END TIMER
+#--------------------------------------------------
+
+end=$(date +%s.%N)
+
+RUNTIME=$(echo "$end - $start" | bc -l)
+
+echo
+echo "================================================="
+echo "JOB COMPLETE"
+echo "================================================="
+echo "Runtime: ${RUNTIME} sec"
+echo "================================================="
+
+#--------------------------------------------------
+# NOTIFICATION
+#--------------------------------------------------
+
 NTFY_URL="https://ntfy.sh/kuhpchn"
 
-# Generate the message  text
-MESSAGE="${bell} PBS job exiting now. Job name : ${PBS_JOBNAME}. Job id : ${PBS_JOBID}. Job dir : ${PBS_O_WORKDIR}. Job start-time : ${start}. Job end-time : ${end}. Job runtime : ${RUNTIME} secs."
+MESSAGE="PBS job complete: ${PBS_JOBNAME} (${PBS_JOBID}) runtime=${RUNTIME} sec"
 
-# SSH into the login node and execute the curl command remotely
-sshpass -f $HOME/.password ssh "$LOGIN_NODE" "curl -X POST -d \"$MESSAGE\" \"$NTFY_URL\""
+echo "[INFO] Sending ntfy notification"
+
+timeout 20 curl -X POST -d "$MESSAGE" "$NTFY_URL" || true
+
+echo
+echo "[$(date)] Script exiting normally."
