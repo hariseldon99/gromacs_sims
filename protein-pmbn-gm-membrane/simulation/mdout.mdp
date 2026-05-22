@@ -1,17 +1,17 @@
 ;
 ;	File 'mdout.mdp' was generated
-;	By user: unknown (528)
-;	On host: kuhpcgn2
-;	At date: Tue May 19 13:47:08 2026
+;	By user: daneel (1000)
+;	On host: sudarshan
+;	At date: Fri May 22 23:09:12 2026
 ;
 ;	Created by:
 ;	               :-) GROMACS - gmx grompp, 2024.5-conda_forge (-:
 ;	
-;	Executable:   /usr/local/bin.AVX2_256/gmx
-;	Data prefix:  /usr/local
-;	Working dir:  /host_pwd
+;	Executable:   /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/bin.AVX2_256/gmx
+;	Data prefix:  /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup
+;	Working dir:  /home/daneel/gitrepos/gromacs_sims/protein-pmbn-gm-membrane/simulation
 ;	Command line:
-;	  gmx grompp -f step7_production.mdp -c step7_9.gro -t step7_9.cpt -p topol.top -n index.ndx -o step7_10.tpr -maxwarn 2
+;	  gmx grompp -f rerun.mdp -c system.gro -p topol.top -n ie_groups.ndx -o rerun.tpr -maxwarn 5
 
 ; VARIOUS PREPROCESSING OPTIONS
 ; Preprocessor information: use cpp syntax.
@@ -68,17 +68,17 @@ nstvout                  = 0
 nstfout                  = 0
 ; Output frequency for energies to log file and energy file
 nstlog                   = 1000
-nstcalcenergy            = 100
-nstenergy                = 1000
+nstcalcenergy            = 1
+nstenergy                = 1
 ; Output frequency and precision for .xtc file
-nstxout-compressed       = 50000
+nstxout-compressed       = 0
 compressed-x-precision   = 1000
 ; This selects the subset of atoms for the compressed
 ; trajectory file. You can select multiple groups. By
 ; default, all atoms will be written.
 compressed-x-grps        = 
 ; Selection of energy groups
-energygrps               = 
+energygrps               = PMB_MOA1 PMB_DAB2 PMB_THR3 PMB_DAB4 PMB_DAB5 PMB_DAB6 PMB_DPH7 PMB_LEU8 PMB_DAB9 PMB_DAB10 PMB_THR11 LPS PPPE PVPG PVCL2
 
 ; NEIGHBORSEARCHING PARAMETERS
 ; cut-off scheme (Verlet: particle based cut-offs)
@@ -175,7 +175,7 @@ annealing-temp           =
 ; GENERATE VELOCITIES FOR STARTUP RUN
 gen-vel                  = no
 gen-temp                 = 300
-gen-seed                 = -305138097
+gen-seed                 = 2005130583
 
 ; OPTIONS FOR BONDS    
 constraints              = h-bonds
