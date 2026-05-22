@@ -348,6 +348,22 @@ else
 
     echo ">>> Dry trajectory created: traj_dry.xtc"
 
+    echo "[INFO] Creating dry TPR file matching dry clustered trajectory selections"
+
+    printf "MEMB\nMEMB\n" > convert_tpr_dry.in
+
+    SINGULARITY bash -c "
+        gmx convert-tpr \
+            -s step7_1.tpr \
+            -n index.ndx \
+            -o traj_dry.tpr \
+            < convert_tpr_dry.in
+    "
+
+    test -f traj_dry.tpr
+
+    echo ">>> Dry TPR file created: traj_dry.tpr"
+
     rm -f traj_whole.xtc
     rm -f trjconv_whole.in
     rm -f trjconv_dry.in
