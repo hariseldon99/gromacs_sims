@@ -1,0 +1,60 @@
+#!/bin/bash
+#----------------------------------------------------------
+# Job name
+#PBS -N pmbm_gm01_vid
+# queue select
+#PBS -q workq
+#PBS -l select=1:ncpus=48:mpiprocs=48
+# Name of stdout output file (default)
+#PBS -o pmbn_gm01_vid.out 
+# stdout output file
+#PBS -j oe
+#PBS -l walltime=96:00:00 
+#----------------------------------------------------------
+
+set -euo pipefail
+export PYTHONWARNINGS="ignore::SyntaxWarning"
+export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
+#Start time
+start=`date +%s.%N`
+# Change to submission directory
+cd $PBS_O_WORKDIR
+#Load basic OHPC tools
+module load ohpc
+
+export PYFILE=$HOME/gitrepos/gromacs_sims/scripts/make_memblig_movie.py
+
+topfile=$HOME/gitrepos/gromacs_sims/protein-pmbn-gm-membrane/simulation/traj_dry.tpr
+trajfile=$HOME/gitrepos/gromacs_sims/protein-pmbn-gm-membrane/simulation/traj_dry.xtc
+outfile=$HOME/gitrepos/gromacs_sims/protein-pmbn-gm-membrane/simulation/pmbm_gm01_vid.mp4
+title="PMBN-GM01 Membrane Simulation (100 ns)"
+DPI=300
+conda_env=hpc
+export OMP_NUM_THREADS=$PBS_NCPUS
+echo "Starting"
+echo '---------------------------------------------'
+conda run -n ${conda_env} ${PYFILE} --topology ${topfile} --trajectory ${trajfile} --output ${outfile} --dpi ${DPI} --title "${title}"
+
+
+#End time
+end=`date +%s.%N`
+
+echo "NUM_CPUS= ${PBS_NCPUS}"
+RUNTIME=$( echo "$end - $start" | bc -l )
+
+echo '---------------------------------------------'
+echo "Runtime: "$RUNTIME" sec"
+echo '---------------------------------------------'
+
+# Define login node
+LOGIN_NODE="kuhpchn"
+
+# Define the ntfy.sh URL
+NTFY_URL="https://ntfy.sh/kuhpchn"
+
+# Define the message payload
+MESSAGE="Job '$PBS_JOBID' finished on kuhpchn in '$RUNTIME' secs. Check output @ '$PBS_O_WORKDIR'"
+
+# SSH into the login node and execute the curl command remotely
+sshpass -f $HOME/.password ssh "$LOGIN_NODE" "curl -X POST -d \"$MESSAGE\" \"$NTFY_URL\""
+
