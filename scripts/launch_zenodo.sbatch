@@ -14,8 +14,10 @@ export ZENODO_TOKEN="XXXXXXXXXXX"  # replace with your actual token or set in en
 TITLE="${TITLE:-MD Simulation of DNA topoisomerase IV subunit C (parC) protein of P. aeruginosa, with mutations recorded in 2007, each in complex with Levofloxacin (LEV) ligand molecule}"
 DESCRIPTION="${DESCRIPTION:-Mutated sequences of DNA topoisomerase IV (subunit C) protein (mutations recorded in 1999 and 2018) associated with P. aeruginosa are modeled and individually docked with a molecule of Nalidixic Acid. The data from subsequent Molecular Dynamics simulation is presented.\n The data from the Molecular Modelling and Docking Simulations can be found here:\n Roy, A. (2025). Docking of several proteins associated with strains of Pseudomonas aeruginosa with various antibiotic molecules [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15383904}"
 
-# Path to the directory to be zipped and uploaded
-export ZIPPATH=$HOME/workspace/levparc2007C_20251106_AMDock
+# Paths to the directories to be zipped and uploaded (add one per line)
+ZIPPATH=(
+    "$HOME/workspace/levparc2007C_20251106_AMDock"
+)
 
 # Ensure endpoint variable is defined (allows overrides)
 ZENODO_ENDPOINT="${ZENODO_ENDPOINT:-https://zenodo.org}"
@@ -92,18 +94,6 @@ zip() {
 
 ## Do not override curl; perform uploads explicitly below using the real curl binary.
 REAL_CURL=$(command -v curl) || { echo "curl not found" >&2; exit 1; }
-
-DEST_ZIP="$DEST_DIR/$(basename "$ZIPPATH").zip"
-
-# remove any existing archive, ensure ZIPPATH exists, then zip recursively excluding *.trr files
-rm -f "$DEST_ZIP"
-cd "$ZIPPATH" || { echo "ZIPPATH not found: $ZIPPATH" >&2; exit 1; }
-
-
-zip -r "$DEST_ZIP" . -x '*.trr' '*.trr/*' || { echo "zip failed" >&2; exit 1; }
-
-# export the created archive path so later code can use it
-export UPLOAD_FILE="$DEST_ZIP"
 
 # Start timer (integer seconds only)
 start=$(date +%s)
@@ -208,24 +198,42 @@ if [ -z "$BUCKET" ] || [ "$BUCKET" = "null" ]; then
 fi
 echo "Bucket URL: $BUCKET"
 
-# Upload file (handle split parts if present)
-echo "Uploading file(s)..."
-if [ "${#PART_FILES[@]}" -gt 0 ]; then
-    for part in "${PART_FILES[@]}"; do
-        echo "Uploading part: $part"
-        target="${BUCKET}/$(basename "$part")?access_token=${ZENODO_TOKEN}"
-        "$REAL_CURL" --progress-bar --retry 5 --retry-delay 5 -o /dev/null --upload-file "$part" "$target" || {
-            echo "ERROR: upload of $part failed" >&2
+# Zip, split, and upload each path to the same bucket
+for CURRENT_ZIPPATH in "${ZIPPATH[@]}"; do
+    echo "Processing: $CURRENT_ZIPPATH"
+    DEST_ZIP="$DEST_DIR/$(basename "$CURRENT_ZIPPATH").zip"
+
+    # Reset split state for each path
+    ARCHIVE_TO_SPLIT=""
+    PART_FILES=()
+
+    # Remove any existing archive, ensure path exists, zip recursively excluding *.trr files
+    rm -f "$DEST_ZIP"
+    cd "$CURRENT_ZIPPATH" || { echo "ZIPPATH not found: $CURRENT_ZIPPATH" >&2; exit 1; }
+
+    zip -r "$DEST_ZIP" . -x '*.trr' '*.trr/*' || { echo "zip failed for $CURRENT_ZIPPATH" >&2; exit 1; }
+
+    UPLOAD_FILE="$DEST_ZIP"
+
+    # Upload file (handle split parts if present)
+    echo "Uploading file(s) from $(basename "$CURRENT_ZIPPATH")..."
+    if [ "${#PART_FILES[@]}" -gt 0 ]; then
+        for part in "${PART_FILES[@]}"; do
+            echo "Uploading part: $part"
+            target="${BUCKET}/$(basename "$part")?access_token=${ZENODO_TOKEN}"
+            "$REAL_CURL" --progress-bar --retry 5 --retry-delay 5 -o /dev/null --upload-file "$part" "$target" || {
+                echo "ERROR: upload of $part failed" >&2
+                exit 1
+            }
+        done
+    else
+        target="${BUCKET}/$(basename "$UPLOAD_FILE")?access_token=${ZENODO_TOKEN}"
+        "$REAL_CURL" --progress-bar --retry 5 --retry-delay 5 -o /dev/null --upload-file "$UPLOAD_FILE" "$target" || {
+            echo "ERROR: upload failed" >&2
             exit 1
         }
-    done
-else
-    target="${BUCKET}/$(basename "$UPLOAD_FILE")?access_token=${ZENODO_TOKEN}"
-    "$REAL_CURL" --progress-bar --retry 5 --retry-delay 5 -o /dev/null --upload-file "$UPLOAD_FILE" "$target" || {
-        echo "ERROR: upload failed" >&2
-        exit 1
-    }
-fi
+    fi
+done
 
 # End timer
 end=$(date +%s)
