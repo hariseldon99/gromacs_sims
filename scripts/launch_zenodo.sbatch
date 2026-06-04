@@ -14,6 +14,9 @@ export ZENODO_TOKEN="XXXXXXXXXXX"  # replace with your actual token or set in en
 TITLE="${TITLE:-MD Simulation of DNA topoisomerase IV subunit C (parC) protein of P. aeruginosa, with mutations recorded in 2007, each in complex with Levofloxacin (LEV) ligand molecule}"
 DESCRIPTION="${DESCRIPTION:-Mutated sequences of DNA topoisomerase IV (subunit C) protein (mutations recorded in 1999 and 2018) associated with P. aeruginosa are modeled and individually docked with a molecule of Nalidixic Acid. The data from subsequent Molecular Dynamics simulation is presented.\n The data from the Molecular Modelling and Docking Simulations can be found here:\n Roy, A. (2025). Docking of several proteins associated with strains of Pseudomonas aeruginosa with various antibiotic molecules [Data set]. Zenodo. https://doi.org/10.5281/zenodo.15383904}"
 
+# Set to 1 to exclude .trr trajectory files from the archive (saves significant space)
+EXCLUDE_TRR="${EXCLUDE_TRR:-1}"
+
 # Paths to the directories to be zipped and uploaded (add one per line)
 ZIPPATH=(
     "$HOME/workspace/levparc2007C_20251106_AMDock"
@@ -211,7 +214,11 @@ for CURRENT_ZIPPATH in "${ZIPPATH[@]}"; do
     rm -f "$DEST_ZIP"
     cd "$CURRENT_ZIPPATH" || { echo "ZIPPATH not found: $CURRENT_ZIPPATH" >&2; exit 1; }
 
-    zip -r "$DEST_ZIP" . -x '*.trr' '*.trr/*' || { echo "zip failed for $CURRENT_ZIPPATH" >&2; exit 1; }
+    if [ "${EXCLUDE_TRR}" = "1" ]; then
+        zip -r "$DEST_ZIP" . -x '*.trr' || { echo "zip failed for $CURRENT_ZIPPATH" >&2; exit 1; }
+    else
+        zip -r "$DEST_ZIP" . || { echo "zip failed for $CURRENT_ZIPPATH" >&2; exit 1; }
+    fi
 
     UPLOAD_FILE="$DEST_ZIP"
 
