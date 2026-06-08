@@ -1,33 +1,47 @@
 
-## Antimicrobial_Peptides
+## Antimicrobial Peptides
 - Contains subdirectories for various peptide simulations.
 - Anti-Microbial Research Association (AMRA), The University of Burdwan 
-  - [Professor Rajib Bandopadhyay](http://rbandopadhyayslab.unaux.com/), Department of Botany 
+  - [Professor Rajib Bandopadhyay](https://buruniv.irins.org/profile/196472), Department of Botany 
   - [Dr. Analabha Roy](https://physics.utexas.edu/~daneel), Department of Physics
   - [Dr. Sumit Hira](https://www.sumithira.in/), Department of Zoology
-  - Rajendra Kr Roy, Department of Botany 
+  - [Dr. Rajendra Kr Roy](https://orcid.org/0009-0007-6009-9283), Department of Botany 
   - Dr. Raju Biswas, Department of Botany  
   - Rajdeep Shaw, Department of Botany  
-  - Dr. Rahul Chandra, Department of Physics 
+  - [Dr. Rahul Chandra](https://orcid.org/0000-0001-6328-2461), Kazi Nazrul University: Asansol, West Bengal
   - Samrat Daripa, Department of Zoology
   - Argha Nath, Department of Zoology
 
 - Contents:
   - Simulations involving Colicin peptides.
-    - [Colpk_phosphatedylethanolamine](Colpk_phosphatedylethanolamine/) ([Raw Data](https://doi.org/10.5281/zenodo.15375412)), 
-    - [Colpk_phosphatedylglycerol](Colpk_phosphatedylglycerol/) ([Raw Data](https://doi.org/10.5281/zenodo.15373388)), 
-    - [Colpk_pyocyanin](Colpk_pyocyanin) ([Raw Data](https://doi.org/10.5281/zenodo.15335935)): 
+    - [Colpk_phosphatedylethanolamine](Colpk_phosphatedylethanolamine/) ([Raw Data](https://doi.org/10.5281/zenodo.15375411)), 
+    - [Colpk_phosphatedylglycerol](Colpk_phosphatedylglycerol/) ([Raw Data](https://doi.org/10.5281/zenodo.15373387)), 
+    - [Colpk_pyocyanin](Colpk_pyocyanin) ([Raw Data](https://doi.org/10.5281/zenodo.15335934))
+  
   - Simulations involving Colicin PM peptides.
-    - [Colpm_phosphatedylethanolamine](Colpm_phosphatedylethanolamine/) ([Raw Data](https://doi.org/10.5281/zenodo.15375479)), 
-    - [Colpm_phosphatedylglycerol](Colpm_phosphatedylglycerol/) ([Raw Data](https://doi.org/10.5281/zenodo.15375268)), 
-    - [Colpm_pyocyanin](Colpm_pyocyanin) ([Raw Data](https://doi.org/10.5281/zenodo.15354462)): 
-  - [DNA_peptide](DNA_peptide/) ([Raw Data](https://doi.org/10.5281/zenodo.15380258)): Simulations involving DNA-peptide interactions.
-  - Simulations of Ku04AMP01 antimicrobial peptide.
-    - [Ku04AMP01_linear](Ku04AMP01_linear/) ([Raw Data](https://doi.org/10.5281/zenodo.15380037)) (TODO: PCA: FEL and PCA snapshots),
-    - [Ku04AMP01_phosphatedylglycerol](Ku04AMP01_phosphatedylglycerol]/) (Raw Data) (TODO: PCA: FEL and PCA snapshots)
-    - [Ku04AMP01_phosphatedylethanolamine](Ku04AMP01_phosphatedylethanolamine]/) ([Raw Data](https://doi.org/10.5281/zenodo.15380037))(TODO: PCA: FEL and PCA snapshots)
+    - [Colpm_phosphatedylethanolamine](Colpm_phosphatedylethanolamine/) ([Raw Data](https://doi.org/10.5281/zenodo.15375478)), 
+    - [Colpm_phosphatedylglycerol](Colpm_phosphatedylglycerol/) ([Raw Data](https://doi.org/10.5281/zenodo.15375267)), 
+    - [Colpm_pyocyanin](Colpm_pyocyanin) ([Raw Data](https://doi.org/10.5281/zenodo.15354461))
+  
+  - [DNA_peptide](DNA_peptide/) ([Raw Data](https://doi.org/10.5281/zenodo.15380257)): Simulations involving DNA-peptide interactions.
+   
+  - Simulations of Ku04AMP01 antimicrobial peptide. ([Raw Data](https://doi.org/10.5281/zenodo.15380036))
+    - [Ku04AMP01_linear](Ku04AMP01_linear/) ,
+    - [Ku04AMP01_phosphatedylglycerol](Ku04AMP01_phosphatedylglycerol]/)  
+    - [Ku04AMP01_phosphatedylethanolamine](Ku04AMP01_phosphatedylethanolamine]/) 
+  
+  - Simulations of Ku04AMP02 antimicrobial peptide. ([Raw Data](https://doi.org/10.5281/zenodo.19977246))
+    - [Ku04AMP02_linear](Ku04AMP02_linear/) ,
+    - [Ku04AMP02_phosphatedylglycerol](Ku04AMP02_phosphatedylglycerol]/) 
+    - [Ku04AMP02_phosphatedylethanolamine](Ku04AMP02_phosphatedylethanolamine]/) 
+  
   - Simulations of Pseudomonas proteins with various antibiotics
-    - [Pseudomonas_antibiotics](Pseudomonas_antibiotics) ([Raw Data](https://doi.org/10.5281/zenodo.15383904)) (& links therein)
+    - [Pseudomonas_antibiotics](Pseudomonas_antibiotics) ([Raw Data](https://doi.org/10.5281/zenodo.15383903)) (& links therein)
+## Zenodo Community
+
+- Zenodo Community @ [https://zenodo.org/communities/amra/](https://zenodo.org/communities/amra/)
+
+## Logs
 
 - Deletion Note on 20250505
 There was a google drive synchroniztion error that led to topology and trajectory data loss. Full restoration was accomplished on this day. Restoration script:
@@ -125,22 +139,3 @@ def main():
 if __name__ == '__main__':
     main()
 ```
-**Note:** Get google auth credentials.json by the following steps:
-
-Go to the Google Cloud Console: Open your browser and navigate to the Google Cloud Console. Make sure you’re logged in with the account that owns the project where you enabled the Drive API.
-
-Select Your Project: From the top navigation, select the project that has the Google Drive API enabled.
-
-Open the Credentials Page: In the left sidebar, click on "APIs & Services", then choose "Credentials."
-
-Configure the OAuth Consent Screen (if not done already): If you haven’t already set this up, you’ll see a prompt or an option to configure the OAuth consent screen. Click on it and follow the instructions. You’ll need to provide some basic details like the application name, support email, and optionally scopes and authorized domains. This configuration is necessary before creating an OAuth client.
-
-Create OAuth Client Credentials: Click on "Create Credentials" at the top of the Credentials page and select "OAuth client ID".
-
-For Desktop Applications: If you are running the script locally, choose the “Desktop app” option.
-
-For Web Applications: If you plan to run it on a server, choose “Web application” and fill in the required fields (like authorized redirect URIs).
-
-Download the Credentials File: Once you create the OAuth client ID, a dialog box will display your client details. Look for the "Download JSON" button. Clicking it downloads the file (commonly named credentials.json) onto your computer.
-
-Place the File in Your Project: Save the downloaded credentials.json in the working directory of your Python project so that your script can locate it during authentication.
