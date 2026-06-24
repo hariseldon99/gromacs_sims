@@ -12,7 +12,25 @@
 # 1. Load the molecular structure and Multiwfn grid outputs
 load PDL_final_multiwfn.pdb, ligand
 load surf.cub, density_grid
-load mapfunc.cub, esp_grid
+
+# Pre-scale ESP cube from a.u. to kcal/mol so the ramp bar shows kcal/mol units
+python
+def _scale_cube(infile, outfile, factor=627.5095):
+    with open(infile, 'r') as f:
+        lines = f.readlines()
+    natom = abs(int(lines[2].split()[0]))
+    header_end = 6 + natom
+    with open(outfile, 'w') as f:
+        f.writelines(lines[:header_end])
+        for line in lines[header_end:]:
+            vals = line.split()
+            if vals:
+                f.write('  '.join(f'{float(v)*factor:14.6E}' for v in vals) + '\n')
+            else:
+                f.write(line)
+_scale_cube('mapfunc.cub', 'mapfunc_kcal.cub')
+python end
+load mapfunc_kcal.cub, esp_grid
 
 # 2. Automatically form the missing Pd-N coordination bonds
 bond element Pd, element N within 2.5 of element Pd
@@ -34,29 +52,15 @@ color white, element H and ligand
 # 5. Generate a smooth, solid 3D surface at the vdW edge (0.001 a.u.)
 isosurface esp_surface, density_grid, 0.001
 
-# 6. Color mapping ramp using data grid thresholds
-ramp_new esp_colors, esp_grid, [-0.05, 0.00, 0.05], [red, white, blue]
+# 6. Color mapping ramp using data grid thresholds (31.4 kcal/mol calculated from 0.05 a.u. limit in Multiwfn)
+ramp_new esp_colors, esp_grid, [-31.4, 0.0, 31.4], [red, white, blue]
 color esp_colors, esp_surface
 
 # 7. Set surface transparency
 set transparency, 0.4, esp_surface
 
-# 8. Hide the automatic raw data scale bar
-disable esp_colors
+# 8. Enable the screen-anchored color scale bar (values in kcal/mol)
+enable esp_colors
 
-# 9. TOP CENTER TEXT OVERLAY: Tuned Angstrom offset from central Pd core
-set label_color, black
-set label_font_id, 7
-set label_size, 24
-set depth_cue, 0
-
-# Offset syntax in Angstroms: [X, Y, Z]
-# -4 shifts the start slightly left so the long string balances perfectly in the middle
-# 10 pushes it higher up, completely clearing the top edge of the surface
-set label_position, [0, 9.5, 0]
-
-# Print the title using the Palladium atom as the core anchor
-label element Pd and ligand, "ESP Surface Range: -31.4 to +31.4 kcal/mol (Red to Blue)"
-
-# 10. Snap the camera target cleanly onto the complex
+# 9. Snap the camera target cleanly onto the complex
 zoom ligand
