@@ -205,8 +205,6 @@ rm -rf "$GAUSS_SCRDIR"
 echo "[$(date)] Done."
 ```
 
-
-
 ## 🧪 Step 2: RESP Charge Calculation (Multiwfn)
 
    1. Convert gaussian chk file to formatted chk
@@ -231,22 +229,16 @@ acpype -i organic_only.pdb -c bcc -n 0 -f
 ```
 
 ## 3.2. Automated Topology Grafting
-Use this script to inject the Palladium, shift all 64 organic atom indices by +1, and apply RESP charges. 
-Note the following:
-The bond distances were automatically estimated by Google gemini. For future use with other ligands, coding might be necessary:
+Use this script to inject the Palladium, shift all 64 organic atom indices by +1, and apply RESP charges.
 
-#### How the calculation was done:
-Using the coordinates from your PDL_small_opt.chg:
-```bash
-Pd (Atom 1): (0.000697, 0.000282, -0.001851)
-N1 (Atom 8): (-1.827026, 0.407366, 0.677960)
-N2 (Atom 9): (1.829357, -0.408002, -0.680232)
-N9 (Atom 20): (-0.467325, -1.971155, 0.021851)
-N10 (Atom 21): (0.467898, 1.972083, -0.025266)
-```
+#### How the Pd–N bond lengths are calculated:
+The script computes $b_0$ directly from the atom coordinates in `PDL_small_opt.chg` (column indices 1–3, in Å), converting to nm for GROMACS:
 
-The Math: Simply calculate $\Delta x, \Delta y, \Delta x$ and bond distance $b_0=\sqrt{\Delta^2 x + \Delta^2 y + \Delta^2 z}$, then convert from Angstrom in the `.chg` file to nm for ``gromacs`. This was done in AI. The force constant $k_b=250000 kJ mol^{-1}  nm^{-2}$ is a standard "stiff" value for metal-ligand coordination in classical force fields.
-It ensures the Palladium stays centered in the square-planar pocket without being so rigid that the simulation becomes unstable 
+$$b_0 = \frac{1}{10}\sqrt{(\Delta x)^2 + (\Delta y)^2 + (\Delta z)^2}$$
+
+The four coordinating atom pairs are hard-coded as `(1, 8), (1, 9), (1, 20), (1, 21)` (1-based, matching the atom order in the `.chg` file). This means bond lengths update automatically if a new optimized geometry is used.
+
+The force constant $k_b=250000\ \text{kJ mol}^{-1}\ \text{nm}^{-2}$ is a standard "stiff" value for metal-ligand coordination in classical force fields. It ensures the Palladium stays centered in the square-planar pocket without being so rigid that the simulation becomes unstable.
 
 ```python
 import re
@@ -290,8 +282,14 @@ def sync_topol_and_gro(chg_file, original_itp):
             mass = 106.42 if i == 0 else (12.01 if 'c' in at_type else (14.01 if 'n' in at_type else 1.008))
             f.write(f"{i+1:6d} {at_type:5s} 1  PDL  {symbol:5s} {i+1:6d} {float(charge):10.6f} {mass:8.3f}\n")
         
-        # Shift all interaction indices by +1
-        f.write("\n[ bonds ]\n1 8 1 0.20131 250000\n1 9 1 0.20146 250000\n1 20 1 0.20297 250000\n1 21 1 0.20299 250000\n")
+        # Compute Pd–N bond lengths directly from the .chg coordinates (Å → nm)
+        def bond_nm(a, b):
+            return sum((float(data[a-1][k]) - float(data[b-1][k]))**2 for k in (1, 2, 3))**0.5 / 10.0
+        pd_bonds = [(1, 8), (1, 9), (1, 20), (1, 21)]
+        bond_block = "\n[ bonds ]\n" + "".join(
+            f"{i} {j} 1 {bond_nm(i, j):.5f} 250000\n" for i, j in pd_bonds
+        )
+        f.write(bond_block)
         
         # Simplified logic for remaining sections
         for section in ["bonds", "pairs", "angles", "dihedrals"]:
@@ -360,9 +358,57 @@ Then, align with the `PyMol` command:
 ```tcl
 align (PDL_GMX and resn PDL), (PDL_H_optimized and resn LIG)
 ```
-Save the final structure in the `gro`  file to a pdb and use that in protein-ligand simulations. Make sure to click `Original atom order (according to rank)` before exporting.
+Save the final structure in the `gro` file to a pdb and use that in protein-ligand simulations. Make sure to click `Original atom order (according to rank)` before exporting.
 
-## Post-processing
+## ESP Surface Visualization (PyMOL + Multiwfn)
+
+The electrostatic potential (ESP) surface of the optimized complex can be rendered in PyMOL using grid files exported from Multiwfn.
+
+### Step 1 — Export grids from Multiwfn
+
+```bash
+multiwfn PDL_small_opt.fchk
+```
+
+Navigate: **12** (Quantitative molecular surface analysis) → **0**, then from the post-processing menu:
+
+| Command | Output file | Description |
+|---|---|---|
+| `13` | `mapfunc.cub` | ESP values mapped onto the surface |
+| `-2` | `surf.cub` | 0.001 a.u. electron density isosurface |
+| `5` | `PDL_final_multiwfn.pdb` | Atom geometry matching the grid |
+
+### Step 2 — Render in PyMOL
+
+Run the script `scripts/render_esp.pml` from the directory containing the three output files above:
+
+```bash
+pymol scripts/render_esp.pml
+```
+
+The script:
+1. Loads the PDB and both `.cub` grids.
+2. Patches the missing Pd–N bonds with `bond element Pd, element N within 2.5 of element Pd`.
+3. Applies ball-and-stick styling with conventional element colours (C green, N blue, O red, Pd orange).
+4. Generates an isosurface at 0.001 a.u. coloured by the ESP ramp **−0.05 → 0.00 → +0.05 a.u.** (red → white → blue), corresponding to **−31.4 to +31.4 kcal/mol**.
+5. Sets surface transparency to 0.4 and adds a label anchored on the Pd atom.
+
+```python
+# scripts/render_esp.pml  (abbreviated key steps)
+
+load PDL_final_multiwfn.pdb, ligand
+load surf.cub, density_grid
+load mapfunc.cub, esp_grid
+
+bond element Pd, element N within 2.5 of element Pd
+
+isosurface esp_surface, density_grid, 0.001
+ramp_new esp_colors, esp_grid, [-0.05, 0.00, 0.05], [red, white, blue]
+color esp_colors, esp_surface
+set transparency, 0.4, esp_surface
+```
+
+## Ligand structure visualization
 
 Note that `PyMol` or `VMD` might not be able to guess the presence of `Pd-N` bonds. Nonetheless, they're there in the topology. 
 
@@ -389,6 +435,10 @@ Note that `PyMol` or `VMD` might not be able to guess the presence of `Pd-N` bon
    3. Adjust Bond Order: To change a single bond to a double or triple bond, left-click directly on the existing bond with the Draw Tool selected. 
     #### 🧪 Specific Tips for Transition Metals
     Disable "Adjust Hydrogens": Before drawing your Pd-N bonds, ensure the "Adjust Hydrogens" option in the Draw Tool settings is unchecked. This prevents Avogadro from automatically adding unwanted hydrogens to the atoms as you connect them.
+
+---
+
+## Post-processing
 
 ### Trajectory Analysis
 Using tools like `MDAnalysis` or `MDTraj` with your Palladium-ligand complex will generally work, but you will encounter "bond detection" issues similar to what you saw in `PyMOL` and `VMD`.

@@ -39,8 +39,14 @@ def sync_topol_and_gro(chg_file, original_itp):
             mass = 106.42 if i == 0 else (12.01 if 'c' in at_type else (14.01 if 'n' in at_type else 1.008))
             f.write(f"{i+1:6d} {at_type:5s} 1  PDL  {symbol:5s} {i+1:6d} {float(charge):10.6f} {mass:8.3f}\n")
         
-        # Shift all interaction indices by +1
-        f.write("\n[ bonds ]\n1 8 1 0.20131 250000\n1 9 1 0.20146 250000\n1 20 1 0.20297 250000\n1 21 1 0.20299 250000\n")
+        # Compute Pd–N bond lengths directly from the .chg coordinates (Å → nm)
+        def bond_nm(a, b):
+            return sum((float(data[a-1][k]) - float(data[b-1][k]))**2 for k in (1, 2, 3))**0.5 / 10.0
+        pd_bonds = [(1, 8), (1, 9), (1, 20), (1, 21)]
+        bond_block = "\n[ bonds ]\n" + "".join(
+            f"{i} {j} 1 {bond_nm(i, j):.5f} 250000\n" for i, j in pd_bonds
+        )
+        f.write(bond_block)
         
         # Simplified logic for remaining sections
         for section in ["bonds", "pairs", "angles", "dihedrals"]:
