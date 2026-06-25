@@ -459,6 +459,7 @@ If translocation within a feasible compute budget is needed, consider:
 - **Steered MD (SMD)** — pull the peptide through the membrane along Z with a constant force
 - **Umbrella sampling** — compute the translocation PMF along Z
 - **Metadynamics or REST2** — accelerate sampling without a fixed reaction coordinate
+- **MARTINI 3 coarse-grained MD** — ~100× speedup over atomistic MD (~15–25 µs/day on a V100); no reaction coordinate needed; best combined with atomistic backmapping for mechanism detail. Requires substituting DPPE/DPPG for the cy17:0-containing lipids (PMPE, QMPE, PMPG) which have no official MARTINI 3 parameters. See [MARTINI_vs_EnhancedSampling.md](MARTINI_vs_EnhancedSampling.md) for a full comparison of all four approaches and a recommended staged workflow.
 
 ### Runtime estimate
 
