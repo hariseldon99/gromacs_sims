@@ -1,0 +1,150 @@
+# filepath: /home/daneel/gitrepos/gromacs_sims/.config/SM_abinitio.def
+Bootstrap: library
+From: ubuntu:22.04
+Stage: build
+
+%labels
+    APPLICATION SMALL MOLECULE AB-INITIO 2026
+    AUTHOR Analabha Roy
+    EMAIL daneel@utexas.edu
+    YEAR 2026
+
+%files
+    /home/daneel/workspace/orca_6_1_1_linux_x86-64_shared_openmpi418_nodmrg.tar.xz /tmp/orca.tar.xz
+
+%help
+    DFT/QM for small molecules (ORCA 6.1.1 + Psi4) with transition metal support.
+    easyPARAM for topology building. Visualization: py3dmol, nglview, nbmolviz.
+    Note: GROMACS and MD analysis in separate image.
+    Launch Jupyter:
+        singularity run --nv -B $PWD:/host_pwd --pwd /host_pwd <image>.sif
+    Plain shell:
+        singularity run --nv <image>.sif
+    Run a command or script:
+        singularity run --nv <image>.sif my_script.sh arg1 arg2
+
+%environment
+    TZ=UTC
+    DEBIAN_FRONTEND=noninteractive
+    MPLCONFIGDIR=$HOME/.matplotlib
+    export TZ DEBIAN_FRONTEND MPLCONFIGDIR
+    export PATH=/usr/local/bin:$PATH
+    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    # Set ORCA Environment Variables
+    export ORCAPATH="/usr/local/orca"
+    export PATH="$ORCAPATH:$PATH"
+    export LD_LIBRARY_PATH="$ORCAPATH:$LD_LIBRARY_PATH"
+
+%runscript
+    #!/bin/bash
+    export MPLCONFIGDIR=$HOME/.matplotlib
+    jupyter labextension list 2>&1 | tee $HOME/.jupyter/extension_check.log
+    grep "not compatible" $HOME/.jupyter/extension_check.log && echo "Extension conflicts detected"
+    python -m nbmolviz activate --global
+    jupyter lab --LabApp.extension_manager=readonly \
+        --ip=0.0.0.0 --port=8888 --no-browser --allow-root \
+        --NotebookApp.token='' --NotebookApp.password='' \
+        --ServerApp.token='' --ServerApp.password='' \
+        "$@"
+
+%post
+        set -eux
+        
+        export DEBIAN_FRONTEND=noninteractive
+        # Make CUDA version visible to solver before any mamba install
+        export CONDA_OVERRIDE_CUDA=11.8
+        apt-get update
+        apt-get install -y --no-install-recommends \
+                build-essential wget ca-certificates git dos2unix zsh \
+                dvipng texlive-latex-extra texlive-fonts-recommended cm-super \
+                libxrender1 libxext6 libsm6 libice6 \
+                openmpi-bin openmpi-common libopenmpi-dev libopenmpi3
+
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
+
+        # Miniforge (conda) install
+        cd /tmp
+        wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+        bash Miniforge3-Linux-x86_64.sh -b -f -p /usr/local
+        rm Miniforge3-Linux-x86_64.sh
+        export PATH=/usr/local/bin:$PATH
+        export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+        # Channels & solver
+        conda config --system --add channels defaults
+        conda config --system --add channels conda-forge
+        conda config --system --add channels bioconda
+        conda config --file /.condarc --add channels salilab
+        conda config --system --set channel_priority flexible
+        conda install -y mamba
+
+        # Core scientific + QM + topology building + viz stack
+        # CUDA for possible GPU acceleration of QM codes
+        mamba install -y \
+                cudatoolkit=11.8 \
+                numpy \
+                rdkit \
+                tqdm \
+                scienceplots \
+                ipympl \
+                python=3.12 \
+                ambertools \
+                acpype \
+                openbabel \
+                parmed \
+                biopython \
+                scipy pandas \
+                seaborn plotly \
+                jupyter\
+                jupyterlab=4.3.*\
+                jupyter_server=2.14.*\
+                notebook-shim=0.2.*\
+                nbconvert \
+                jupyterlab-spellchecker \
+                jupyterlab-git \
+                jupyterlab-lsp \
+                matplotlib-base \
+                pdb2pqr \
+                h5py \
+                networkx \
+                setuptools pip \
+                tabulate \
+                periodictable \
+                psi4 \
+                nglview \
+                xtb \
+                ipywidgets \
+        # Extra tools (some already provided inside ambertools; duplicates tolerated)
+        pip install --no-cache-dir \
+                amberutils \
+                importmonkey \
+                ipyparallel \
+                jupyterlab-execute-time \
+                jupyterlab-code-formatter \
+                orca-pi \
+                cclib \
+                nbmolviz
+        python -m nbmolviz activate --global
+        export ORCAPATH="/usr/local/orca"
+        mkdir -p $ORCAPATH
+        # Install ORCA from local tarball
+        tar -xJf /tmp/orca.tar.xz --strip-components=1 -C $ORCAPATH
+        rm /tmp/orca.tar.xz
+        # Set ORCA Environment Variables
+        export PATH="$ORCAPATH:$PATH"
+        export LD_LIBRARY_PATH="$ORCAPATH:$LD_LIBRARY_PATH"
+
+        # Install easyPARM from GitHub
+        # (periodictable, scipy, biopython already installed above via mamba)
+        git clone https://github.com/Abdelazim-Abdelgawwad/easyPARM.git /usr/local/easyPARM
+        chmod +x /usr/local/easyPARM/scripts/*.py
+        chmod +x /usr/local/easyPARM/scripts/*.sh
+        chmod +x /usr/local/easyPARM/easyPARM.sh
+        ln -sf /usr/local/easyPARM/easyPARM.sh /usr/local/bin/easyPARM
+
+        # Clean
+        mamba clean -afy
+        find /usr/local -name "__pycache__" -type d -exec rm -rf {} +
+        mkdir -p /root/.jupyter
+
+        echo "DONE: Small Molecule ab-initio calcs."
