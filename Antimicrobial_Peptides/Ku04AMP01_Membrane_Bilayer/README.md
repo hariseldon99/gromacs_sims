@@ -1,4 +1,4 @@
-# Simulation of KU04AMP01 Peptide with Inner Cell Membrane of Gram-Negative Bacteria
+# Simulation of KU04AMP01 Peptide with Cell Membrane of Gram-Negative Bacteria
 
 ## Overview
 
@@ -13,20 +13,14 @@ D-N-K-A-K-S-K-K-R-D-K-E-K-P-S-S-G-R-P-G-Q-T-N-S-V-P-N-A-A-I-Q-V-Y-K-E-D
 ```
 
 Net charge ≈ **+4** at physiological pH (7 Lys + 2 Arg − 3 Asp − 2 Glu, plus N/C termini).
-All residues are standard amino acids, so topology generation uses `pdb2gmx` directly —
-no CGenFF or Ligand Reader is needed.
+
+All residues are standard amino acids, but for this membrane workflow the peptide topology must be generated in a CHARMM-GUI-compatible GROMACS package (same CHARMM36 conversion stack as the membrane).
+Do not mix standalone `pdb2gmx` protein topologies with CHARMM-GUI membrane topology files.
 
 ---
 
 ## 1. G-IM Membrane Topology
-
-The equilibrated G-IM model is stored in `GIM_topol/`:
-
-- [`GIM_topol/last.pdb`](GIM_topol/last.pdb) — final snapshot of the CHARMM step7 production run (use this as the starting membrane)
-- `GIM_topol/G-IM.tar.gz` — full simulation archive (CHARMM format: `.inp`, `.psf`, `.crd`, `.dcd`)
-- `GIM_topol/tarball/` — extracted archive contents
-
-Topology files can also be downloaded from the [CHARMM-GUI Biomembrane Library](https://charmm-gui.org/?doc=archive&lib=biomembrane):
+Topology files can be downloaded from the [CHARMM-GUI Biomembrane Library](https://charmm-gui.org/?doc=archive&lib=biomembrane):
 
 - PDB of last snapshot: <https://charmm-gui.org/archive/biomembrane/G-IM/last.pdb>
 - Full archive: <https://charmm-gui.org/archive/biomembrane/G-IM/G-IM.tar.gz>
@@ -70,56 +64,44 @@ reference:
 
 ---
 
-## 2. KU04AMP01 Peptide Topology
+## 2. KU04AMP01 Peptide Topology (CHARMM-GUI-compatible)
+To avoid atomtype mismatches (e.g., `NH3 not found`), generate KU04AMP01 topology from a **CHARMM-GUI GROMACS output** and merge that with the membrane system.
 
-KU04AMP01 consists entirely of standard amino acid residues. Its GROMACS topology is
-generated directly with `pdb2gmx` — no Ligand Reader or CGenFF is needed.
+> **Important:** Do not use `gmx pdb2gmx` for the peptide in this workflow.
 
-### 2.1 Generate topology with `pdb2gmx`
+### 2.1 Generate a peptide-only CHARMM-GUI GROMACS package
 
-```bash
-gmx pdb2gmx \
-  -f KU04AMP01.pdb \
-  -o ku04amp01.gro \
-  -p ku04amp01.top \
-  -ff charmm36-jul2022 \
-  -water tip3p \
-  -ignh
-```
+1. Open CHARMM-GUI and build a **peptide-only** system for `KU04AMP01.pdb` (CHARMM36, GROMACS output).
+> Input Generator → Solution Builder
+> > Build the peptide in CHARMM-GUI with proper terminators:
+    N-terminus: Add ACE (acetyl cap)
+    C-terminus: Add CT1 or NMET (or just leave standard COO⁻)
 
-| Output file | Contents |
-|---|---|
-| `ku04amp01.gro` | Peptide coordinates in GROMACS GRO format |
-| `ku04amp01.top` | Standalone topology with `[ moleculetype ]` |
-| `posre.itp` | Position restraint file |
+2. Download and extract the package.
+3. From the peptide package, locate:
+   - peptide molecule `.itp` file (the one containing `[ moleculetype ]`)
+   - peptide position restraints file (if present)
+   - any required CHARMM36 protein parameter include(s) used by that peptide topology
 
-The `-ignh` flag discards the PDB hydrogens and lets `pdb2gmx` re-add them with
-CHARMM36 naming conventions. Verify the charge:
+### 2.2 Prepare files for membrane merge
 
-```bash
-grep "qtot" ku04amp01.top | tail -1
-# Expected: qtot ≈ +4
-```
+Copy into your membrane `simulation/` folder:
 
-### 2.2 Extract the peptide ITP
+- KU04AMP01.itp (peptide molecule topology)
+- peptide restraint file (optional, only if you use restraints)
+- required peptide/protein parameter include file(s) from the peptide package
 
-For merging with the membrane topology, extract the `[ moleculetype ]` section from
-`ku04amp01.top` into a standalone `KU04AMP01.itp`:
+Verify the peptide ITP references atom types that are defined by the included parameter files before running `grompp`.
 
-```bash
-python3 - <<'EOF'
-import re
-with open("ku04amp01.top") as f:
-    content = f.read()
-match = re.search(r'(\[ moleculetype \].*?)(?=\[ system \])', content, re.DOTALL)
-if match:
-    with open("KU04AMP01.itp", "w") as out:
-        out.write(match.group(1))
-    print("KU04AMP01.itp written")
-else:
-    print("ERROR: could not find [ moleculetype ] section")
-EOF
-```
+**Note:**
+
+* The peptide-only CHARMM-GUI package is a parameter/topology helper.
+* From that package, copy only:
+  * peptide coordinate file (.gro/.pdb, peptide atoms only),
+  * peptide molecule topology (KU04AMP01.itp or equivalent),
+  * required peptide/protein parameter include file(s).
+
+* Do not copy helper TIP3, SOD, CLA, helper topol.top, or helper [ molecules ] counts.
 
 ---
 
@@ -193,18 +175,28 @@ tail -1 membrane.gro
 
 ### Step 4b — Place KU04AMP01 above a leaflet
 
+
 Determine the z-coordinate of the upper phosphate plane:
 
 ```bash
 # Phosphate atoms in PE/PG lipids are named P
 grep " P " membrane.gro | awk '{print $NF}' | sort -n | tail -5
 ```
+Extract the KU04AMP01 peptide from the gro
+
+```bash
+gmx make_ndx -f peptide_helper.gro -o peptide_only.ndx
+# In prompt: r KU04AMP01
+# then: q
+gmx trjconv -f peptide_helper.gro -s peptide_helper.gro -n peptide_only.ndx -o ku04amp01_only.gro
+# Select the KU04AMP01 group at prompt
+```
 
 Translate the peptide so its N-terminus is ~15–20 Å (1.5–2.0 nm) above that plane:
 
 ```bash
 # Example: if the topmost phosphate is at z = 7.5 nm, offset by 1.5 nm → z = 9.0
-gmx editconf -f ku04amp01.gro \
+gmx editconf -f ku04amp01_only.gro \
     -o amp01_placed.gro -translate 0 0 <z_offset_in_nm>
 ```
 
@@ -235,28 +227,26 @@ EOF
 
 The box vector is copied from `membrane.gro`, ensuring correct periodic boundary conditions.
 
-### Step 4d — Update the topology
+### Step 4d — Update topology includes (critical)
 
-CHARMM36 atomtypes for standard amino acids are already included in the membrane
-`forcefield.itp`, so **no additional atomtype file is needed**.
+The membrane `toppar/forcefield.itp` alone does **not** provide all protein atom types needed by KU04AMP01 (e.g., `NH3`, `CT1`, `CT2`, `CT2A`, `CC`, `OC`), so you must include peptide/protein parameter file(s) generated with the peptide CHARMM-GUI package.
 
-Copy the peptide ITP and position restraint file into the simulation directory:
+1. Copy peptide files into `simulation/` (example names):
+   - KU04AMP01.itp
+   - `toppar/<peptide_or_protein_params>.itp`
+   - optional `posre_KU04AMP01.itp`
 
-```bash
-cp ../KU04AMP01.itp .
-cp posre.itp .
-```
+2. Edit topol.top include order:
+   - keep membrane includes
+   - add peptide/protein parameter include(s)
+   - add `#include "KU04AMP01.itp"` after parameter includes
 
-Edit `topol.top`:
+3. Add peptide molecule count in `[ molecules ]`:
+   - `KU04AMP01         1`
 
-1. After the last lipid/water `#include` line, add:
-   ```
-   #include "KU04AMP01.itp"
-   ```
-2. At the end of the `[ molecules ]` block, add:
-   ```
-   KU04AMP01         1
-   ```
+4. Preflight check:
+   - ensure peptide atom types (`NH3`, `CT1`, etc.) exist in included parameter files
+   - then run `grompp`
 
 ---
 
