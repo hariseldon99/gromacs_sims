@@ -3,7 +3,7 @@
 ## Overview
 
 This README documents the workflow for simulating the antimicrobial peptide **KU04AMP01**
-with the inner membrane (**G-IM**) of Gram-negative bacteria using GROMACS with the
+with the bilayer membrane (**G-IM**) of Gram-negative bacteria using GROMACS with the
 CHARMM36 force field.
 
 **KU04AMP01** is a 36-residue linear cationic AMP (structure: [KU04AMP01.pdb](KU04AMP01.pdb)):
@@ -20,7 +20,7 @@ Do not mix standalone `pdb2gmx` protein topologies with CHARMM-GUI membrane topo
 ---
 
 ## 1. G-IM Membrane Topology
-Topology files can be downloaded from the [CHARMM-GUI Biomembrane Library](https://charmm-gui.org/?doc=archive&lib=biomembrane):
+Inner membrane topology files can be downloaded from the [CHARMM-GUI Biomembrane Library](https://charmm-gui.org/?doc=archive&lib=biomembrane):
 
 - PDB of last snapshot: <https://charmm-gui.org/archive/biomembrane/G-IM/last.pdb>
 - Full archive: <https://charmm-gui.org/archive/biomembrane/G-IM/G-IM.tar.gz>
