@@ -1,0 +1,285 @@
+#!/bin/bash
+#--------------------------------------------------
+# PBS SETTINGS
+#--------------------------------------------------
+#PBS -N ku04-gm-extend
+#PBS -q workq
+#PBS -l select=1:ncpus=24:mpiprocs=24:host=kuhpcgn2
+#PBS -o ku04-gm-extend.out
+#PBS -j oe
+#PBS -l walltime=240:00:00
+#--------------------------------------------------
+
+set -euo pipefail
+
+#--------------------------------------------------
+# USER SETTINGS
+#--------------------------------------------------
+
+# Previous checkpoint to resume from (e.g. step7_10)
+PREV_STEP="step7_10"
+# New step name
+NEXT_STEP="step7_11_100ns"
+# Total extension in ps (90 ns = 90000 ps)
+EXTENSION_PS=90000
+
+# Singularity container
+SIF_PATH="/home/arunima/images/gromacs_2024.5-GPU.sif"
+
+#--------------------------------------------------
+# INITIALIZATION
+#--------------------------------------------------
+
+cd "$PBS_O_WORKDIR"
+
+LOGFILE="wrapper_$(date +%Y%m%d_%H%M%S).log"
+
+# Persistent unbuffered logging
+exec > >(stdbuf -oL tee -a "$LOGFILE")
+exec 2>&1
+
+echo "================================================="
+echo "PBS JOB START"
+echo "================================================="
+echo "Date        : $(date)"
+echo "Hostname    : $(hostname)"
+echo "Working dir : $(pwd)"
+echo "PBS_JOBID   : ${PBS_JOBID}"
+echo "PBS_JOBNAME : ${PBS_JOBNAME}"
+echo "================================================="
+
+#--------------------------------------------------
+# MODULES
+#--------------------------------------------------
+
+module load ohpc
+module load cuda
+
+export PBS_NCPUS=$(wc -l "$PBS_NODEFILE" | awk '{print $1}')
+
+echo "[INFO] Detected PBS_NCPUS=${PBS_NCPUS}"
+
+#--------------------------------------------------
+# SINGULARITY WRAPPER
+#--------------------------------------------------
+
+SINGULARITY() {
+    singularity exec \
+        --nv \
+        -B "${PWD}:/host_pwd" \
+        --pwd /host_pwd \
+        "$SIF_PATH" "$@"
+}
+
+#--------------------------------------------------
+# START TIMER
+#--------------------------------------------------
+
+start=$(date +%s.%N)
+
+
+#--------------------------------------------------
+# PRODUCTION SAFETY CHECK
+#--------------------------------------------------
+
+echo
+echo "[INFO] Resume mode detected"
+echo "[INFO] Expecting checkpoint from ${PREV_STEP}"
+
+test -f "${PREV_STEP}.gro"
+test -f "${PREV_STEP}.cpt"
+test -f "${PREV_STEP}.tpr"
+
+#--------------------------------------------------
+# PRODUCTION MD
+#--------------------------------------------------
+# PRODUCTION MD (RESUME & EXTEND)
+#--------------------------------------------------
+
+echo
+echo "================================================="
+echo "STARTING PRODUCTION EXTENSION"
+echo "From: ${PREV_STEP} (+ ${EXTENSION_PS} ps)"
+echo "To:   ${NEXT_STEP}"
+echo "================================================="
+
+test -f "${PREV_STEP}.tpr"
+test -f "${PREV_STEP}.cpt"
+
+echo "[INFO] Extending TPR file by ${EXTENSION_PS} ps"
+
+SINGULARITY bash -c "
+    gmx convert-tpr \
+        -s ${PREV_STEP}.tpr \
+        -extend ${EXTENSION_PS} \
+        -o ${NEXT_STEP}.tpr
+"
+
+test -f "${NEXT_STEP}.tpr"
+
+echo "[INFO] Starting mdrun for ${NEXT_STEP}"
+
+SINGULARITY bash -c "
+    gmx mdrun \
+        -nobackup \
+        -nocopyright \
+        -v \
+        -s ${NEXT_STEP}.tpr \
+        -cpi ${PREV_STEP}.cpt \
+        -deffnm ${NEXT_STEP} \
+        -nb gpu \
+        -pme gpu \
+        -bonded gpu \
+        -nt ${PBS_NCPUS} \
+        -gpu_id 0
+"
+
+echo "[INFO] mdrun completed for ${NEXT_STEP}"
+
+test -f "${NEXT_STEP}.gro"
+test -f "${NEXT_STEP}.cpt"
+test -f "${NEXT_STEP}.log"
+
+echo
+echo "================================================="
+echo "EXTENSION COMPLETE"
+echo "================================================="
+
+#--------------------------------------------------
+# POST-PROCESSING
+#--------------------------------------------------
+
+echo
+echo "================================================="
+echo "POST-PROCESSING"
+echo "================================================="
+
+rm -f traj_prod.xtc
+rm -f traj_whole.xtc
+rm -f traj_dry.xtc
+rm -f ener_prod.edr
+
+xtc_list=$(ls -v step7_*.xtc 2>/dev/null | tr '\n' ' ')
+edr_list=$(ls -v step7_*.edr 2>/dev/null | tr '\n' ' ')
+
+if [ -z "${xtc_list}" ]; then
+
+    echo "[WARNING] No production XTC files found."
+    echo "[WARNING] Skipping post-processing."
+
+else
+
+    echo "[INFO] Concatenating trajectories (...xtc)"
+
+    SINGULARITY bash -c "
+        gmx trjcat \
+            -f ${xtc_list} \
+            -o traj_prod.xtc \
+            -cat
+    "
+
+    test -f traj_prod.xtc
+
+    echo ">>> Concatenated trajectory created: traj_prod.xtc"
+
+    if [ -n "${edr_list}" ]; then
+        echo "[INFO] Concatenating energy files (...edr)"
+        SINGULARITY bash -c "
+            gmx eneconv \
+                -f ${edr_list} \
+                -o ener_prod.edr
+        "
+        test -f ener_prod.edr
+        echo ">>> Concatenated energy file created: ener_prod.edr"
+    fi
+
+    echo "System" > trjconv_whole.in
+
+    echo "[INFO] Running whole-PBC repair"
+
+    SINGULARITY bash -c "
+        gmx trjconv \
+            -s ${NEXT_STEP}.tpr \
+            -f traj_prod.xtc \
+            -pbc whole \
+            -o traj_whole.xtc \
+            < trjconv_whole.in
+    "
+
+    test -f traj_whole.xtc
+
+    echo ">>> Whole trajectory created: traj_whole.xtc"
+
+    printf "MEMB\nMEMB\nMEMB\n" > trjconv_dry.in
+
+    echo "[INFO] Creating dry clustered trajectory"
+
+    SINGULARITY bash -c "
+        gmx trjconv \
+            -s ${NEXT_STEP}.tpr \
+            -f traj_whole.xtc \
+            -n index.ndx \
+            -center \
+            -pbc cluster \
+            -ur compact \
+            -o traj_dry.xtc \
+            < trjconv_dry.in
+    "
+
+    test -f traj_dry.xtc
+
+    echo ">>> Dry trajectory created: traj_dry.xtc"
+
+    echo "[INFO] Creating dry TPR file matching dry clustered trajectory selections"
+
+    printf "MEMB\nMEMB\n" > convert_tpr_dry.in
+
+    SINGULARITY bash -c "
+        gmx convert-tpr \
+            -s ${NEXT_STEP}.tpr \
+            -n index.ndx \
+            -o traj_dry.tpr \
+            < convert_tpr_dry.in
+    "
+
+    test -f traj_dry.tpr
+
+    echo ">>> Dry TPR file created: traj_dry.tpr"
+
+    rm -f traj_whole.xtc
+    rm -f trjconv_whole.in
+    rm -f trjconv_dry.in
+
+    echo "[INFO] Intermediate files cleaned"
+
+fi
+
+#--------------------------------------------------
+# END TIMER
+#--------------------------------------------------
+
+end=$(date +%s.%N)
+
+RUNTIME=$(echo "$end - $start" | bc -l)
+
+echo
+echo "================================================="
+echo "JOB COMPLETE"
+echo "================================================="
+echo "Runtime: ${RUNTIME} sec"
+echo "================================================="
+
+#--------------------------------------------------
+# NOTIFICATION
+#--------------------------------------------------
+
+NTFY_URL="https://ntfy.sh/kuhpchn"
+
+MESSAGE="PBS job complete: ${PBS_JOBNAME} (${PBS_JOBID}) runtime=${RUNTIME} sec"
+
+echo "[INFO] Sending ntfy notification"
+
+timeout 20 curl -X POST -d "$MESSAGE" "$NTFY_URL" || true
+
+echo
+echo "[$(date)] Script exiting normally."
