@@ -6,6 +6,8 @@ This workflow uses **CHARMM-GUI Membrane Builder** to automatically generate a f
 
 This avoids topology mismatch issues from manually mixing peptide and membrane parameter stacks.
 
+**Note:** This README is for the all-atom simulation. Usually membrane sims need to run for longer times than AA sims will allow, requiring coarsening. For that option, see [MARTINI_vs_EnhancedSampling.md](MARTINI_vs_EnhancedSampling.md)
+
 ---
 
 ## 1) Build the full system in CHARMM-GUI (peptide already included)

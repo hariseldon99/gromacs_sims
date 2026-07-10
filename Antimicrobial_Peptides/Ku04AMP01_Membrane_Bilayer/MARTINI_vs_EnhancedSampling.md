@@ -229,3 +229,8 @@ knowledge of the translocation pathway, handles KU04AMP01's flexibility naturall
 runs to completion within 3 GPU-days. Backmapping (Stage 2) adds < 1 GPU-day per
 intermediate and is always worthwhile. Stage 3 (metadynamics PMF) is recommended only if
 a peer-review-quality quantitative free-energy estimate is required.
+
+**Initial Conditions** The all-atom CHARMM-ff simulation seems to indicate adsorption in a 50 ns time window.
+Choose a frame after adsorption has clearly stabilized (e.g., 25–30 ns in your case).Convert to Martini, then energy-minimize, equilibrate and run for many microseconds.
+One robust suggestion is to make multiple runs (each with different random initial velocities) and get the fraction of trajectories that do translocate.
+
