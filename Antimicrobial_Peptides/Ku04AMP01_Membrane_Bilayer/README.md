@@ -131,7 +131,74 @@ gmx editconf -f peptide_rotated.gro -o peptide_positioned.gro \
   -translate 0 0 2.0
 ```
 
+**Note:** Charmm gui yielded a peptide that was slightly inside the membrane. The above prescription rotated it out and made it lie roughly flat along the phosphate plane. If we want spontaneous insertion into the membrane, then an amphipathic peptide should be oriented parallel. Alternatively, a hydrophobic peptide should be perpendicular, with the N-terminal facing the membrane (downward), since the Ku04AMP01 has a chemically active N-terminal. For that, run the following:
+
+```python
+import argparse
+import numpy as np
+import MDAnalysis as mda
+
+def main():
+    # Set up the command line argument parser
+    parser = argparse.ArgumentParser(
+        description="Rotate a peptide around its Center of Mass (COM) using MDAnalysis."
+    )
+    
+    # Required positional arguments for file paths
+    parser.add_argument("input_file", help="Path to the input file (e.g., input.gro, input.pdb)")
+    parser.add_argument("output_file", help="Path to save the rotated output file (e.g., output.gro)")
+    
+    # Optional arguments to easily tweak the rotation
+    parser.add_argument("-a", "--angle", type=float, default=90.0, help="Rotation angle in degrees (default: 90.0)")
+    parser.add_argument("-x", "--axis", choices=['x', 'y', 'z'], default='y', help="Axis to rotate around (default: y)")
+    
+    args = parser.parse_args()
+
+    # 1. Load the universe
+    u = mda.Universe(args.input_file)
+    
+    # 2. Select the peptide atoms
+    peptide = u.select_atoms("protein")
+    if len(peptide) == 0:
+        raise ValueError("No protein atoms found in the selection! Check your input file formatting.")
+
+    # 3. Calculate Center of Mass
+    peptide_com = peptide.center_of_mass()
+    
+    # 4. Map the chosen axis letter to a directional vector
+    axis_mapping = {
+        'x': [1, 0, 0],
+        'y': [0, 1, 0],
+        'z': [0, 0, 1]
+    }
+    direction_vector = axis_mapping[args.axis]
+
+    # 5. Perform the in-place rotation (Fixed: changed direction= to axis=)
+    peptide.rotateby(angle=args.angle, axis=direction_vector, point=peptide_com)
+    
+    # 6. Save the new coordinates
+    peptide.write(args.output_file)
+    print(f"Successfully rotated {args.input_file} by {args.angle}° around the {args.axis}-axis via its COM.")
+    print(f"Output saved to: {args.output_file}")
+
+if __name__ == "__main__":
+    main()
+```
+
+
+If the N-terminal ends up pointing upwards instead of downwards after this command, rerun it using `-rotate 0 -90 0` or `-rotate 0 270 0`. To check this, load the PDB in `PyMol` and run in colsole
+
+```bash
+
+show cell
+color gray, all
+color red, resi 1 
+```
+
+Now the N-terminus is red.
+
 ### 4.3 Merge back into one system (peptide first, rest after)
+Adjust the name of the peptide file as needed.
 
 ```bash
 python3 - <<'PY'
@@ -144,7 +211,7 @@ def read_gro(path):
     box = lines[2+nat].rstrip("\n")
     return title, nat, atoms, box
 
-t1,n1,a1,b1 = read_gro("peptide_positioned.gro")
+t1,n1,a1,b1 = read_gro("peptide_perp.gro")
 t2,n2,a2,b2 = read_gro("rest_only.gro")
 
 with open("system.gro","w") as out:
@@ -157,7 +224,7 @@ print(f"Wrote system.gro with {n1+n2} atoms")
 PY
 ```
 
-> `topol.top` generally does **not** need changes if no molecules were added/removed.
+topol.top` generally does **not** need changes if no molecules were added/removed.
 
 ---
 
@@ -166,8 +233,10 @@ PY
 ### 5.1 First grompp (for genion)
 
 ```bash
-gmx grompp -f step6.1_equilibration.mdp -c system.gro -r system.gro -p topol.top -o genion.tpr -maxwarn 5
+gmx grompp -f step6.1_equilibration.mdp -n index.ndx -c system.gro -r system.gro -p topol.top -o genion.tpr -maxwarn 5
 ```
+
+If grompp crashes with unknown index group ids, then run the `make_index.py` script from section 5.3 below.
 
 ### 5.2 Neutralize
 
