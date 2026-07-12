@@ -226,8 +226,9 @@ for cnt in $(seq ${cnt_start} ${set_cntmax}); do
             -nobackup \
             -nocopyright \
             -v \
+            -s ${istep}.tpr \
             -deffnm ${istep} \
-            -cpi ${istep}.cpt \
+            -cpi ${pstep}.cpt \
             -pin on \
             -nb gpu \
             -pme gpu \
