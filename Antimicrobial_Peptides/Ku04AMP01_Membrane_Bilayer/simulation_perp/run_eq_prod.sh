@@ -7,11 +7,11 @@ set -euo pipefail
 #--------------------------------------------------
 
 # Toggle equilibration stages (6.1 -> 6.6)
-RUN_EQUIL=true
+RUN_EQUIL=false
 
 # Production chunk range: 10 ns each chunk
 # For resume after completed step7_6, set to START_CHUNK=7, else 1
-START_CHUNK=1
+START_CHUNK=2
 MAX_CHUNK=10
 CHUNK_TIME=10000 # In picoseconds
 
@@ -39,7 +39,7 @@ echo "================================================="
 #--------------------------------------------------
 
 
-export NCPUS=$(nproc)
+export NCPUS="47"
 
 echo "[INFO] Detected NCPUS=${NCPUS}"
 
@@ -218,19 +218,22 @@ for cnt in $(seq ${cnt_start} ${set_cntmax}); do
 
     test -f "${istep}.tpr"
     
-    # Determine correct -cpi flag
+    # Determine correct -cpi flag and whether to append
     if [ -f "${istep}.cpt" ]; then
-        # Resume within this chunk (job was killed mid-chunk)
+        # Resume within this chunk (job was killed mid-chunk) — safe to append
         cpi_flag="-cpi ${istep}.cpt"
+        noappend_flag=""
     elif [ ${cnt} -gt 1 ]; then
-        # Continue from end of previous chunk
+        # Continue from end of previous chunk — output files differ, must use -noappend
         cpi_flag="-cpi ${pstep}.cpt"
+        noappend_flag="-noappend"
     else
         # Fresh start for chunk 1
         cpi_flag=""
+        noappend_flag=""
     fi
 
-    echo "[INFO] Starting mdrun for ${istep} (cpi: ${cpi_flag:-none})"
+    echo "[INFO] Starting mdrun for ${istep} (cpi: ${cpi_flag:-none}, noappend: ${noappend_flag:-no})"
 
     bash -c "
         gmx mdrun \
@@ -240,6 +243,7 @@ for cnt in $(seq ${cnt_start} ${set_cntmax}); do
             -s ${istep}.tpr \
             -deffnm ${istep} \
             ${cpi_flag} \
+            ${noappend_flag} \
             -pin on \
             -nb gpu \
             -pme gpu \
