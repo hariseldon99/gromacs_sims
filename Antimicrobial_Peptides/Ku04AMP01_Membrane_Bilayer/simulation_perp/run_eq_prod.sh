@@ -217,10 +217,21 @@ for cnt in $(seq ${cnt_start} ${set_cntmax}); do
     fi
 
     test -f "${istep}.tpr"
+    
+    # Determine correct -cpi flag
+    if [ -f "${istep}.cpt" ]; then
+        # Resume within this chunk (job was killed mid-chunk)
+        cpi_flag="-cpi ${istep}.cpt"
+    elif [ ${cnt} -gt 1 ]; then
+        # Continue from end of previous chunk
+        cpi_flag="-cpi ${pstep}.cpt"
+    else
+        # Fresh start for chunk 1
+        cpi_flag=""
+    fi
 
-    echo "[INFO] Starting mdrun for ${istep}"
+    echo "[INFO] Starting mdrun for ${istep} (cpi: ${cpi_flag:-none})"
 
-    # -cpi flag handles safe execution pick-up within a chunk if a loop times out
     bash -c "
         gmx mdrun \
             -nobackup \
@@ -228,7 +239,7 @@ for cnt in $(seq ${cnt_start} ${set_cntmax}); do
             -v \
             -s ${istep}.tpr \
             -deffnm ${istep} \
-            -cpi ${pstep}.cpt \
+            ${cpi_flag} \
             -pin on \
             -nb gpu \
             -pme gpu \
