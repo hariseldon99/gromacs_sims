@@ -211,8 +211,8 @@ def read_gro(path):
     box = lines[2+nat].rstrip("\n")
     return title, nat, atoms, box
 
-t1,n1,a1,b1 = read_gro("peptide_perp.gro")
-t2,n2,a2,b2 = read_gro("rest_only.gro")
+t1,n1,a1,b1 = read_gro("peptide_perp_perfect.gro")
+t2,n2,a2,b2 = read_gro("rest_only_tall.gro")
 
 with open("system.gro","w") as out:
     out.write("KU04AMP01 + G-IM (peptide height corrected)\n")
@@ -364,5 +364,13 @@ gmx grompp -f step6.1_equilibration.mdp -c system.gro -r system.gro -p topol.top
 - Do not change atom counts during reposition unless you also update topology.
 - If you regenerate ions (`genion`), rebuild index groups because atom numbers change.
 - For adsorption-first physics, peptide should start in water ~1.5–2.0 nm above phosphate plane.
+- Because the peptide is 6.6 nm long, the Z-box must be expanded to 17.0 nm.
+    1.  **Split** the system into `peptide_alone.gro` and `membrane_water.gro`.
+    2.  **Use `gmx editconf`** to set the box to `8.08472 8.08472 17.0` for both, centering the membrane at $Z=5.5$ and the peptide at $Z=12.8$.
+    3.  **Merge** the `.gro` files using the Python script provided in the original `charmm-gui` output to handle coordinate concatenation.
+- Solvation and Topology Update
+    1.  Fill the vacuum: `gmx solvate -cp merged_tall.gro -cs spc216.gro -o final_solvated.gro -p topol.top`.
+    2.  **Update `topol.top`**: Manually update the `[ molecules ]` section, combining the original water count with new SOL molecules.
+    3.  **Ensure `index.ndx`** is updated to include `SOL` in the water group (e.g., `water_residues = ['TIP3', 'SOLV', 'SOL']`).
 
 ---

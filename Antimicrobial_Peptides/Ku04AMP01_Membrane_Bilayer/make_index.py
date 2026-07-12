@@ -22,7 +22,7 @@ MEMB_RES = {
 }
 
 # Solvent and ions
-SOLV_RES = {"SOD", "CLA", "TIP3"}
+SOLV_RES = {"SOD", "CLA", "TIP3", "SOL"}
 
 def write_group(f, name, atoms):
     f.write(f"[ {name} ]\n")
