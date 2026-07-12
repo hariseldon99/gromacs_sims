@@ -2,6 +2,10 @@
 
 set -euo pipefail
 
+# Return true if a file exists at the exact path OR as a GROMACS -noappend .partXXXX variant
+# Usage: part_exists "step7_2.gro"  ->  also matches step7_2.part*.gro
+part_exists() { local b="${1%.*}" e="${1##*.}"; test -f "$1" || ls "${b}".part*."${e}" > /dev/null 2>&1; }
+
 #--------------------------------------------------
 # USER SETTINGS
 #--------------------------------------------------
@@ -11,7 +15,7 @@ RUN_EQUIL=false
 
 # Production chunk range: 10 ns each chunk
 # For resume after completed step7_6, set to START_CHUNK=7, else 1
-START_CHUNK=2
+START_CHUNK=3
 MAX_CHUNK=10
 CHUNK_TIME=10000 # In picoseconds
 
@@ -199,7 +203,7 @@ for cnt in $(seq ${cnt_start} ${set_cntmax}); do
 
         pstep="step7_${pcnt}"
 
-        test -f "${pstep}.gro"
+        part_exists "${pstep}.gro" || { echo "[ERROR] No .gro found for ${pstep} (checked plain and .partXXXX)"; exit 1; }
         test -f "${pstep}.cpt"
         test -f "${pstep}.tpr"
 
@@ -254,9 +258,9 @@ for cnt in $(seq ${cnt_start} ${set_cntmax}); do
 
     echo "[INFO] mdrun completed for ${istep}"
 
-    test -f "${istep}.gro"
+    part_exists "${istep}.gro" || { echo "[ERROR] No .gro found for ${istep} (checked plain and .partXXXX)"; exit 1; }
     test -f "${istep}.cpt"
-    test -f "${istep}.log"
+    part_exists "${istep}.log" || { echo "[ERROR] No .log found for ${istep} (checked plain and .partXXXX)"; exit 1; }
 
     echo ">>> Completed production chunk ${cnt}/${set_cntmax}"
     echo ">>> Checkpoint: ${istep}.cpt"
