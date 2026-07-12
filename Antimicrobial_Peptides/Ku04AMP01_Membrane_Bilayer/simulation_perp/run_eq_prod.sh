@@ -150,7 +150,7 @@ if [ "$START_CHUNK" -gt 1 ]; then
     echo "[INFO] Resume mode detected"
     echo "[INFO] Expecting checkpoint from step7_${prev_chunk}"
 
-    test -f "step7_${prev_chunk}.gro"
+    part_exists "step7_${prev_chunk}.gro" || { echo "[ERROR] No .gro found for step7_${prev_chunk} (checked plain and .partXXXX)"; exit 1; }
     test -f "step7_${prev_chunk}.cpt"
     test -f "step7_${prev_chunk}.tpr"
 
