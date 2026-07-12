@@ -372,5 +372,6 @@ gmx grompp -f step6.1_equilibration.mdp -c system.gro -r system.gro -p topol.top
     1.  Fill the vacuum: `gmx solvate -cp merged_tall.gro -cs spc216.gro -o final_solvated.gro -p topol.top`.
     2.  **Update `topol.top`**: Manually update the `[ molecules ]` section, combining the original water count with new SOL molecules.
     3.  **Ensure `index.ndx`** is updated to include `SOL` in the water group (e.g., `water_residues = ['TIP3', 'SOLV', 'SOL']`).
+    4.  May need to rotate the peptide again to ensure that N-terminals face the membrane
 
 ---
