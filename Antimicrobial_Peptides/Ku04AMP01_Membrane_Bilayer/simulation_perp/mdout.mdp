@@ -1,31 +1,31 @@
 ;
 ;	File 'mdout.mdp' was generated
-;	By user: daneel (1000)
-;	On host: sudarshan
-;	At date: Mon Jul 13 01:49:41 2026
+;	By user: root (0)
+;	On host: c084c5850ac7
+;	At date: Sun Jul 12 21:28:43 2026
 ;
 ;	Created by:
 ;	               :-) GROMACS - gmx grompp, 2024.5-conda_forge (-:
 ;	
-;	Executable:   /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup/bin.AVX2_256/gmx
-;	Data prefix:  /usr/local/miniforge3/envs/biobb_wf_protein-complex_md_setup
-;	Working dir:  /home/daneel/gitrepos/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulation_perp
+;	Executable:   /venv/main/bin.AVX2_256/gmx
+;	Data prefix:  /venv/main
+;	Working dir:  /workspace/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulation_perp
 ;	Command line:
-;	  gmx grompp -f step6.0_minimization.mdp -c system.gro -r system.gro -p topol.top -n index.ndx -o em.tpr -maxwarn 5
+;	  gmx grompp -f step7_production.mdp -c step6.6.gro -p topol.top -n index.ndx -o step7_1.tpr -maxwarn 2
 
 ; VARIOUS PREPROCESSING OPTIONS
 ; Preprocessor information: use cpp syntax.
 ; e.g.: -I/home/joe/doe -I/home/mary/roe
 include                  = 
 ; e.g.: -DPOSRES -DFLEXIBLE (note these variable names are case sensitive)
-define                   = -DPOSRES -DPOSRES_FC_BB=4000.0 -DPOSRES_FC_SC=2000.0 -DPOSRES_FC_LIPID=1000.0 -DDIHRES -DDIHRES_FC=1000.0
+define                   = 
 
 ; RUN CONTROL PARAMETERS
-integrator               = steep
+integrator               = md
 ; Start time and timestep in ps
 tinit                    = 0
-dt                       = 0.001
-nsteps                   = 5000
+dt                       = 0.002
+nsteps                   = 5000000
 ; For exact run continuation or redoing part of a run
 init-step                = 0
 ; Part index is updated automatically on checkpointing (keeps files separate)
@@ -35,11 +35,11 @@ mts                      = no
 ; factor by which to increase the mass of the lightest atoms
 mass-repartition-factor  = 1
 ; mode for center of mass motion removal
-comm-mode                = Linear
+comm_mode                = linear
 ; number of steps for center of mass motion removal
 nstcomm                  = 100
 ; group(s) for center of mass motion removal
-comm-grps                = 
+comm_grps                = SOLU_MEMB SOLV
 
 ; LANGEVIN DYNAMICS OPTIONS
 ; Friction coefficient (amu/ps) and random seed
@@ -48,7 +48,7 @@ ld-seed                  = -1
 
 ; ENERGY MINIMIZATION OPTIONS
 ; Force tolerance and initial step-size
-emtol                    = 1000.0
+emtol                    = 10
 emstep                   = 0.01
 ; Max number of iterations in relax-shells
 niter                    = 20
@@ -71,7 +71,7 @@ nstlog                   = 1000
 nstcalcenergy            = 100
 nstenergy                = 1000
 ; Output frequency and precision for .xtc file
-nstxout-compressed       = 0
+nstxout-compressed       = 50000
 compressed-x-precision   = 1000
 ; This selects the subset of atoms for the compressed
 ; trajectory file. You can select multiple groups. By
@@ -84,7 +84,7 @@ energygrps               =
 ; cut-off scheme (Verlet: particle based cut-offs)
 cutoff-scheme            = Verlet
 ; nblist update frequency
-nstlist                  = 10
+nstlist                  = 20
 ; Periodic boundary conditions: xyz, no, xy
 pbc                      = xyz
 periodic-molecules       = no
@@ -137,23 +137,23 @@ implicit-solvent         = no
 ensemble-temperature-setting = auto
 ensemble-temperature     = -1
 ; Temperature coupling  
-tcoupl                   = No
+tcoupl                   = v-rescale
 nsttcouple               = -1
 nh-chain-length          = 10
 print-nose-hoover-chain-variables = no
 ; Groups to couple separately
-tc-grps                  = 
+tc_grps                  = SOLU MEMB SOLV
 ; Time constant (ps) and reference temperature (K)
-tau-t                    = 
-ref-t                    = 
+tau_t                    = 1.0 1.0 1.0
+ref_t                    = 310.15 310.15 310.15
 ; pressure coupling     
-pcoupl                   = No
-pcoupltype               = Isotropic
+pcoupl                   = C-rescale
+pcoupltype               = semiisotropic
 nstpcouple               = -1
 ; Time constant (ps), compressibility (1/bar) and reference P (bar)
-tau-p                    = 5
-compressibility          = 
-ref-p                    = 
+tau_p                    = 5.0
+compressibility          = 4.5e-5  4.5e-5
+ref_p                    = 1.0     1.0
 ; Scaling of reference coordinates, No, All or COM
 refcoord-scaling         = No
 
@@ -175,14 +175,14 @@ annealing-temp           =
 ; GENERATE VELOCITIES FOR STARTUP RUN
 gen-vel                  = no
 gen-temp                 = 300
-gen-seed                 = -1292402817
+gen-seed                 = -266309
 
 ; OPTIONS FOR BONDS    
 constraints              = h-bonds
 ; Type of constraint algorithm
 constraint_algorithm     = LINCS
 ; Do not constrain the start configuration
-continuation             = no
+continuation             = yes
 ; Use successive overrelaxation to reduce the number of shake iterations
 Shake-SOR                = no
 ; Relative tolerance of shake
