@@ -61,9 +61,13 @@ Stage: build
         apt-get clean
         rm -rf /var/lib/apt/lists/*
 
-        # Miniforge (conda) install
+        # Miniforge (conda) install — pinned to a specific release for reproducibility
+        MINIFORGE_VERSION="26.3.2-3"
+        MINIFORGE_SHA256="848194851a98903134187fbb4ab50efe87b003e0c0f808f97644b7524a62bf2c"
         cd /tmp
-        wget -q https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
+        wget -q "https://github.com/conda-forge/miniforge/releases/download/${MINIFORGE_VERSION}/Miniforge3-${MINIFORGE_VERSION}-Linux-x86_64.sh" \
+            -O Miniforge3-Linux-x86_64.sh
+        echo "${MINIFORGE_SHA256}  Miniforge3-Linux-x86_64.sh" | sha256sum -c -
         bash Miniforge3-Linux-x86_64.sh -b -f -p /usr/local
         rm Miniforge3-Linux-x86_64.sh
         export PATH=/usr/local/bin:$PATH
@@ -157,8 +161,8 @@ Stage: build
                 cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files_contributed/* /usr/local/share/gromacs/top/martini3.ff/ || true
         fi
 
-        # Install martinize2 vermouth cgbuilder and insane for coarse graining (pip only — not on conda-forge)
-        pip install --no-cache-dir insane
+        # Install martinize2/vermouth and insane for coarse graining (pip only — not on conda-forge)
+        pip install --no-cache-dir vermouth insane
         pip install git+https://github.com/marrink-lab/vermouth-martinize.git#vermouth
 
         # Install custom insane.py from compchems
