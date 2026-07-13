@@ -7,7 +7,7 @@ Stage: build
     APPLICATION GROMACS_2024.5-GPU
     AUTHOR Analabha Roy
     EMAIL daneel@utexas.edu
-    YEAR 2025
+    YEAR 2026
 
 %help
     GROMACS 2024.5 (GPU, conda build, incl amber99sb-ildn, charmm36 and martini3 ff) + ambertools + biobb + analysis stack.
@@ -76,19 +76,23 @@ Stage: build
         conda config --system --set channel_priority flexible
         conda install -y mamba
 
-        # Core scientific + MD + viz stack (GPU build of gromacs via cudatoolkit)
-        # Leaving build string free so solver picks correct cuda variant.
+        # Step 1: Install the CUDA/Python/GROMACS core first to anchor the solver
         mamba install -y \
+                python=3.12 \
                 cudatoolkit=11.8 \
+                gromacs==2024.5=nompi_cuda_h5cb645a_0
+
+        # Step 2: Scientific + MD + viz stack (solver is now anchored to py3.12+cuda11.8)
+        mamba install -y \
                 numpy \
+                scipy \
+                pandas \
                 rdkit \
                 tqdm \
                 mpi4py \
                 scienceplots \
                 ipympl \
                 dssp \
-                python=3.12 \
-                gromacs==2024.5=nompi_cuda_h5cb645a_0 \
                 ambertools \
                 acpype \
                 openbabel \
@@ -97,12 +101,11 @@ Stage: build
                 nglview=3.* \
                 parmed \
                 biopython \
-                numpy scipy pandas \
                 seaborn plotly \
-                jupyter\
-                jupyterlab=4.3.*\
-                jupyter_server=2.14.*\
-                notebook-shim=0.2.*\
+                jupyter \
+                jupyterlab=4.3.* \
+                jupyter_server=2.14.* \
+                notebook-shim=0.2.* \
                 nbconvert \
                 jupyterlab-spellchecker \
                 jupyterlab-git \
@@ -154,10 +157,14 @@ Stage: build
                 cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files_contributed/* /usr/local/share/gromacs/top/martini3.ff/ || true
         fi
 
-        # Install martinize2 vermouth cgbuilder and insane for coarse graining (prefer conda, fallback to pip)
-        if ! mamba install -y cgbuilder insane vermouth; then
-                pip install --no-cache-dir cgbuilder insane vermouth || true
-        fi
+        # Install martinize2 vermouth cgbuilder and insane for coarse graining (pip only — not on conda-forge)
+        pip install --no-cache-dir cgbuilder insane
+        pip install git+https://github.com/marrink-lab/vermouth-martinize.git#vermouth
+
+        # Install custom insane.py from compchems
+        wget -O /usr/local/bin/insane_compchems.py https://www.compchems.com/gromacs_cg/insane.py
+        chmod +x /usr/local/bin/insane_compchems.py
+
         # Cleanup temporary clones
         rm -rf /tmp/martini3 
 
