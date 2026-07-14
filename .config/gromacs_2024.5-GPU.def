@@ -1,6 +1,8 @@
 # filepath: /home/daneel/gitrepos/gromacs_sims/.config/gromacs_2024.5-GPU.def
-Bootstrap: library
-From: ubuntu:22.04
+# Updates to the original gromacs_2024.5.def to improve martini3 and charmm support for gromacs, 
+# as well as insane mambrane builder for CG simulations. 
+Bootstrap: docker
+From: ubuntu:24.04
 Stage: build
 
 %labels
@@ -12,7 +14,7 @@ Stage: build
 %help
     GROMACS 2024.5 (GPU, conda build, incl amber99sb-ildn, charmm36 and martini3 ff) + ambertools + biobb + analysis stack.
     Launch Jupyter:
-        singularity run --nv -B $PWD:/host_pwd --pwd /host_pwd <image>.sif
+        singularity run --nv -B $PWD:/host_pwd --pwd /host_pwd <image>.sif jupyter
     Plain shell:
         singularity run --nv <image>.sif
     GROMACS:
@@ -53,6 +55,20 @@ Stage: build
         export DEBIAN_FRONTEND=noninteractive
         # Make CUDA version visible to solver before any mamba install
         export CONDA_OVERRIDE_CUDA=11.8
+
+        # --- FIX: pin setuptools inside pip's PEP 517 *build isolation* envs ---
+        # Several legacy scientific sdists (e.g. pandas==1.5.3, hard-pinned by
+        # gmx_MMPBSA's setup.py) still `import pkg_resources` at build time.
+        # pkg_resources was fully removed from setuptools as of 83.0 (deprecated
+        # since 68.0). Pip populates each isolated build env with the newest
+        # available setuptools regardless of what's pinned in the outer env, so
+        # any package without cp312 wheels that needs to build from source will
+        # fail with "ModuleNotFoundError: No module named 'pkg_resources'".
+        # PIP_CONSTRAINT is honored by pip's build-isolation resolver (pip >=23.1)
+        # as well as normal installs, so setting it once here covers both.
+        echo "setuptools<81" > /tmp/build-constraints.txt
+        export PIP_CONSTRAINT=/tmp/build-constraints.txt
+
         apt-get update
         apt-get install -y --no-install-recommends \
                 build-essential wget ca-certificates git dos2unix zsh \
@@ -81,12 +97,19 @@ Stage: build
         conda install -y mamba
 
         # Step 1: Install the CUDA/Python/GROMACS core first to anchor the solver
+        # Ubuntu 24.04 ships zlib 1.3.x natively, matching conda-forge's zlib;
+        # no pin needed and LuaTeX works correctly with text.usetex=True.
         mamba install -y \
                 python=3.12 \
                 cudatoolkit=11.8 \
                 gromacs==2024.5=nompi_cuda_h5cb645a_0
 
         # Step 2: Scientific + MD + viz stack (solver is now anchored to py3.12+cuda11.8)
+        # Check out prody: https://www.bahargroup.org/prody/
+        # Check out alchemlyb: https://alchemlyb.readthedocs.io/en/stable/
+        # Check out pdbfixer: https://github.com/pandegroup/pdbfixer
+        # Check out lipyphilic: https://lipyphilic.readthedocs.io/en/latest/
+        # Check out py3dmol: https://william-dawson.github.io/using-py3dmol.html
         mamba install -y \
                 numpy \
                 scipy \
@@ -107,9 +130,8 @@ Stage: build
                 biopython \
                 seaborn plotly \
                 jupyter \
-                jupyterlab=4.3.* \
-                jupyter_server=2.14.* \
-                notebook-shim=0.2.* \
+                jupyterlab=4.5.* \
+                jupyter_server>=2.14 \
                 nbconvert \
                 jupyterlab-spellchecker \
                 jupyterlab-git \
@@ -118,8 +140,18 @@ Stage: build
                 pdb2pqr \
                 h5py \
                 networkx>=3.4.2 \
-                setuptools pip \
+                "setuptools<82" pip \
                 tabulate \
+                prody \
+                alchemlyb pymbar \
+                pdbfixer \
+                lipyphilic \
+                py3dmol \
+                numba \
+                pmda \
+                dask \
+                dask-mpi \
+                scikit-learn \
                 simpletraj
         # Extra tools (some already provided inside ambertools; duplicates tolerated)
         pip install --no-cache-dir \
@@ -132,6 +164,16 @@ Stage: build
                 biobb-common biobb-chemistry biobb-io biobb-model \
                 biobb-structure-checking biobb-structure-utils biobb-analysis biobb-gromacs
 
+        # gmx_MMPBSA installed separately with --no-deps: its setup.py hard-pins
+        # numpy==1.26.4/pandas==1.5.3/matplotlib==3.7.3/scipy==1.14.1/mpi4py==4.0.1
+        # for the maintainers' own reproducibility, not because those exact
+        # versions are required at runtime. pandas==1.5.3 in particular has no
+        # cp312 wheel and would otherwise force an sdist build (see PIP_CONSTRAINT
+        # fix above). The mamba stack in Step 2 already satisfies every real
+        # runtime dependency (numpy, pandas, matplotlib, seaborn, scipy, mpi4py,
+        # parmed, tqdm), so --no-deps skips the problematic re-resolution entirely.
+        pip install --no-cache-dir --no-deps gmx_MMPBSA
+
         # Enable nglview extension (JupyterLab 4 auto-detects, kept for safety)
         jupyter-nbextension enable nglview --py --sys-prefix || true
 
@@ -142,6 +184,12 @@ Stage: build
         # Also place a clean copy in share/top for GMXLIB usage
         mkdir -p /usr/local/share/gromacs/top
         cp -r /tmp/charmm36-jul2022.ff /usr/local/share/gromacs/top/
+        # MacKerell lab tarballs often use CRLF — fix in-place so GROMACS can parse forcefield.doc
+        find /usr/local/share/gromacs/top/charmm36-jul2022.ff -type f | xargs dos2unix
+        # Guarantee forcefield.doc exists with a one-line description (required by pdb2gmx).
+        # Must end with a newline — GROMACS line-reader skips unterminated lines.
+        printf 'CHARMM36m all-atom force field (July 2022)\n' \
+            > /usr/local/share/gromacs/top/charmm36-jul2022.ff/forcefield.doc
         rm -rf /tmp/charmm36* 
         # Get the cgenff script for generating parameters for small molecules
         wget https://raw.githubusercontent.com/Lemkul-Lab/cgenff_charmm2gmx/refs/heads/main/cgenff_charmm2gmx.py -O /usr/local/bin/cgenff_charmm2gmx.py
@@ -164,16 +212,22 @@ Stage: build
         # Install martinize2/vermouth and insane for coarse graining (pip only — not on conda-forge)
         pip install --no-cache-dir vermouth insane
         pip install git+https://github.com/marrink-lab/vermouth-martinize.git#vermouth
+        # NOTE: the old "re-pin setuptools<82 after pip installs" step that used to
+        # live here is no longer needed — PIP_CONSTRAINT set at the top of %post
+        # keeps every pip build-isolation env (and every plain install) on a
+        # pkg_resources-capable setuptools for the rest of this script.
 
-        # Install custom insane.py from compchems
+        # Install custom insane.py from compchems (Python 2 script — convert to Python 3 in-place)
         wget -O /usr/local/bin/insane_compchems.py https://www.compchems.com/gromacs_cg/insane.py
+        2to3 -w /usr/local/bin/insane_compchems.py
+        rm -f /usr/local/bin/insane_compchems.py.bak
         chmod +x /usr/local/bin/insane_compchems.py
 
         # Cleanup temporary clones
         rm -rf /tmp/martini3 
 
         # Clean
-        mamba clean -afy
+        mamba clean -ay
         find /usr/local -name "__pycache__" -type d -exec rm -rf {} +
         mkdir -p /root/.jupyter
 
