@@ -13,6 +13,13 @@ Stage: build
 
 %help
     GROMACS 2024.5 (GPU, conda build, incl amber99sb-ildn, charmm36 and martini3 ff) + ambertools + biobb + analysis stack.
+    
+    Notes: 
+    1. dssp is installed in a separate conda environment (dssp3) due to libboost version conflicts with openbabel. The binary
+    is available at environment variable $MKDSSP, which points to the mkdssp binary.
+    2. The martini3 forcefield is installed in /usr/local/share/gromacs/top/martini3.ff, and the refined M3-Lipid-Parameters (2025) are included. The old martini_v3.0.0_phospholipids_v1.itp has been removed, and open-beta-only lipid tail combinations have been extracted to martini_v3.0.0_phospholipids_openbeta_extra.itp.
+
+    Usage:
     Launch Jupyter:
         singularity run --nv -B $PWD:/host_pwd --pwd /host_pwd <image>.sif jupyter
     Plain shell:
@@ -21,14 +28,17 @@ Stage: build
         singularity run --nv <image>.sif gmx mdrun -s topol.tpr
     Run a command or script:
         singularity run --nv <image>.sif my_script.sh arg1 arg2
+%files
+    scripts/extract_openbeta_lipids.py /opt/extract_openbeta_lipids.py
 
 %environment
     TZ=UTC
     DEBIAN_FRONTEND=noninteractive
     MPLCONFIGDIR=$HOME/.matplotlib
-    export TZ DEBIAN_FRONTEND MPLCONFIGDIR
+    MKDSSP=/opt/dssp3/bin/mkdssp
+    export TZ DEBIAN_FRONTEND MPLCONFIGDIR MKDSSP
     export PATH=/usr/local/bin:$PATH
-    export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
     
 %runscript
     #!/bin/bash
@@ -87,13 +97,15 @@ Stage: build
         bash Miniforge3-Linux-x86_64.sh -b -f -p /usr/local
         rm Miniforge3-Linux-x86_64.sh
         export PATH=/usr/local/bin:$PATH
-        export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+        export LD_LIBRARY_PATH=/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
         # Channels & solver
-        conda config --system --add channels defaults
+        # Claude suggestion: remove defaults channel to avoid transitive dependency conflicts
+        # conda config --system --add channels defaults
         conda config --system --add channels conda-forge
         conda config --system --add channels bioconda
-        conda config --file /.condarc --add channels salilab
-        conda config --system --set channel_priority flexible
+        conda config --system --add channels salilab
+        # Claude suggestion: simplify solver and avoid transitive dependency conflicts: strict channel priority
+        conda config --system --set channel_priority strict
         conda install -y mamba
 
         # Step 1: Install the CUDA/Python/GROMACS core first to anchor the solver
@@ -103,13 +115,14 @@ Stage: build
                 python=3.12 \
                 cudatoolkit=11.8 \
                 gromacs==2024.5=nompi_cuda_h5cb645a_0
-
+        # Pin down this specific version of gromacs        
+        echo "gromacs ==2024.5=nompi_cuda_h5cb645a_0" >> /usr/local/conda-meta/pinned
         # Step 2: Scientific + MD + viz stack (solver is now anchored to py3.12+cuda11.8)
         # Group A: numerics/core (light, few exotic transitive deps)
-        mamba install -y numpy scipy pandas tqdm 
-        mamba install -y mpi4py scienceplots ipympl 
-        mamba install -y h5py "networkx>=3.4.2" "setuptools<82" pip tabulate numba 
-        mamba install -y dask dask-mpi scikit-learn
+        mamba install -y  numpy scipy pandas tqdm 
+        mamba install -y  mpi4py scienceplots ipympl 
+        mamba install -y  h5py "networkx>=3.4.2" "setuptools<82" pip tabulate numba 
+        mamba install -y  dask dask-mpi scikit-learn
 
         # Group B: heavy chemistry/biophysics packages — historically the slowest,
         # most transitive-dependency-heavy solves in this stack (ambertools
@@ -119,21 +132,32 @@ Stage: build
         # Check out pdbfixer: https://github.com/pandegroup/pdbfixer
         # Check out lipyphilic: https://lipyphilic.readthedocs.io/en/latest/
         # Check out py3dmol: https://william-dawson.github.io/using-py3dmol.html
-        mamba install -y ambertools acpype openbabel rdkit 
-        mamba install -y mdanalysis mdtraj simpletraj 
-        # Hangs here:
-        mamba install -y parmed biopython prody alchemlyb pymbar pdbfixer lipyphilic pmda 
-        mamba install -y nglview=3.*  py3dmol
+        mamba install -y  ambertools acpype openbabel rdkit 
+        mamba install -y  mdanalysis mdtraj simpletraj 
+        mamba install -y  parmed biopython prody alchemlyb pymbar pdbfixer lipyphilic pmda 
+        mamba install -y  nglview=3.*  py3dmol
 
         # Group C: Jupyter/viz stack (mostly independent of Group B)
-        mamba install -y seaborn plotly jupyter jupyterlab=4.5.* \
+        mamba install -y  seaborn plotly jupyter jupyterlab=4.5.* \
                 jupyter_server>=2.14 nbconvert jupyterlab-spellchecker \
                 jupyterlab-git jupyterlab-lsp matplotlib-base pdb2pqr
 
-        # DSSP installed as its own isolated solve — kept separate from the
-        # Step 2 stack so its old libboost=1.73.0 pin can't force expensive
-        # backtracking against ~30 other loosely-pinned packages/4 channels.
-        mamba install -y -c salilab -c anaconda -c conda-forge dssp=3.0.0 libboost=1.73.0
+        # DSSP 3.0.0 requires libboost=1.73.0, incompatible with libboost=1.86.0
+        # pulled in by openbabel elsewhere in the main env — kept in its own
+        # isolated named environment. --override-channels pins channel order
+        # exactly (salilab -> anaconda -> conda-forge), avoiding ambiguity from
+        # merging with the system .condarc's channel list under strict priority.
+        mamba create -y -p /opt/dssp3 --override-channels \
+            --channel-priority flexible \
+            -c salilab \
+            -c anaconda \
+            -c conda-forge \
+                dssp=3.0.0 libboost=1.73.0
+        # Verify that the isolated DSSP installation is functional.
+        echo "Verifying DSSP installation..."
+        /opt/dssp3/bin/mkdssp --version
+        ldd /opt/dssp3/bin/mkdssp | grep -q 'libboost_thread'
+
         # Extra tools (some already provided inside ambertools; duplicates tolerated)
         pip install --no-cache-dir \
                 amberutils \
@@ -155,8 +179,8 @@ Stage: build
         # parmed, tqdm), so --no-deps skips the problematic re-resolution entirely.
         pip install --no-cache-dir --no-deps gmx_MMPBSA
 
-        # Enable nglview extension (JupyterLab 4 auto-detects, kept for safety)
-        jupyter-nbextension enable nglview --py --sys-prefix || true
+        # Enable nglview extension (JupyterLab 4 auto-detects, commented unless needed)
+        # jupyter-nbextension enable nglview --py --sys-prefix || true
 
         # CHARMM36 update (replace old charmm36-jul2017.ff if present in gromacs template)
         wget -q "https://mackerell.umaryland.edu/download.php?filename=CHARMM_ff_params_files/charmm36-jul2022.ff.tgz" -O /tmp/charmm36.tgz
@@ -191,46 +215,8 @@ Stage: build
         fi
         # Extract open-beta-only lipid tail combinations (not carried into the 2025
         # refined M3-Lipid-Parameters release) from the old monolithic phospholipids
-        # bundle, before that bundle gets replaced. See conversation log for how this
-        # target list and extraction logic were derived/validated.
-        python3 <<'PYEOF'
-            import re
-
-            missing = {"DIPA","DIPC","DIPE","DIPG","DIPS","JFPG","JPPG","LPPA","LPPC","LPPE",
-                    "LPPG","LPPS","OPPG","PGPA","PGPC","PGPE","PGPG","PGPS","PRPA","PRPC",
-                    "PRPE","PRPG","PRPS","PUPA","PUPC","PUPE","PUPS"}
-
-            src = "/usr/local/share/gromacs/top/martini3.ff/martini_v3.0.0_phospholipids_v1.itp"
-            with open(src) as f:
-                text = f.read()
-
-            # tolerate whitespace inside brackets: [moleculetype] or [ moleculetype ]
-            parts = re.split(r'(?=^\[\s*moleculetype\s*\]\s*$)', text, flags=re.M)
-            blocks = [p for p in parts if re.match(r'^\[\s*moleculetype\s*\]', p.strip())]
-
-            molname_re = re.compile(r'^\s*([A-Za-z0-9]{2,8})\s+\d+\s*$', re.M)
-            found = {}
-            for b in blocks:
-                body = b.split("\n", 1)[1] if "\n" in b else ""
-                m = molname_re.search(body)
-                name = m.group(1) if m else "UNRESOLVED"
-                found.setdefault(name, []).append(b)
-
-            target_found = {k: v for k, v in found.items() if k in missing}
-            still_missing = missing - target_found.keys()
-            if still_missing:
-                raise SystemExit(f"FATAL: extraction incomplete, missing: {sorted(still_missing)}")
-            if any(len(v) > 1 for v in found.values()):
-                raise SystemExit(f"FATAL: duplicate moleculetype names detected during extraction")
-
-            out = "/usr/local/share/gromacs/top/martini3.ff/martini_v3.0.0_phospholipids_openbeta_extra.itp"
-            with open(out, "w") as f:
-                f.write("; Open-beta lipid tail combinations not carried into M3-Lipid-Parameters (2025)\n\n")
-                for name, blist in target_found.items():
-                    for b in blist:
-                        f.write(b)
-            print(f"Extracted {len(target_found)} open-beta-only lipids to {out}")
-            PYEOF
+        # bundle, before that bundle gets replaced.
+        python3 /opt/extract_openbeta_lipids.py
         # Refined Martini 3 lipidome (supersedes the old bundled phospholipids_v1.itp,
         # now safe to remove since its unique content was extracted above)
         rm -f /usr/local/share/gromacs/top/martini3.ff/martini_v3.0.0_phospholipids_v1.itp
@@ -255,9 +241,21 @@ Stage: build
         # Cleanup temporary clones
         rm -rf /tmp/martini3 
 
+        # GROMACS version sanity check 
+        echo "=== Verifying GROMACS installation ==="
+
+        PKG_VERSION=$(mamba list gromacs | awk '$1=="gromacs"{print $2}')
+
+        if [ "$PKG_VERSION" != "2024.5" ]; then
+            echo "ERROR: Conda package version is $PKG_VERSION"
+            exit 1
+        fi
+
+        echo "Verified GROMACS ${PKG_VERSION}"
+
         # Clean
         mamba clean -ay
         find /usr/local -name "__pycache__" -type d -exec rm -rf {} +
         mkdir -p /root/.jupyter
-
+        
         echo "DONE: GROMACS 2024.5 GPU + bio stack."
