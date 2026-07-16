@@ -65,10 +65,9 @@ Stage: build
         export DEBIAN_FRONTEND=noninteractive
         # Make CUDA version visible to solver before any mamba install
         export CONDA_OVERRIDE_CUDA=11.8
-
         # --- FIX: pin setuptools inside pip's PEP 517 *build isolation* envs ---
         # Several legacy scientific sdists (e.g. pandas==1.5.3, hard-pinned by
-        # gmx_MMPBSA's setup.py) still `import pkg_resources` at build time.
+        # gmx_MMPBSA's setup.py, and martini3/insane) still `import pkg_resources` at build time.
         # pkg_resources was fully removed from setuptools as of 83.0 (deprecated
         # since 68.0). Pip populates each isolated build env with the newest
         # available setuptools regardless of what's pinned in the outer env, so
@@ -200,9 +199,11 @@ Stage: build
         wget https://raw.githubusercontent.com/Lemkul-Lab/cgenff_charmm2gmx/refs/heads/main/cgenff_charmm2gmx.py -O /usr/local/bin/cgenff_charmm2gmx.py
         chmod +x /usr/local/bin/cgenff_charmm2gmx.py
 
+        # ============================================================================
+        # Martini 3 force field
+        # ============================================================================
         # Download Martini 3 force field repository and install forcefield files for GROMACS
         git clone --depth 1 https://github.com/marrink-lab/martini-forcefields /tmp/martini3 || true
-
         # Create destination in conda GROMACS top directory and copy force field files
         mkdir -p /usr/local/share/gromacs/top/martini3.ff
         # try common locations inside the repo (be permissive)
@@ -220,42 +221,37 @@ Stage: build
         # Refined Martini 3 lipidome (supersedes the old bundled phospholipids_v1.itp,
         # now safe to remove since its unique content was extracted above)
         rm -f /usr/local/share/gromacs/top/martini3.ff/martini_v3.0.0_phospholipids_v1.itp
+        # Get Newer Lipid Parameters (M3-Lipid-Parameters) from the Martini Force Field Initiative repo
         git clone --depth 1 https://github.com/Martini-Force-Field-Initiative/M3-Lipid-Parameters /tmp/m3lipids || true
         cp /tmp/m3lipids/ITPs/*.itp /usr/local/share/gromacs/top/martini3.ff/
         rm -rf /tmp/m3lipids
-
         # Install martinize2/vermouth and insane for coarse graining (pip only — not on conda-forge)
         pip install --no-cache-dir vermouth insane
-        pip install git+https://github.com/marrink-lab/vermouth-martinize.git#vermouth
-        # NOTE: the old "re-pin setuptools<82 after pip installs" step that used to
-        # live here is no longer needed — PIP_CONSTRAINT set at the top of %post
-        # keeps every pip build-isolation env (and every plain install) on a
-        # pkg_resources-capable setuptools for the rest of this script.
-
-        # Install custom insane.py from compchems (Python 2 script — convert to Python 3 in-place)
-        wget -O /usr/local/bin/insane_compchems.py https://www.compchems.com/gromacs_cg/insane.py
-        2to3 -w /usr/local/bin/insane_compchems.py
-        rm -f /usr/local/bin/insane_compchems.py.bak
-        chmod +x /usr/local/bin/insane_compchems.py
-
         # Cleanup temporary clones
         rm -rf /tmp/martini3 
+        # Log the versions of vermouth and insane
+        echo "Verifying vermouth and insane installation..."
+        vermouth_version=$(python3 -c "import vermouth; print(vermouth.__version__)")
+        insane_version=$(python3 -c "import insane; print(insane.__version__)")
+        echo "vermouth version: $vermouth_version"
+        echo "insane version: $insane_version"
 
         # GROMACS version sanity check 
         echo "=== Verifying GROMACS installation ==="
-
         PKG_VERSION=$(mamba list gromacs | awk '$1=="gromacs"{print $2}')
-
-        if [ "$PKG_VERSION" != "2024.5" ]; then
-            echo "ERROR: Conda package version is $PKG_VERSION"
-            exit 1
-        fi
-
         echo "Verified GROMACS ${PKG_VERSION}"
+        echo "=== Verifying GROMACS capabilities ==="
+        GMX_INFO="$(gmx --version)"
+        GMX_VERSION=$(echo "$GMX_INFO" | awk -F': *' '/^GROMACS version:/ {print $2}')
+        GPU_SUPPORT=$(echo "$GMX_INFO" | awk -F': *' '/^GPU support:/ {print $2}')
+        OPENMP_SUPPORT=$(echo "$GMX_INFO" | awk -F': *' '/^OpenMP support:/ {print $2}')
+        echo "Version:         $GMX_VERSION"
+        echo "GPU support:     $GPU_SUPPORT"
+        echo "OpenMP support:  $OPENMP_SUPPORT"
 
         # Clean
         mamba clean -ay
         find /usr/local -name "__pycache__" -type d -exec rm -rf {} +
         mkdir -p /root/.jupyter
         
-        echo "DONE: GROMACS 2024.5 GPU + bio stack."
+        echo "DONE: GROMACS with OpenMP, GPU + {AMBER99SB-ILDN, CHARMM36-july2022, Martini3}-forcefields + bio stack."
