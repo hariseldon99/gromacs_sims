@@ -1,6 +1,6 @@
 # filepath: /home/daneel/gitrepos/gromacs_sims/.config/gromacs_2024.5-GPU.def
 # Updates to the original gromacs_2024.5.def to improve martini3 and charmm support for gromacs, 
-# as well as insane mambrane builder for CG simulations. 
+# as well as COBY mambrane builder for CG simulations. 
 Bootstrap: docker
 From: ubuntu:24.04
 Stage: build
@@ -67,7 +67,7 @@ Stage: build
         export CONDA_OVERRIDE_CUDA=11.8
         # --- FIX: pin setuptools inside pip's PEP 517 *build isolation* envs ---
         # Several legacy scientific sdists (e.g. pandas==1.5.3, hard-pinned by
-        # gmx_MMPBSA's setup.py, and martini3/insane) still `import pkg_resources` at build time.
+        # gmx_MMPBSA's setup.py, and martini3) still `import pkg_resources` at build time.
         # pkg_resources was fully removed from setuptools as of 83.0 (deprecated
         # since 68.0). Pip populates each isolated build env with the newest
         # available setuptools regardless of what's pinned in the outer env, so
@@ -225,16 +225,16 @@ Stage: build
         git clone --depth 1 https://github.com/Martini-Force-Field-Initiative/M3-Lipid-Parameters /tmp/m3lipids || true
         cp /tmp/m3lipids/ITPs/*.itp /usr/local/share/gromacs/top/martini3.ff/
         rm -rf /tmp/m3lipids
-        # Install martinize2/vermouth and insane for coarse graining (pip only — not on conda-forge)
-        pip install --no-cache-dir vermouth insane
+        # Install martinize2/vermouth and COBY for coarse graining (pip only — not on conda-forge)
+        pip install --no-cache-dir vermouth COBY
         # Cleanup temporary clones
         rm -rf /tmp/martini3 
-        # Log the versions of vermouth and insane
-        echo "Verifying vermouth and insane installation..."
+        # Log the versions of vermouth and COBY
+        echo "Verifying vermouth and COBY installation..."
         vermouth_version=$(python3 -c "import vermouth; print(vermouth.__version__)")
-        insane_version=$(python3 -c "import insane; print(insane.__version__)")
+        COBY_version=$(python3 -c "import COBY; print(COBY.__version__)")
         echo "vermouth version: $vermouth_version"
-        echo "insane version: $insane_version"
+        echo "COBY version: $COBY_version"
 
         # GROMACS version sanity check 
         echo "=== Verifying GROMACS installation ==="
