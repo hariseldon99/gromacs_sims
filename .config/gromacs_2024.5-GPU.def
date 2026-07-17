@@ -57,10 +57,7 @@ Stage: build
             --ip=0.0.0.0 --port=8888 --no-browser --allow-root \
             --NotebookApp.token='' --NotebookApp.password='' \
             --ServerApp.token='' --ServerApp.password='' \
-            "$@"
-    elif [ "$1" = "vmd2" ]; then
-        shift
-        exec vmd -e /usr/local/lib/vmd/scripts/vmd/cg_bonds-v6.tcl "$@"        
+            "$@"      
     else
         /bin/bash "$@"
     fi
@@ -87,9 +84,7 @@ Stage: build
         apt-get install -y --no-install-recommends \
                 build-essential wget ca-certificates git dos2unix zsh \
                 dvipng texlive-latex-extra texlive-fonts-recommended cm-super \
-                libxrender1 libxext6 libsm6 libice6 neovim \
-                make csh libgl1-mesa-dev libglu1-mesa-dev \
-                libxft2 libxinerama1 tcl-dev tk-dev g++ 
+                libxrender1 libxext6 libsm6 libice6 neovim  
 
         # Miniforge (conda) install — pinned to a specific release for reproducibility
         MINIFORGE_VERSION="26.3.2-3"
@@ -172,7 +167,7 @@ Stage: build
                 jupyterlab-code-formatter \
                 biobb-common biobb-chemistry biobb-io biobb-model \
                 biobb-structure-checking biobb-structure-utils biobb-analysis biobb-gromacs
-
+        
         # gmx_MMPBSA installed separately with --no-deps: its setup.py hard-pins
         # numpy==1.26.4/pandas==1.5.3/matplotlib==3.7.3/scipy==1.14.1/mpi4py==4.0.1
         # for the maintainers' own reproducibility, not because those exact
@@ -255,25 +250,6 @@ Stage: build
         echo "Version:         $GMX_VERSION"
         echo "GPU support:     $GPU_SUPPORT"
         echo "OpenMP support:  $OPENMP_SUPPORT"
-
-        # Finally, gonna try to install vmd2 and set it up for CG simulations
-        # via martiniglass 
-        wget https://www.ks.uiuc.edu/Research/vmd/alpha/vmd-2.0.1a1.bin.LINUXAMD64.tar.gz -O /tmp/vmd2.tar.gz
-        tar -xzf /tmp/vmd2.tar.gz -C /tmp
-        cd /tmp/vmd-2.0.1a1
-        ./configure
-        cd src
-        make install
-        cd ../.. && rm -rf vmd-1.9.4a57*
-        
-        # See https://martiniglass.readthedocs.io/en/latest/introduction.html#installation for the meaning of all this
-        pip install --no-cache-dir martiniglass
-
-        wget https://raw.githubusercontent.com/Martini-Force-Field-Initiative/MartiniGlass/refs/heads/main/martiniglass/data/cg_bonds-v6.tcl -O /usr/local/lib/vmd/scripts/vmd/cg_bonds-v6.tcl
-
-        # Setup vmd so it automatically loads the cg_bonds-v6.tcl script for CG simulations: create a system executable named vmd2 that forwards all arguments
-        printf '#!/bin/sh\nexec vmd -e /usr/local/lib/vmd/scripts/vmd/cg_bonds-v6.tcl "$@"\n' > /usr/local/bin/vmd2
-        chmod +x /usr/local/bin/vmd2
 
         # Clean
         mamba clean -ay
