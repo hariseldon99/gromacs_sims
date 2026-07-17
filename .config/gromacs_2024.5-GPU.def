@@ -26,6 +26,8 @@ Stage: build
         singularity run --nv <image>.sif
     GROMACS:
         singularity run --nv <image>.sif gmx mdrun -s topol.tpr
+    VMD:
+        singularity run --nv <image>.sif vmd2
     Run a command or script:
         singularity run --nv <image>.sif my_script.sh arg1 arg2
 %files
@@ -56,6 +58,9 @@ Stage: build
             --NotebookApp.token='' --NotebookApp.password='' \
             --ServerApp.token='' --ServerApp.password='' \
             "$@"
+    elif [ "$1" = "vmd2" ]; then
+        shift
+        exec vmd -e /usr/local/lib/vmd/scripts/vmd/cg_bonds-v6.tcl "$@"        
     else
         /bin/bash "$@"
     fi
@@ -82,9 +87,9 @@ Stage: build
         apt-get install -y --no-install-recommends \
                 build-essential wget ca-certificates git dos2unix zsh \
                 dvipng texlive-latex-extra texlive-fonts-recommended cm-super \
-                libxrender1 libxext6 libsm6 libice6
-        apt-get clean
-        rm -rf /var/lib/apt/lists/*
+                libxrender1 libxext6 libsm6 libice6 neovim \
+                make csh libgl1-mesa-dev libglu1-mesa-dev \
+                libxft2 libxinerama1 tcl-dev tk-dev g++ 
 
         # Miniforge (conda) install — pinned to a specific release for reproducibility
         MINIFORGE_VERSION="26.3.2-3"
@@ -226,7 +231,9 @@ Stage: build
         cp /tmp/m3lipids/ITPs/*.itp /usr/local/share/gromacs/top/martini3.ff/
         rm -rf /tmp/m3lipids
         # Install martinize2/vermouth and COBY for coarse graining (pip only — not on conda-forge)
-        pip install --no-cache-dir vermouth COBY
+        # Check out prolint: https://prolint2.readthedocs.io/en/latest/
+        # Checkout cg2at (backmapping): https://cgmartini.nl/docs/tutorials/Martini3/cg2at/
+        pip install --no-cache-dir vermouth COBY prolint cg2at
         # Cleanup temporary clones
         rm -rf /tmp/martini3 
         # Log the versions of vermouth and COBY
@@ -248,6 +255,25 @@ Stage: build
         echo "Version:         $GMX_VERSION"
         echo "GPU support:     $GPU_SUPPORT"
         echo "OpenMP support:  $OPENMP_SUPPORT"
+
+        # Finally, gonna try to install vmd2 and set it up for CG simulations
+        # via martiniglass 
+        wget https://www.ks.uiuc.edu/Research/vmd/alpha/vmd-2.0.1a1.bin.LINUXAMD64.tar.gz -O /tmp/vmd2.tar.gz
+        tar -xzf /tmp/vmd2.tar.gz -C /tmp
+        cd /tmp/vmd-2.0.1a1
+        ./configure
+        cd src
+        make install
+        cd ../.. && rm -rf vmd-1.9.4a57*
+        
+        # See https://martiniglass.readthedocs.io/en/latest/introduction.html#installation for the meaning of all this
+        pip install --no-cache-dir martiniglass
+
+        wget https://raw.githubusercontent.com/Martini-Force-Field-Initiative/MartiniGlass/refs/heads/main/martiniglass/data/cg_bonds-v6.tcl -O /usr/local/lib/vmd/scripts/vmd/cg_bonds-v6.tcl
+
+        # Setup vmd so it automatically loads the cg_bonds-v6.tcl script for CG simulations: create a system executable named vmd2 that forwards all arguments
+        printf '#!/bin/sh\nexec vmd -e /usr/local/lib/vmd/scripts/vmd/cg_bonds-v6.tcl "$@"\n' > /usr/local/bin/vmd2
+        chmod +x /usr/local/bin/vmd2
 
         # Clean
         mamba clean -ay
