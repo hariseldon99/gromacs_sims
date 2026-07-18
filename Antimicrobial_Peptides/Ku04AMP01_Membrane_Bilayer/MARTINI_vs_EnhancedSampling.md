@@ -1,863 +1,1401 @@
-# MARTINI CG vs. Enhanced Sampling Methods for KU04AMP01 Translocation
+# KU04AMP01–Gram-negative Inner Membrane Coarse-Grained MD Simulation
 
-## Background
-
-Spontaneous peptide translocation across a lipid bilayer occurs on the µs–ms timescale,
-well beyond what unbiased atomistic CHARMM36 MD can reach at 150–250 ns/day on a V100 GPU.
-This document compares four approaches for accessing translocation within a feasible compute
-budget, with specific attention to the G-IM system composition and KU04AMP01's sequence.
+> **Martini 3 / GROMACS workflow for simulating the antimicrobial peptide KU04AMP01 interacting with a physiologically representative *Escherichia coli* Gram-negative inner membrane.**
 
 ---
 
-## The Core Trade-off
+## Table of Contents
 
-All four methods sacrifice something to compress time. They differ in *what* is sacrificed:
-free-energy accuracy, mechanistic detail, reaction-coordinate assumptions, or physical
-realism of the force field.
+- [KU04AMP01–Gram-negative Inner Membrane Coarse-Grained MD Simulation](#ku04amp01gram-negative-inner-membrane-coarse-grained-md-simulation)
+  - [Table of Contents](#table-of-contents)
+    - [Appendices](#appendices)
+- [Overview](#overview)
+- [Scientific Background](#scientific-background)
+- [Simulation Strategy](#simulation-strategy)
+- [Membrane Composition](#membrane-composition)
+- [Lipid Substitutions](#lipid-substitutions)
+  - [Motivation](#motivation)
+  - [Design principles](#design-principles)
+  - [Final substitutions](#final-substitutions)
+- [Final Martini 3 Membrane Composition](#final-martini-3-membrane-composition)
+- [Workflow](#workflow)
+  - [1. Prepare the Peptide Structure](#1-prepare-the-peptide-structure)
+    - [Objective](#objective)
+    - [Remove hydrogen atoms](#remove-hydrogen-atoms)
+    - [Orient the peptide](#orient-the-peptide)
+    - [Expected output](#expected-output)
+- [2. Generate the Martini 3 Peptide](#2-generate-the-martini-3-peptide)
+    - [Objective](#objective-1)
+    - [Expected output](#expected-output-1)
+- [3. Position the Peptide](#3-position-the-peptide)
+    - [Objective](#objective-2)
+    - [Expected output](#expected-output-2)
+- [4. Construct the Membrane](#4-construct-the-membrane)
+    - [Objective](#objective-3)
+  - [4.1 Prepare the topology includes](#41-prepare-the-topology-includes)
+  - [4.2 Generate TOCL coordinates](#42-generate-tocl-coordinates)
+    - [Expected output](#expected-output-3)
+  - [4.3 Build the membrane](#43-build-the-membrane)
+    - [Expected output](#expected-output-4)
+- [5. Create the Index File](#5-create-the-index-file)
+    - [Objective](#objective-4)
+    - [Expected output](#expected-output-5)
+- [6. Energy Minimization](#6-energy-minimization)
+    - [Objective](#objective-5)
+    - [Expected output](#expected-output-6)
+- [7. Equilibration](#7-equilibration)
+    - [Objective](#objective-6)
+    - [Expected output](#expected-output-7)
+- [8. Production Molecular Dynamics](#8-production-molecular-dynamics)
+    - [Objective](#objective-7)
+    - [Expected output](#expected-output-8)
+  - [Simulation Parameters](#simulation-parameters)
+  - [Project Notes](#project-notes)
+    - [Elastic network](#elastic-network)
+    - [Membrane composition](#membrane-composition-1)
+    - [Deprecated topologies](#deprecated-topologies)
+    - [Coordinate generation](#coordinate-generation)
+    - [Simulation protocol](#simulation-protocol)
+  - [Limitations](#limitations)
+  - [References](#references)
+  - [Citation](#citation)
+  - [Acknowledgements](#acknowledgements)
+- [Appendix A — Comparison of Enhanced Sampling Methods](#appendix-a--comparison-of-enhanced-sampling-methods)
+- [Overview](#overview-1)
+- [Scientific Objective](#scientific-objective)
+- [Candidate Simulation Strategies](#candidate-simulation-strategies)
+- [Atomistic Molecular Dynamics](#atomistic-molecular-dynamics)
+- [Umbrella Sampling](#umbrella-sampling)
+  - [Advantages](#advantages)
+  - [Limitations](#limitations-1)
+- [Steered Molecular Dynamics](#steered-molecular-dynamics)
+  - [Advantages](#advantages-1)
+  - [Limitations](#limitations-2)
+- [Metadynamics](#metadynamics)
+  - [Advantages](#advantages-2)
+  - [Limitations](#limitations-3)
+- [Martini 3 Coarse-Grained Molecular Dynamics](#martini-3-coarse-grained-molecular-dynamics)
+- [Advantages for the Present Study](#advantages-for-the-present-study)
+- [Why Unbiased Martini 3 Was Chosen](#why-unbiased-martini-3-was-chosen)
+- [Future Directions](#future-directions)
+- [Conclusions](#conclusions)
+- [Appendix B — Lipid Substitutions and Cyclopropane Lipid Parameterization](#appendix-b--lipid-substitutions-and-cyclopropane-lipid-parameterization)
+- [Overview](#overview-2)
+- [Native Membrane Composition](#native-membrane-composition)
+- [The Cyclopropane Problem](#the-cyclopropane-problem)
+- [Why Custom Parameters Were Not Used](#why-custom-parameters-were-not-used)
+- [Design Criteria](#design-criteria)
+- [Candidate Replacement Strategies](#candidate-replacement-strategies)
+- [Why Saturated Lipids Were Rejected](#why-saturated-lipids-were-rejected)
+- [Adopted Lipid Substitutions](#adopted-lipid-substitutions)
+- [Rationale for Individual Substitutions](#rationale-for-individual-substitutions)
+  - [PMPE → DVPE](#pmpe--dvpe)
+  - [QMPE → POPE](#qmpe--pope)
+  - [OYPE → DOPE](#oype--dope)
+  - [PMPG and PYPG → POPG](#pmpg-and-pypg--popg)
+  - [PVCL2 → TOCL](#pvcl2--tocl)
+- [Consequences of the Substitutions](#consequences-of-the-substitutions)
+- [Future Improvements](#future-improvements)
+- [Conclusions](#conclusions-1)
+- [Appendix C — Repository Maintenance Notes and Deprecated Topologies](#appendix-c--repository-maintenance-notes-and-deprecated-topologies)
+- [Overview](#overview-3)
+- [Development Strategy](#development-strategy)
+- [Custom Lipid Topologies](#custom-lipid-topologies)
+- [COBY Compatibility Issues](#coby-compatibility-issues)
+- [Manual TOCL Coordinate Generation](#manual-tocl-coordinate-generation)
+- [Current Production Workflow](#current-production-workflow)
+- [Deprecated Files](#deprecated-files)
+- [Recommendations for Future Development](#recommendations-for-future-development)
+- [Conclusions](#conclusions-2)
 
----
+### Appendices
 
-## Method-by-Method Analysis
-
-### 1. Steered MD (SMD / Constant-Velocity Pulling)
-
-Pull KU04AMP01 along the membrane normal (Z) at a constant velocity using a harmonic spring
-(`pull = umbrella` in GROMACS MDP).
-
-**Pros:**
-- Simplest to set up — one extra `pull` block in the MDP
-- Fast: a single pulling run takes 1–5 ns
-- Immediately visualises a translocation pathway
-
-**Cons for this system:**
-- Pulling velocity is always orders of magnitude faster than biology. For a 36-residue
-  flexible peptide with Pro/Gly break-points, the backbone does not have time to rearrange —
-  you drag a misfolded structure through the membrane.
-- Work measured by Jarzynski's equality converges very slowly for a large, flexible solute.
-  Dozens to hundreds of trajectories are needed for a reliable ΔG; error bars remain large.
-- Severely overestimates the free energy barrier because lateral peptide–lipid rearrangement
-  is suppressed.
-- Best used only for generating seed configurations for umbrella sampling windows, not as a
-  standalone answer.
-
-**Verdict:** Pathway-generation tool only. Do not use for energetics.
-
----
-
-### 2. Umbrella Sampling (US)
-
-Generate a series of configurations at evenly spaced Z positions (via SMD), restrain the
-peptide at each with a harmonic bias, run independent simulations at each window, then
-reconstruct the potential of mean force (PMF) with WHAM or MBAR.
-
-**Pros:**
-- Gold standard for translocation PMFs — widely published for AMPs
-- Statistical error is controllable and quantifiable
-- Works directly with CHARMM36, preserving all atomistic detail
-
-**Cons for this system:**
-- The 1D Z reaction coordinate is valid only if the peptide inserts stiffly and axially.
-  KU04AMP01 has two Pro and two Gly break-points (residues 14–21, 26) and is likely to
-  tilt, bend, or lie flat at intermediate depths. A 1D Z PMF mixes physically distinct
-  configurations into the same window — a well-known artefact for flexible AMPs.
-- Window count: ~40–60 windows at 0.2 nm spacing × 50–200 ns each =
-  **2,000–12,000 ns of total compute time** → 8–80 GPU-days on a V100.
-- Hysteresis between insertion and extraction directions is common for amphipathic peptides.
-- Managing 40–60 parallel `pull` jobs and converging WHAM is operationally complex.
-
-**Verdict:** Most rigorous free-energy method available, but the 1D reaction coordinate is a
-genuine scientific concern for a flexible peptide, and the compute cost is the highest of all
-four approaches.
-
----
-
-### 3. Metadynamics (Well-Tempered / PLUMED)
-
-Deposit Gaussian bias hills along one or more collective variables (CVs) — typically Z
-distance and optionally a tilt or secondary-structure CV — to accelerate escape from
-free-energy minima. Implemented via PLUMED, natively supported by GROMACS.
-
-**Pros:**
-- Does not require a pre-defined pathway; the system finds its own route.
-- Well-tempered metadynamics (WTmetaD) converges to the true free energy surface.
-- 2D CVs (Z + helix tilt, or Z + buried hydrophobic SASA) can capture conformational changes
-  simultaneously with translocation.
-- Funnel metadynamics or parallel-tempering WTmetaD (PT-WTmetaD) improve convergence
-  further.
-
-**Cons for this system:**
-- CV choice is critical. A poor CV gives a PMF that is converged but physically meaningless.
-  For a 36-residue disordered peptide, no single pair of CVs fully captures conformational
-  space.
-- Hill-filling convergence time is hard to predict a priori: 500 ns to 5 µs depending on
-  barrier height and CV quality.
-- PT-WTmetaD and funnel metadynamics add significant setup complexity.
-- At CHARMM36 resolution, confident PMF convergence likely still requires multi-µs runs.
-
-**Verdict:** Scientifically the most flexible of the three enhanced-sampling atomistic
-methods (especially with 2D CVs), but CV design is non-trivial for a flexible peptide
-and convergence monitoring is burdensome.
-
----
-
-### 4. MARTINI 3 Coarse-Grained MD (Unbiased)
-
-Reduce the ~45,000-atom system to ~11,000 CG beads (≈4:1 heavy-atom mapping). Combined with
-a 20 fs timestep and a smoother energy landscape, the effective speedup is ~100×:
-
-$$t_{\text{CG/day}} \approx 150\text{–}250 \frac{\text{ns}}{\text{day}} \times 100 \approx 15\text{–}25\ \mu\text{s/day}$$
-
-At 15 µs/day, a 10 µs translocation trajectory takes < 1 day. This makes spontaneous,
-unforced translocation genuinely accessible.
-
-**Pros:**
-- **No reaction coordinate needed** — the single most important advantage for a flexible,
-  disordered peptide.
-- Captures multiple translocation events per run, providing ensemble statistics and pathway
-  diversity rather than a single forced trajectory.
-- Lateral lipid rearrangement, peptide bending, and membrane thinning all happen naturally.
-- Can be combined with backmapping to CHARMM36 for atomic-resolution analysis of key
-  intermediates.
-
-**Cons for this system:**
-- **Cyclopropane-chain lipids (cy17:0) have no official MARTINI 3 parameters** in the
-  M3-Lipid-Parameters release (Pedersen et al. 2025). PMPE, QMPE, and PMPG
-  (68 of 100 lipids per leaflet) cannot be used directly. See workaround below.
-- MARTINI tends to underestimate the free-energy penalty for charged residues crossing the
-  membrane core, so translocation barriers may be lower than in reality. The Asp and Glu
-  residues on KU04AMP01 are most affected.
-- Backbone secondary structure must be constrained via an elastic network (ElNeDyn)
-  [(Periole et al. 2009)](https://doi.org/10.1021/ct9002114); helix-coil transitions during
-  insertion are artificially restricted.
-- Free energies are qualitative — reporting ΔG‡ in kJ/mol requires extensive validation.
+- [Appendix A — Comparison of Enhanced Sampling Methods](#appendix-a-comparison-of-enhanced-sampling-methods)
+- [Appendix B — Lipid Substitutions and cy17:0 Parameterization](#appendix-b-lipid-substitutions-and-cy17:0-parameterization)
+- [Appendix C — Historical Notes and Deprecated Topologies](appendix-c-historical-notes-and-deprecated-topologies)
 
 ---
 
-## The Cyclopropane Problem and Workaround
+# Overview
 
-Three of the seven G-IM lipid species contain **cy17:0** (cyclopropane) acyl chains, for
-which MARTINI 3 has no validated bead type. These account for 68 of the 100 lipids per
-leaflet. cy17:0 (cis-9,10-methylene-hexadecanoic acid) is a 17-carbon fatty acid bearing a
-cyclopropane ring at C9–C10 derived biosynthetically from cis-vaccenic acid (18:1Δ11)
-[(Grogan & Cronan 1997)](https://doi.org/10.1128/mr.61.4.429-441.1997).
+This repository contains all files required to reproduce coarse-grained molecular dynamics simulations of the 36-residue antimicrobial peptide **KU04AMP01** interacting with a physiologically representative **Gram-negative inner membrane (G-IM)** of *Escherichia coli* using the **Martini 3** coarse-grained force field.
 
-| G-IM Lipid | cy17:0 species | Replace with | MARTINI 3 name |
-|---|---|---|---|
-| PMPE (16:0/cy17:0) | cy17:0 | dipalmitoyl (16:0/16:0) | `DPPE` |
-| QMPE (15:0/cy17:0) | cy17:0 | dipentadecanoyl → dipalmitoyl (approx) | `DPPE` |
-| PMPG (16:0/cy17:0) | cy17:0 | dipalmitoyl (16:0/16:0) | `DPPG` |
+The workflow includes
 
-> **Note on QMPE sn1 chain identity**: "15:0" (pentadecanoic acid) is fully saturated;
-> however the custom QMPE topology assigns a D3/double-bond bead to the sn1 chain. If
-> QMPE truly contains 15:0 on sn1, the D3 bead is incorrect. This ambiguity should be
-> resolved before use.
+- coarse-graining of the peptide using **martinize2**,
+- construction of a heterogeneous seven-lipid membrane using **COBY**,
+- preparation of GROMACS topologies,
+- equilibration,
+- long unbiased production simulations.
 
-**Availability in the Singularity image's M3-Lipid-Parameters (Pedersen et al. 2025):**
-
-| Lipid | Available? | Notes |
-|---|---|---|
-| POPE | **Yes** | `martini_v3.0.0_phospholipids_PE_v2.itp` |
-| PYPG | **Yes** | `martini_v3.0.0_phospholipids_PG_v2.itp` (16:0/16:1∆9-PG) |
-| DPPE | **Yes** | `martini_v3.0.0_phospholipids_PE_v2.itp` — **gel phase at 37°C; do not use as cy17:0 substitute** |
-| DPPG | **Yes** | `martini_v3.0.0_phospholipids_PG_v2.itp` — **near Tm at 37°C; avoid** |
-| DVPE | **Yes** | di-C18:1Δ11 (cis-vaccenic) PE in PE ITP |
-| DVPG | **Yes** | di-C18:1Δ11 (cis-vaccenic) PG in PG ITP |
-| OYPE | **No** | Not in M3-Lipid-Parameters. **YOPE** (16:1∆9/18:1∆9-PE, sn1/sn2 swapped) is available |
-| PVCL2 | **Likely** | Cardiolipin ITP (`martini_v3.0.0_phospholipids_CL_v2.itp`) exists; verify exact residue name |
-| PMPE, QMPE, PMPG | **No** | Not in any official release; cy17:0 unparameterized |
+The simulation protocol was developed as a computationally tractable alternative to multi-microsecond atomistic CHARMM36 simulations while preserving the essential membrane physics relevant to peptide adsorption and spontaneous membrane insertion.
 
 ---
 
-### ⚠️ Phase Behaviour Warning: DPPE/DPPG Is the Wrong Substitute for a Translocation Study
+# Scientific Background
 
-The DPPE/DPPG substitution listed above is **not safe** for a peptide translocation study.
-Replacing 68% of the membrane with gel-forming lipids will give a false-negative result —
-the peptide becomes trapped not because of biology, but because the membrane is
-artificially frozen.
+Spontaneous translocation of antimicrobial peptides across bacterial membranes typically occurs on the **microsecond to millisecond** timescale.
 
-**Why DPPE is in the gel phase at simulation temperature.**
-DPPE (16:0/16:0-PE) has a main-phase transition temperature Tm ≈ 63°C; DPPG Tm ≈ 40°C.
-At 310 K (37°C) these lipids are solidly in the **gel (Lβ) phase**, characterised by
-near-all-*trans* packed chains that exclude lateral void space. Substituting 68 of 100
-lipids per leaflet with gel-forming surrogates raises the effective bilayer Tm above
-simulation temperature, making the membrane:
+Although all-atom simulations using CHARMM36 provide excellent structural accuracy, they are generally unable to reach these timescales without enhanced sampling methods.
 
-- ~10-fold less permeable to solutes than a fluid membrane
-- Resistant to the lipid-chain displacement required for peptide insertion
-- Unable to support the membrane thinning and pore nucleation that AMPs exploit
+The Martini 3 coarse-grained force field reduces the number of interaction sites by approximately a factor of four while allowing a larger integration timestep and a smoother effective energy landscape. In practice, this provides roughly two orders of magnitude greater sampling efficiency than atomistic simulations while retaining realistic membrane mechanics and peptide–lipid interactions [1].
 
-The result is the peptide adsorbs but cannot insert — a false-negative that matches
-experiment in outcome but for the wrong reason.
+For the present study this offers three important advantages:
 
-**cy17:0 is physiologically fluid at 37°C.**
-The cyclopropane ring acts as a partial packing disruptor — it reduces fluidity relative
-to its biosynthetic precursor (18:1Δ11, cis-vaccenic acid), but keeps the membrane well
-above the gel transition [(Poger & Mark 2015)](https://doi.org/10.1021/jp5092717).
-The *E. coli* inner membrane is unambiguously in the **liquid-disordered (Ld) phase** at
-37°C regardless of cyclopropane content.
+- spontaneous insertion can be observed without imposing an external reaction coordinate;
+- multiple insertion pathways can be sampled within practical computational cost;
+- membrane deformation, peptide bending and lipid rearrangement emerge naturally during the simulation.
 
-**Recommended substitutions that preserve fluid-phase behaviour:**
-
-cy17:0 is derived biosynthetically from 18:1Δ11 (cis-vaccenic acid) by CFA synthase
-[(Grogan & Cronan 1997)](https://doi.org/10.1128/mr.61.4.429-441.1997), so vaccenic-acid
-chains are the closest biochemically motivated and thermodynamically valid surrogates:
-
-| G-IM Lipid | Preferred substitute | Rationale | MARTINI 3 name |
-|---|---|---|---|
-| PMPE (16:0/cy17:0) | 16:0/18:1Δ11-PE (if available) or POPE | Vaccenic precursor; fluid at 37°C ✓ | `PVPE`\* or `POPE` |
-| QMPE (?/cy17:0) | POPE (16:0/18:1Δ9-PE) | Best available fluid PE; already in composition | `POPE` |
-| PMPG (16:0/cy17:0) | 16:0/18:1Δ11-PG (if available) or PYPG | Vaccenic precursor; fluid ✓ | `PVPG`\* or `PYPG` |
-
-\* `PVPE` and `PVPG` may not exist as named entries; check the ITP files.
-`DVPE` (di-18:1Δ11-PE) and `DVPG` (di-18:1Δ11-PG) are confirmed present and are also
-acceptable fluid-phase surrogates.
-
-**Fallback.** If only symmetric-chain ITPs are convenient, use **POPE** for all PE
-surrogates and **PYPG** for PG surrogates — both already present in the membrane,
-unambiguously fluid at 37°C.
-
-The qualitative ranking of substitution quality:
-
-$$\text{cy17:0-native} > \text{vaccenic (18:1}\Delta11\text{)} > \text{oleoyl (18:1}\Delta9\text{)} \gg \text{dipalmitoyl (16:0/16:0 — gel phase)}$$
-
-Re-parametrizing cy17:0 from scratch using the MARTINI 3 small-molecule workflow
-(QM target data → iterative Boltzmann inversion, Pedersen et al. 2025) is publishable
-work in itself and is not recommended unless cyclopropane specificity is a primary
-scientific question.
-
-
-So, the substitutions chosen for the G-IM membrane composition in martini3:
-   - PMPE: 46 -> DVPE: 46
-   - POPE: 13 -> POPE: 13
-   - QMPE: 12 -> POPE: 12
-   - OYPE: 8 -> YOPE:8
-   - PMPG: 10 -> PYPG: 10
-   - PYPG: 9 -> PYPG:9
-   - PVCL2: 2  -> TOCL:2
-   (counts per leaflet, symmetric bilayer)
-
-The last substitution was suggested by Gemini, since TOCL is a cardiolipin like PVCL. The other cardiolipin available with martini3 is TMCL, but that is a gel phase at temperature.
-
-Note however, two problems that arose while membrane building. COBY the membrane builder is buggy with PYPG and TOCL. So I substituted PYPG with equivalent POPG and for TOCL Gemini made a compatible gro file to insert manually.
-
-**Final martini3 membrane composition**
-
-
-| Lipid name  | Counts per Leaflet | martini itp file name |                  
-|---|---|---|
-| DVPE | 46 | martini_v3.0.0_phospholipids_PG_v2.itp |
-| POPG | 19 | <-------------do---------------------> |
-| POPE | 25 | martini_v3.0.0_phospholipids_PE_v2.itp |
-| DOPE | 8  | <-------------do---------------------> |
-| TOCL | 2  | martini_v3.0.0_phospholipids_CL_v2.itp |
+A detailed comparison with umbrella sampling, steered molecular dynamics and metadynamics is provided in **[Appendix A](#appendix-a-comparison-of-enhanced-sampling-methods).**
 
 ---
 
-## Comparison Summary
+# Simulation Strategy
 
-| Method | Compute cost (V100) | Free-energy accuracy | Reaction coord needed | Handles peptide flexibility | cy17:0 issue |
-|---|---|---|---|---|---|
-| Steered MD | Very low (1–5 ns) | Poor | Yes (Z) | Poor | None |
-| Umbrella sampling | Very high (8–80 GPU-days) | High (if CV is right) | Yes (Z) | Poor for flexible peptides | None |
-| Metadynamics | High (0.5–5 µs) | Moderate–high | Yes (2D helps) | Moderate | None |
-| **MARTINI CG** | **Low (1–2 GPU-days / 10 µs)** | Qualitative | **No** | **Good** | Substitute DPPE/DPPG |
+The overall workflow is
+
+```text
+Atomistic peptide
+        │
+        ▼
+martinize2
+        │
+        ▼
+Coarse-grained peptide
+        │
+        ▼
+COBY membrane construction
+        │
+        ▼
+Energy minimization
+        │
+        ▼
+NPT equilibration
+        │
+        ▼
+Unbiased production simulation
+```
+
+Only validated Martini 3 lipid parameters are used in the final production system.
+
+Several custom lipid topologies explored during method development are retained only for documentation purposes and **must not** be used for production simulations. Their history is described in **[Appendix C](appendix-c-historical-notes-and-deprecated-topologies).**
 
 ---
 
-## Practical Recommendation
+# Membrane Composition
 
-**For a first-pass translocation study within a 1–2 week compute window**, the MARTINI CG
-approach (Stage 1 alone) is the most cost-effective choice. It does not require prior
-knowledge of the translocation pathway, handles KU04AMP01's flexibility naturally, and
-runs to completion within 3 GPU-days. Backmapping (Stage 2) adds < 1 GPU-day per
-intermediate and is always worthwhile. Stage 3 (metadynamics PMF) is recommended only if
-a peer-review-quality quantitative free-energy estimate is required.
+The target membrane is a heterogeneous model of the ***E. coli* Gram-negative inner membrane (G-IM)** containing seven lipid species.
 
-**Initial Conditions** The all-atom CHARMM-ff simulation seems to indicate adsorption in a 50 ns time window.
-Initial conditions are established by an external webtool for membrane alignment, followed by insertion using `COBY` membrane builder.
-The immersed peptide had to be translated manually to ensure that it was above the membrane. The charged N-terminal was kept pointing towards the phospholipid layer in the outer leaflet to facilitate attraction.
+| Native lipid | Count / leaflet |
+|--------------|---------------:|
+| PMPE | 46 |
+| POPE | 13 |
+| QMPE | 12 |
+| OYPE | 8 |
+| PMPG | 10 |
+| PYPG | 9 |
+| PVCL2 | 2 |
 
-**MD Parameters**
-The gromacs `.mdp` files are enclosed, and the parameters optimized according to established phenomenology (see refs). Also, see comments in the `.mdp` files.
-
-# Coarse-Grained MD Setup: *E. coli* Inner Membrane with KU04 Peptide
-
-This repository contains the workflow, coordinate construction steps, and custom topology topologies required to simulate a physiologically accurate, seven-lipid *Escherichia coli* inner membrane containing an embedded 36-residue KU04 peptide using the **Martini 3 Coarse-Grained Force Field**.
+The bilayer is symmetric, giving twice these numbers in the complete simulation box.
 
 ---
-## 🛠️ Step-by-Step Execution Workflow
-### Step 1: Coarse-Grain the KU04 Peptide
 
-First, clean out the hydrogens in the peptide. They're lost while coarse-graining anyways
+# Lipid Substitutions
+
+## Motivation
+
+Three native membrane lipids contain **cyclopropane fatty acids (cy17:0)**.
+
+At the time of writing, the official Martini 3 lipid parameter library does **not** include validated parameters for cyclopropane-containing phospholipids [2].
+
+Consequently, direct coarse-grained representations of
+
+- PMPE,
+- QMPE,
+- PMPG,
+
+are unavailable.
+
+The objective of the substitutions described below is therefore **not** to reproduce cyclopropane chemistry exactly, but to preserve the physical state of the membrane while remaining entirely within validated Martini 3 parameters.
+
+A detailed discussion of this problem, together with alternative substitution strategies that were considered and rejected, is given in **[Appendix B](#appendix-b-lipid-substitutions-and-cy17:0-parameterization).**
+
+---
+
+## Design principles
+
+The substitutions were selected according to four criteria.
+
+1. Preserve the liquid-disordered phase at 310 K.
+
+2. Preserve overall phospholipid headgroup composition.
+
+3. Minimize perturbation of membrane charge.
+
+4. Use only officially parameterized Martini 3 lipids.
+
+Substitutions that introduced gel-phase lipids (for example DPPE or DPPG) were rejected because they artificially suppress membrane insertion by substantially increasing bilayer order (Appendix B).
+
+---
+
+## Final substitutions
+
+| Native lipid | Martini 3 substitute | Rationale |
+|--------------|---------------------|-----------|
+| PMPE | DVPE | Vaccenic-acid analogue; preserves membrane fluidity |
+| QMPE | POPE | Closest validated PE lipid available |
+| OYPE | DOPE | Closest validated unsaturated PE lipid compatible with COBY workflow |
+| PMPG | POPG | Used to avoid current COBY incompatibilities with PYPG |
+| PYPG | POPG | Equivalent PG used throughout membrane construction |
+| PVCL2 | TOCL | Validated Martini cardiolipin with manually generated coordinates |
+
+The substitution of **POPG** for **PYPG** is an implementation workaround for current COBY limitations rather than a force-field limitation.
+
+Likewise, **TOCL** coordinates are supplied externally because COBY does not currently construct this lipid correctly.
+
+These workarounds affect coordinate generation only; all production simulations employ standard Martini 3 interaction parameters.
+
+---
+
+# Final Martini 3 Membrane Composition
+
+The production membrane contains the following lipid composition per leaflet.
+
+| Martini lipid | Count |
+|---------------|------:|
+| DVPE | 46 |
+| POPG | 19 |
+| POPE | 25 |
+| DOPE | 8 |
+| TOCL | 2 |
+
+The membrane is constructed as a symmetric bilayer.
+
+---
+# Workflow
+
+This section describes the complete procedure used to prepare, equilibrate, and simulate the coarse-grained KU04AMP01–membrane system.
+
+The workflow consists of
+
+1. Preparing the peptide structure.
+2. Generating the Martini 3 coarse-grained peptide.
+3. Constructing the membrane using COBY.
+4. Assembling the complete simulation system.
+5. Energy minimization.
+6. Equilibration.
+7. Production molecular dynamics.
+
+---
+
+## 1. Prepare the Peptide Structure
+
+### Objective
+
+Prepare a hydrogen-free peptide structure suitable for Martini coarse-graining and orient it with respect to the membrane.
+
+### Remove hydrogen atoms
+
+Remove hydrogen atoms and terminal OXT atoms before coarse-graining.
 
 ```bash
 grep -v -E " H   | H[A-Z]| OXT" KU04AMP01.pdb > KU04AMP01_clean.pdb
 ```
 
-Align the peptide so that it is properly aligned along the z axis. This alignment is crucial for the subsequent simulation. The N-terminus must be facing downward towards the phospholipids, as the opposite charges will attract, facilitating membrane insertion.
+> **Note**
+>
+> Hydrogen atoms and terminal OXT atoms are discarded during Martini mapping and therefore should be removed before running `martinize2`.
 
-We can do this using the [OPM web server](https://opm.phar.umich.edu/ppm_server2_cgopm). There, upload the clean PDB and hit submit  after setting setting `Topology (N-ter)` to `in` *i.e.* down. You’ll be directed to a page where you’ll need to wait a few minutes. Eventually, you’ll be able to download the oriented protein structure, which you can safely overwrite into the `KU04AMP01_clean.pdb` locally. Remove the dummy membrane atoms that OPM added by 
+---
+
+### Orient the peptide
+
+Orient the peptide with respect to the membrane normal before coarse-graining. In this work, the orientation was obtained using the **PPM server** of the **Orientations of Proteins in Membranes (OPM)** database (Lomize *et al.*, 2012) [8].
+
+Recommended settings:
+
+- Upload `KU04AMP01_clean.pdb`
+- Set **Topology (N-ter)** to **in**
+- Leave all remaining settings at their defaults.
+
+After downloading the oriented structure, overwrite
+
+```text
+KU04AMP01_clean.pdb
+```
+
+Remove the dummy membrane atoms inserted by OPM.
 
 ```bash
 grep -v HETATM KU04AMP01_clean.pdb > temp.pdb
 mv temp.pdb KU04AMP01_clean.pdb
 ```
 
-Next, run `martinize2` to coarse-grain the peptide.
+> **Note**
+>
+> The peptide was oriented with its positively charged N-terminus facing the membrane to reproduce the initial adsorption geometry used in the preceding all-atom CHARMM36 simulations.
 
-```bash
-martinize2 -f KU04AMP01_clean.pdb \
-           -dssp $MKDSSP \
-           -nt -cys auto -p backbone -sep \
-           -ff martini3001 -elastic \
-           -x KU04AMP01_cg.pdb -o KU04.top \
-           -scfix -ef 500.0 -el 0.5 -eu 0.9 -ea 0 -ep 0 -maxwarn 5
-```
-Note that membrane builder COBY places the protein inside the membrane by default. also by default, COBY centers the flat membrane bilayer precisely in the middle of your box’s \(Z\)-dimension. With box=[14, 14, 14], the membrane center sits at \(Z = 7.0\text{ nm}\). A standard Martini 3 bilayer spans roughly \(4\text{ nm}\) total thickness, meaning your upper phosphate headgroup leaflet will sit at approximately \(Z \approx 9.0\text{ nm}\). So if you want to start the peptide above the membrane, you'll need to editconf the pdb and move the molecule up by the requisite amount:
+### Expected output
 
-```bash
-gmx editconf -f KU04AMP01_cg.pdb -o KU04AMP01_cg_shifted.pdb -translate 0 0 4.5
+```text
+KU04AMP01_clean.pdb
 ```
 
-martinize2 also create a bare topology file KU04.top that transcludes the CG-itp file. If you want, you can systematically change the default name (molecule_0) to the peptide name (KU04).
+---
 
-Change the transclusion of the martini itp file to 
+# 2. Generate the Martini 3 Peptide
+
+### Objective
+
+Generate a Martini 3 representation of the peptide using `martinize2`.
+
+Run
 
 ```bash
-#include <martini-ff-dir>/martini_v3.0.0.itp
+martinize2 \
+    -f KU04AMP01_clean.pdb \
+    -dssp $MKDSSP \
+    -nt \
+    -cys auto \
+    -p backbone \
+    -sep \
+    -ff martini3001 \
+    -elastic \
+    -x KU04AMP01_cg.pdb \
+    -o KU04.top \
+    -scfix \
+    -ef 500.0 \
+    -el 0.5 \
+    -eu 0.9 \
+    -ea 0 \
+    -ep 0 \
+    -maxwarn 5
 ```
-Note that you need not include the full absolute path if the directory is in `$PWD` or the standard gromacs topology directory. For visualization, however, it is best to put the absolute path.
 
-For visualization, install `martiniglass` outside the sif image (didn;t wanna bloat it) and folow the instructions [in their docs](https://martiniglass.readthedocs.io/). Note that you can supply `cg_bonds` with your martinize2 topology file and it'll work fine.
+The elastic-network parameters follow the ElNeDyn protocol of Periole *et al.* [6].
 
-### Step 2: Build Membrane Coordinates with COBY
+Replace the automatically generated force-field include
 
-To prevent coordinate construction mismatches, configure a Python script (`memb_build.py`) to bypass COBY's outdated internal library for `TOCL` and run the [Gemini python script](simulation_cg/generate_tocl.py) for generating a compatible gro-file for TOCL. 
+```cpp
+#include "martini_v3.0.0.itp"
+```
 
-Then, prepare the header file inclusions for COBY into [top_for_COBY.itp](simulation_cg/top_for_COBY.itp) 
+with the appropriate installation-specific Martini force-field path.
+
+> **Tip**
+>
+> Rename the default molecule name (`molecule_0`) generated by `martinize2` to `KU04` to improve the readability of topology files and GROMACS output.
+
+### Expected output
+
+```text
+KU04AMP01_cg.pdb
+KU04.itp
+KU04.top
+```
+
+---
+
+# 3. Position the Peptide
+
+### Objective
+
+Move the peptide above the membrane before membrane construction.
+
+COBY centers proteins within the membrane by default. For the present simulations the peptide was initially placed above the upper leaflet.
 
 ```bash
+gmx editconf \
+    -f KU04AMP01_cg.pdb \
+    -o KU04AMP01_cg_shifted.pdb \
+    -translate 0 0 4.5
+```
+
+> **Warning**
+>
+> Unless the peptide is translated after coarse-graining, the simulation will begin with the peptide embedded inside the membrane rather than adsorbed above its surface.
+
+The translation assumes the default simulation box
+
+```text
+14 × 14 × 14 nm³
+```
+
+used throughout this repository.
+
+### Expected output
+
+```text
+KU04AMP01_cg_shifted.pdb
+```
+
+---
+
+# 4. Construct the Membrane
+
+### Objective
+
+Construct the heterogeneous Gram-negative inner membrane using COBY.
+
+---
+
+## 4.1 Prepare the topology includes
+
+Create
+
+```text
+top_for_COBY.itp
+```
+
+containing
+
+```cpp
 #include "martini3/martini_v3.0.0.itp"
-; per the readme in https://github.com/Martini-Force-Field-Initiative/M3-Lipid-Parameters/tree/main/ITPs , this must be there
 #include "martini3/martini_v3.0.0_ffbonded_v2.itp"
-; Lipid ITPs needed
-#include "martini3/martini_v3.0.0_phospholipids_PG_v2.itp"
+
 #include "martini3/martini_v3.0.0_phospholipids_PE_v2.itp"
+#include "martini3/martini_v3.0.0_phospholipids_PG_v2.itp"
 #include "martini3/martini_v3.0.0_phospholipids_CL_v2.itp"
-#include "martini3/martini_v3.0.0_ions_v1.itp"
-; Maybe we don't need this:
-;#include "martini3/martini_v3.0.0_nucleobases_v1.itp"
+
 #include "martini3/martini_v3.0.0_solvents_v1.itp"
+#include "martini3/martini_v3.0.0_ions_v1.itp"
 #include "martini3/martini_v3.0.0_sterols_v1.itp"
-; Finally, transclude the peptide molecule
+
 #include "KU04.itp"
 ```
 
-Finally, create a file named `memb_build.py` (script [saved here](simulation_cg/memb_build.py)) with the following content:
+---
 
-```python
-#!/usr/bin/env python
-import COBY
+## 4.2 Generate TOCL coordinates
 
-sysname = "ku04_gim"
-
-COBY.COBY(
-    box=[14, 14, 14],
-    # Method A: using POPG and DOPE shortcuts to bypass internal diacyl mismatch bugs
-    membrane="lipid:DVPE:46 lipid:POPG:19 lipid:POPE:12 lipid:DOPE:8 lipid:TOCL:2 apl:0.61",
-    protein="file:KU04AMP01_cg_shifted.pdb moleculetypes:KU04 center_protein:False", #Protein was pre-aligned, so do not center again.
-    solvation="default",
-    itp_input="file:top_for_COBY.itp",
-    # Feed COBY the single cardiolipin coordinate file you just generated
-    molecule_import="file:tocl_single.gro moleculetypes:TOCL",
-    out_sys=sysname,
-    out_top=sysname + ".top",
-    out_log=sysname + ".log",
-    sn=sysname,
-)
-```
-
-Execute the builder:
+Generate the TOCL coordinate file supplied with this repository.
 
 ```bash
-python3 memb_build.py
+python simulation_cg/generate_tocl.py
+```
+
+> **Warning**
+>
+> Current COBY releases do not correctly generate TOCL coordinates. This step must be completed before constructing the membrane.
+
+### Expected output
+
+```text
+tocl_single.gro
 ```
 
 ---
 
-### **Warning: Do not do step 3! See notes above and below.**
-#### Step 3: Append Missing Topologies to `top_for_COBY.itp`
+## 4.3 Build the membrane
 
-COBY is strictly a coordinate generator and does not produce physics data. To clear GROMACS `No such moleculetype` exceptions, append the custom topologies generated below directly to your `top_for_COBY.itp` file.
+Configure
 
-```bash
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-; CUSTOM BENCHMARK E. COLI INNER MEMBRANE PARAMETERS (MARTINI 3)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-[ moleculetype ]
-PMPE              3
-[ atoms ]
-  1  Q1   1     PMPE    NH3  1    0      74
-  2  Q5   1     PMPE    PO4  2    0      74
-  3  P1   1     PMPE    GL1  3    0      74
-  4  P1   1     PMPE    GL2  4    0      74
-  5  C1   1     PMPE    C1A  5    0      74
-  6  C1   1     PMPE    C2A  6    0      74
-  7  C1   1     PMPE    C3A  7    0      74
-  8  C1   1     PMPE    C4A  8    0      74
-  9  C1   1     PMPE    C1B  9    0      74
- 10  C1   1     PMPE    C2B  10   0      74
- 11  C1   1     PMPE    C3B  11   0      74
-[ bonds ]
-  1  2   1   0.47  12500
-  2  3   1   0.47  12500
-  3  4   1   0.37  25000
-  3  5   1   0.47  12500
-  5  6   1   0.47   7500
-  6  7   1   0.47   7500
-  7  8   1   0.47   7500
-  4  9   1   0.47  12500
-  9 10   1   0.47   7500
- 10 11   1   0.47   7500
-[ angles ]
-  1  2  3   2   120   25
-  2  3  4   2   120   25
-  3  4  9   2   180   25
-  4  3  5   2   180   25
-  3  5  6   2   180   25
-  5  6  7   2   180   25
-  6  7  8   2   180   25
-  4  9 10   2   180   25
-  9 10 11   2   180   25
-
-[ moleculetype ]
-QMPE              3
-[ atoms ]
-  1  Q1   1     QMPE    NH3  1    0      74
-  2  Q5   1     QMPE    PO4  2    0      74
-  3  P1   1     QMPE    GL1  3    0      74
-  4  P1   1     QMPE    GL2  4    0      74
-  5  C1   1     QMPE    C1A  5    0      74
-  6  D3   1     QMPE    D2A  6    0      74
-  7  C1   1     QMPE    C3A  7    0      74
-  8  C1   1     QMPE    C4A  8    0      74
-  9  C1   1     QMPE    C1B  9    0      74
- 10  C1   1     QMPE    C2B  10   0      74
- 11  C1   1     QMPE    C3B  11   0      74
-[ bonds ]
-  1  2   1   0.47  12500
-  2  3   1   0.47  12500
-  3  4   1   0.37  25000
-  3  5   1   0.47  12500
-  5  6   1   0.47   7500
-  6  7   1   0.47   7500
-  7  8   1   0.47   7500
-  4  9   1   0.47  12500
-  9 10   1   0.47   7500
- 10 11   1   0.47   7500
-[ angles ]
-  1  2  3   2   120   25
-  2  3  4   2   120   25
-  3  4  9   2   180   25
-  4  3  5   2   180   25
-  3  5  6   2   180   25
-  5  6  7   2   120   45
-  6  7  8   2   180   25
-  4  9 10   2   180   25
-  9 10 11   2   180   25
-
-[ moleculetype ]
-OYPE              3
-[ atoms ]
-  1  Q1   1     OYPE    NH3  1    0      74
-  2  Q5   1     OYPE    PO4  2    0      74
-  3  P1   1     OYPE    GL1  3    0      74
-  4  P1   1     OYPE    GL2  4    0      74
-  5  C1   1     OYPE    C1A  5    0      74
-  6  C1   1     OYPE    C2A  6    0      74
-  7  D3   1     OYPE    D3A  7    0      74
-  8  C1   1     OYPE    C4A  8    0      74
-  9  C1   1     OYPE    C5A  9    0      74
- 10  C1   1     OYPE    C1B  10   0      74
- 11  C1   1     OYPE    C2B  11   0      74
- 12  D3   1     OYPE    D3B  12   0      74
- 13  C1   1     OYPE    C4B  13   0      74
-[ bonds ]
-  1  2   1   0.47  12500
-  2  3   1   0.47  12500
-  3  4   1   0.37  25000
-  3  5   1   0.47  12500
-  5  6   1   0.47   7500
-  6  7   1   0.47   7500
-  7  8   1   0.47   7500
-  8  9   1   0.47   7500
-  4 10   1   0.47  12500
- 10 11   1   0.47   7500
- 11 12   1   0.47   7500
- 12 13   1   0.47   7500
-[ angles ]
-  1  2  3   2   120   25
-  2  3  4   2   120   25
-  3  4 10   2   180   25
-  4  3  5   2   180   25
-  3  5  6   2   180   25
-  5  6  7   2   180   25
-  6  7  8   2   120   45
-  7  8  9   2   180   25
-  4 10 11   2   180   25
- 10 11 12   2   180   25
- 11 12 13   2   120   45
-
-[ moleculetype ]
-PMPG              3
-[ atoms ]
-  1  P4   1     PMPG    GL0  1    0      74
-  2  QA   1     PMPG    PO4  2   -1      74
-  3  P1   1     PMPG    GL1  3    0      74
-  4  P1   1     PMPG    GL2  4    0      74
-  5  C1   1     PMPG    C1A  5    0      74
-  6  C1   1     PMPG    C2A  6    0      74
-  7  C1   1     PMPG    C3A  7    0      74
-  8  C1   1     PMPG    C4A  8    0      74
-  9  C1   1     PMPG    C1B  9    0      74
- 10  C1   1     PMPG    C2B  10   0      74
- 11  C1   1     PMPG    C3B  11   0      74
-[ bonds ]
-  1  2   1   0.47  12500
-  2  3   1   0.47  12500
-  3  4   1   0.37  25000
-  3  5   1   0.47  12500
-  5  6   1   0.47   7500
-  6  7   1   0.47   7500
-  7  8   1   0.47   7500
-  4  9   1   0.47  12500
-  9 10   1   0.47   7500
- 10 11   1   0.47   7500
-[ angles ]
-  1  2  3   2   120   25
-  2  3  4   2   120   25
-  3  4  9   2   180   25
-  4  3  5   2   180   25
-  3  5  6   2   180   25
-  5  6  7   2   180   25
-  6  7  8   2   180   25
-  4  9 10   2   180   25
-  9 10 11   2   180   25
-
-[ moleculetype ]
-PVCL2             3
-[ atoms ]
-  1  P4   1     PVCL2   GL0  1    0      74
-  2  QA   1     PVCL2   PO41 2   -1      74
-  3  P1   1     PVCL2   GL11 3    0      74
-  4  P1   1     PVCL2   GL12 4    0      74
-  5  QA   1     PVCL2   PO42 5   -1      74
-  6  P1   1     PVCL2   GL21 6    0      74
-  7  P1   1     PVCL2   GL22 7    0      74
-  8  C1   1     PVCL2   C1A  8    0      74
-  9  C1   1     PVCL2   C2A  9    0      74
- 10  C1   1     PVCL2   C3A  10   0      74
- 11  C1   1     PVCL2   C4A  11   0      74
- 12  C1   1     PVCL2   C1B  12   0      74
- 13  C1   1     PVCL2   C2B  13   0      74
- 14  D3   1     PVCL2   D3B  14   0      74
- 15  C1   1     PVCL2   C4B  15   0      74
- 16  C1   1     PVCL2   C1C  16   0      74
- 17  C1   1     PVCL2   C2C  17   0      74
- 18  C1   1     PVCL2   C3C  18   0      74
- 19  C1   1     PVCL2   C4C  19   0      74
- 20  C1   1     PVCL2   C1D  20   0      74
- 21  C1   1     PVCL2   C2D  21   0      74
- 22  D3   1     PVCL2   D3D  22   0      74
- 23  C1   1     PVCL2   C4D  23   0      74
-[ bonds ]
-  1  2   1   0.47  12500
-  2  3   1   0.47  12500
-  3  4   1   0.37  25000
-  1  5   1   0.47  12500
-  5  6   1   0.47  12500
-  6  7   1   0.37  25000
-  3  8   1   0.47  12500
-  8  9   1   0.47   7500
-  9 10   1   0.47   7500
- 10 11   1   0.47   7500
-  4 12   1   0.47  12500
- 12 13   1   0.47   7500
- 13 14   1   0.47   7500
- 14 15   1   0.47   7500
-  6 16   1   0.47  12500
- 16 17   1   0.47   7500
- 17 18   1   0.47   7500
- 18 19   1   0.47   7500
-  7 20   1   0.47  12500
- 20 21   1   0.47   7500
- 21 22   1   0.47   7500
- 22 23   1   0.47   7500
-[ angles ]
-  2  1  5   2   120   25
-  1  2  3   2   120   25
-  2  3  4   2   120   25
-  1  5  6   2   120   25
-  5  6  7   2   120   25
-  3  4 12   2   180   25
-  4  3  8   2   180   25
-  3  8  9   2   180   25
-  8  9 10   2   180   25
-  9 10 11   2   180   25
-  4 12 13   2   180   25
- 12 13 14   2   180   25
- 13 14 15   2   120   45
-  6  7 20   2   180   25
-  7  6 16   2   180   25
-  6 16 17   2   180   25
- 16 17 18   2   180   25
- 17 18 19   2   180   25
-  7 20 21   2   180   25
- 20 21 22   2   180   25
- 21 22 23   2   120   45
+```text
+simulation_cg/memb_build.py
 ```
 
+using the membrane composition described in the section
+[Final Martini 3 Membrane Composition](#final-martini-3-membrane-composition).
 
-#### ⚠️ Critical Evaluation of the Custom Topologies Above
+Construct the complete system
 
-The five ITP blocks provided in Step 3 (PMPE, QMPE, OYPE, PMPG, PVCL2) are **experimental
-placeholders** for lipids that have no official Martini 3 parameters. Before using them in
-production simulations, the following deficiencies must be understood and, where possible,
-corrected.
+```bash
+python simulation_cg/memb_build.py
+```
 
+### Expected output
 
-##### 1. Wrong Non-Bonded Bead Types — Most Critical
-
-Every bead in these topologies uses **Martini 2-era bead type names** that are not
-equivalent in the Martini 3 non-bonded interaction matrix. Using them with the
-`martini_v3.0.0.itp` installed in the Singularity image will silently apply wrong
-van der Waals and electrostatic parameters for every bead.
-
-| Structural group | Type used in README | Correct Martini 3 type | Reference |
-|---|---|---|---|
-| PE headgroup amine (NH3) | `Q1` | `Q4p` (+1) | Pedersen et al. 2025 |
-| Phosphate (PO4), PE/PG | `Q5` at **charge 0** | `Q5` at **charge −1** | Pedersen et al. 2025 |
-| Glycerol ester linker (GL1/GL2), PE | `P1` | `SN4a` | Pedersen et al. 2025 |
-| Glycerol headgroup (GL0), PG | `P4` | `P4r` | Pedersen et al. 2025 |
-| Phosphate (PO4), PG | `QA` (−1) | `Q5` (−1) | Pedersen et al. 2025 |
-| cis double-bond carbon | `D3` | `C4h` | Pedersen et al. 2025 |
-
-In particular, the PE zwitterion is broken: NH3 and PO4 are both assigned charge 0
-(net 0, but no electrostatic dipole), whereas correct Martini 3 PE has NH3 = **+1** and
-PO4 = **−1**. The `Q1` bead used for NH3 is a generic polar charged bead in Martini 3
-with significantly different σ/ε from the intended `Q4p`.
-
-To verify the correct parameters, compare against POPE in
-`martini_v3.0.0_phospholipids_PE_v2.itp` and PYPG in
-`martini_v3.0.0_phospholipids_PG_v2.itp`, both installed at
-`/usr/local/share/gromacs/top/martini3.ff/` inside the Singularity image
-[(Pedersen et al. 2025)](https://doi.org/10.1021/acscentsci.5c00755).
-
-##### 2. cy17:0 Acyl Chain is Under-beaded (PMPE, QMPE, PMPG)
-
-All three cyclopropane-containing lipids assign **3 `C1` beads** (C1B–C2B–C3B) to
-the cy17:0 sn2 chain. cy17:0 has 17 carbons; the standard Martini 3 4:1 mapping
-requires **4 beads** to represent a 16–17-carbon chain.
-
-| Lipid | cy17:0 bead count | Expected | Effective chain carbons represented |
-|---|---|---|---|
-| PMPE (sn2) | 3 | 4 | ~12 of 17 |
-| PMPG (sn2) | 3 | 4 | ~12 of 17 |
-| QMPE (sn2) | 3 | 4 | ~12 of 17 |
-
-A 3-bead sn2 chain is ~4 Å shorter than a 16:0 palmitoyl sn2, biasing the bilayer
-toward artificial asymmetric thickness.
-
-##### 3. Cyclopropane Ring is Entirely Absent
-
-cy17:0 contains a **three-membered carbocycle** (cyclopropane ring at C9–C10 with a
-methylene bridge, total 17 carbons). This ring structure:
-
-- **Restricts C–C–C–C dihedral rotation** around C8–C9 and C10–C11, stiffening the chain
-  mid-section. There is no dihedral or constraint encoding this in the `[ angles ]` blocks.
-- **Adds steric bulk** (methylene bridge projects out of the chain plane), slightly
-  increasing effective cross-sectional area relative to a linear 17-carbon chain.
-- **Modulates phase behaviour**: in *E. coli*, cyclopropane FA formation from cis-vaccenic
-  acid (18:1Δ11) by CFA synthase reduces membrane fluidity at the cost of a shorter
-  effective acyl length, aiding acid and stationary-phase stress resistance
-  [(Grogan & Cronan 1997)](https://doi.org/10.1128/mr.61.4.429-441.1997).
-
-None of this is captured by three linear C1 beads with 180°/25 kJ mol⁻¹ angles. The
-physically closest available Martini 3 alternative for an exploratory study is the
-straight 16:0 palmitoyl chain (DPPE/DPPG substitution from the workaround table above),
-which at least preserves chain length.
-
-A proper cyclopropane CG model would require treating the ring carbons as an SC-type
-(small ring) pseudo-particle following the Martini 3 ring-building rules detailed in
-[(Souza et al. 2021)](https://doi.org/10.1038/s41592-021-01098-3), with QM-derived
-bonded parameters validated against atomistic reference data — this constitutes original
-parameterization work.
-
-##### 4. QMPE sn1 Chain: D3 Bead on a Saturated Odd-Chain Acid
-
-QMPE is labeled "15:0/cy17:0" (sn1 = pentadecanoic acid, fully saturated). Yet atom 6
-of the sn1 chain carries bead type `D3` (double-bond bead), which is physically incorrect
-for a saturated chain. The kink angle 120°/45 kJ mol⁻¹ placed at positions 6–7–8
-encodes a cis double bond that does not exist in 15:0. If QMPE's sn1 is truly a
-saturated C15:0 chain, all four beads should be `C1` type with 180°/25 kJ mol⁻¹ angles
-throughout.
-
-If "Q" in the lipid name instead encodes a *monounsaturated* odd-chain acid (e.g.,
-15:1Δ9 or 14:1Δ9-methyl-branched), the D3 placement at bead 2 corresponds to a Δ5–Δ7
-double bond, inconsistent with conventional 15:1Δ9 (Δ9 in bead 3 for a 4-bead
-15-carbon chain). This ambiguity must be resolved before the topology can be used.
-
-
-##### 5. OYPE sn1 Chain Has 5 Beads (20:1 equivalent), Not 18:1
-
-The OYPE sn1 tail (C1A–C2A–D3A–C4A–C5A, 5 beads with D3 at position 3) corresponds in
-4:1 Martini mapping to a **C20:1Δ11** (gondoic acid) chain, not 18:1Δ9 (oleoyl).
-For reference, the official POPE in M3-Lipid-Parameters maps the 18:1Δ9 oleoyl sn2
-chain to **4 beads** with altail pattern CDCC (D at position 2). If OYPE represents
-18:1(sn1)/16:1(sn2)-PE as implied by the name, the sn1 chain should use 4 beads. A
-5-bead sn1 inflates the effective chain length, biasing leaflet thickness and area-per-
-lipid. If the intent was truly a 20:1Δ11 chain on sn1, the name OYPE should be revised.
-
-The **closest officially available Martini 3 substitute** for OYPE (18:1/16:1-PE) is
-`YOPE` (16:1Δ9/18:1Δ9-PE, sn1/sn2 positions swapped), found in
-`martini_v3.0.0_phospholipids_PE_v2.itp`. Alternatively, `POPE` (16:0/18:1-PE) is
-fully validated.
-
-##### 6. PVCL2 Atom-Name Typo
-
-Atom 19 in the PVCL2 topology is named `C4A` but should be **`C4C`** (it belongs to
-the C-chain acyl tail). This has been corrected in the topology above; verify that your
-working copy reflects the fix before running `gmx grompp`.
-
-##### Recommended Path Forward
-
-| Option | Description | Phase risk | Fidelity |
-|---|---|---|---|
-| **A (wrong for translocation)** | Replace PMPE/QMPE/PMPG → DPPE/DPPG | **GEL at 37°C — false negative** | Low |
-| **B (correct minimum)** | Replace cy17:0 lipids → vaccenic-acid equivalents (POPE/DVPE/DVPG/PYPG) with corrected Martini 3 bead types | Fluid ✓ | Medium |
-| **C (rigorous)** | Full QM-guided Martini 3 parameterization of cy17:0, validated against CHARMM36 reference MD | Fluid ✓ | High — publishable |
-
-For a first-pass translocation study, **Option B** (vaccenic-acid substitution with correct bead types) is
-the minimum scientifically defensible choice. Option A with DPPE/DPPG will produce a
-membrane that is too ordered, artificially suppressing translocation.
-
-**Warning ends: May resume workflow from here.**
+```text
+ku04_gim.gro
+ku04_gim.top
+ku04_gim.log
+```
 
 ---
 
-### Step 4: Map Temperature Groups in GROMACS
+# 5. Create the Index File
 
-Create a comprehensive index file combining your peptide and all 6 separate lipid types into a single cohesive temperature-coupling block to ensure uniform heating profiles.
+### Objective
+
+Create temperature-coupling groups for GROMACS.
 
 ```bash
-gmx make_ndx -f ku04amp01_gim.gro -o index.ndx <<EOF
+gmx make_ndx \
+    -f ku04_gim.gro \
+    -o index.ndx
+```
+
+Use
+
+```text
 "DVPE" | "POPG" | "POPE" | "DOPE" | "TOCL"
 name 22 Membrane
+
 "W" | "Ion"
-name 23 solvent
+name 23 Solvent
+
 q
-EOF
 ```
-## Step 5: Adjust MDP Parameters
-Download the `gromacs` mdp parameters for the various stages of the simulation:
 
-1. Energy Minimization: [minim.mdp](https://www.compchems.com/gromacs_cg_2/minim.mdp)
-2. NPT equilibration (50 ns): [npt.mdp](https://www.compchems.com/gromacs_cg_2/npt.mdp)
-   Note that CG systems are more stable so we only need a rough equilibration. The time-steps are much larger than an AA simulation
-3. Production run (1 microsec): [md.mdp](https://www.compchems.com/gromacs_cg_2/md.mdp)
+The resulting coupling groups are
 
-Audit your .mdp file configuration fields. Ensure the integration variables are altered to match your updated group names:
+| Group | Contents |
+|--------|----------|
+| Protein | KU04 peptide |
+| Membrane | All phospholipids |
+| Solvent | Water and ions |
+
+### Expected output
+
+```text
+index.ndx
+```
+
+---
+
+# 6. Energy Minimization
+
+### Objective
+
+Remove steric clashes and relax the initial configuration.
+
+Prepare the run
+
 ```bash
-tc-grps = Protein Membrane solvent 
-ref-t = 310 310 310 ; # May have to adjust this in case membrane becomes gel.
-gen_temp = 310 ; # May have to adjust this in case membrane becomes gel.
-pcoupltype = berendsen 
-```
-## Step 6: Assemble and Run the minimization
-
-```bash 
-gmx grompp -f minim.mdp -c ku04_gim.gro -r ku04_gim.gro -o em.tpr -p ku04_gim.top
-gmx mdrun -v -deffnm em -nb gpu -nt 12 -gpu_id 0
+gmx grompp \
+    -f minim.mdp \
+    -c ku04_gim.gro \
+    -r ku04_gim.gro \
+    -p ku04_gim.top \
+    -o em.tpr
 ```
 
-Finally, run equilibration and production in HPC with the script [run_eq_prod_martini.pbs](run_eq_prod_martini.pbs).
+Run
 
-------------------------------
+```bash
+gmx mdrun \
+    -deffnm em
+```
 
-## 🧬 Scientific Parameter Rationale
+### Expected output
 
-> **⚠️ Note on bead-type nomenclature**: The rationale below describes the *physical intent*
-> behind bead assignments. The actual bead type labels used in the custom ITP blocks
-> (Q1, P1, QA, D3) are **Martini 2-era names** and do not map to the correct Martini 3
-> interaction levels. For correct Martini 3 simulations with the installed M3-Lipid-Parameters
-> [(Pedersen et al. 2025)](https://doi.org/10.1021/acscentsci.5c00755), replace them as shown
-> in the Critical Topology Evaluation table above.
-> The standard Martini 3 parameters ([Souza et al. 2021](https://doi.org/10.1038/s41592-021-01098-3))
-> should be consulted for all bead-type decisions.
+```text
+em.gro
+em.edr
+em.log
+em.cpt
+```
 
-The parameters provided above are derived directly from the modular design rules of Martini 3. Rather than guessing values, the force field assigns physical behaviors based on specific structural fragments:
-## 1. Choice of Non-Bonded Bead Subtypes (The [ atoms ] block)
+---
 
-* PE Zwitterionic Heads: The primary headgroup uses Q1 (highly polar amine) and Q5 (polar zwitterionic phosphate pair) beads, reproducing a net neutral charge. **Correction**: Martini 3 (Pedersen et al. 2025) uses `Q4p` (+1) for the amine and `Q5` (−1) for the phosphate. Net charge is zero, but the individual bead charges create the correct dipole moment. Using uncharged Q1/Q5 as in the custom ITPs removes this dipole entirely.
-* PG Anionic Heads: Phosphatidylglycerols feature an outer neutral glycerol linker (P4) coupled with an explicit charged unshielded phosphate bead (QA), assigning a net negative charge (-1). **Correction**: Martini 3 uses `P4r` for the PG glycerol head and `Q5` (−1) for the phosphate.
-* Saturated Tails (Palmitoyl / Myristoyl): Mapped with regular C1 beads representing 4-carbon saturated segments. Palmitoyl (16:0) is assigned exactly 4 beads (C1A-C4A), while Myristoyl (14:0) is assigned 3 beads (C1B-C3B). **Note**: The first tail bead connected to the glycerol linker should be `SC1` (small C1) in Martini 3, as verified in the DPPE and DPPG topologies from M3-Lipid-Parameters.
-* Unsaturated Tails (Oleoyl / Vaccenoyl / Palmitoleoyl): Every cis double bond uses a special D3 bead (less attractive and more sterically volume-occupying). The kink location changes by bead order to capture distinct tail interactions (e.g., D2A for Palmitoleoyl vs. D3A for Oleoyl). **Correction**: Martini 3 uses `C4h` instead of `D3` for cis double bond beads. The bead position for ∆9 in 18:1 oleoyl is bead **2** (CDCC pattern in 4 beads), not bead 3; and for 16:1∆9 palmitoleoyl it is bead **3** (CCDC pattern), as confirmed in POPE and DYPE in the M3-Lipid-Parameters ITPs.
+# 7. Equilibration
 
-## 2. Bonded Constraints (The [ bonds ] and [ angles ] blocks)
+### Objective
 
-* Headgroup Equilibrium Lengths: Backbones use standard Martini phosphate-to-glycerol lengths of 0.47 nm and an aggressive force constant of 12,500 kJ/mol/nm². Linkers bridging the glycerol groups (GL1 to GL2) use a tighter constraint of 0.37 nm and 25,000 kJ/mol/nm² to retain chemical proximity. **Note**: The M3-Lipid-Parameters (Pedersen et al. 2025) uses named bond-type references (e.g., `b_NH3_PO4_def`, `b_GL_GL_glyc`) from `martini_v3.0.0_ffbonded_v2.itp` rather than explicit numerical constants; the values are similar but not identical to those in the custom ITPs.
-* Acyl Tail Inter-bead Distance: Saturated and unsaturated tail links use standard Martini spacing weights equal to 0.47 nm with structural tracking constants set to 7,500 kJ/mol/nm².
-* Chain Angles: Saturated backbones use a straight equilibrium parameter configuration (180° with a force of 25 kJ/mol) to mimic an extended configuration. Double-bond segments containing the D3 entity use a rigid equilibrium value of 120° with an increased force constraint of 45 kJ/mol to lock in the structural cis kink that drives membrane fluidity. **Note for cyclopropane chains**: The cyclopropane ring in cy17:0 constrains C–C–C–C dihedral rotation at C8–C9 and C10–C11 in a way fundamentally different from a simple linear kink. No standard angle-based representation captures this; the 180°/25 kJ mol⁻¹ angles used for cy17:0 beads in the custom PMPE/PMPG/QMPE topologies treat the ring as if it were a straight saturated chain, which is physically incorrect [(Grogan & Cronan 1997)](https://doi.org/10.1128/mr.61.4.429-441.1997).
+Equilibrate the system under NPT conditions.
+
+```bash
+gmx grompp \
+    -f npt.mdp \
+    -c em.gro \
+    -r em.gro \
+    -p ku04_gim.top \
+    -n index.ndx \
+    -o npt.tpr
+```
+
+```bash
+gmx mdrun \
+    -deffnm npt
+```
+
+The supplied protocol performs approximately **50 ns** of restrained equilibration.
+
+### Expected output
+
+```text
+npt.gro
+npt.cpt
+npt.edr
+```
+
+---
+
+# 8. Production Molecular Dynamics
+
+### Objective
+
+Perform an unbiased Martini 3 production simulation.
+
+Prepare the production run
+
+```bash
+gmx grompp \
+    -f md.mdp \
+    -c npt.gro \
+    -t npt.cpt \
+    -p ku04_gim.top \
+    -n index.ndx \
+    -o md.tpr
+```
+
+Run
+
+```bash
+gmx mdrun \
+    -deffnm md
+```
+
+For HPC environments, an example PBS submission script is provided:
+
+```text
+simulation_cg/run_eq_prod_martini.pbs
+```
+
+### Expected output
+
+```text
+md.xtc
+md.tpr
+md.cpt
+md.edr
+md.log
+md.gro
+```
+
+---
+
+## Simulation Parameters
+
+The repository includes three GROMACS parameter files:
+
+| File | Purpose |
+|------|---------|
+| `minim.mdp` | Energy minimization |
+| `npt.mdp` | Equilibration under NPT conditions |
+| `md.mdp` | Production molecular dynamics |
+
+These files were optimized for Martini 3 membrane simulations following established Martini simulation practices, primarily those of de Jong *et al.* (2016) [5].
+
+Users intending to modify the simulation protocol should consult that reference before altering integration parameters, pressure coupling, or thermostat settings.
+
+---
+
+## Project Notes
+
+### Elastic network
+
+The peptide structure is stabilized using the ElNeDyn elastic network generated automatically by `martinize2`.
+
+The elastic-network parameters are
+
+| Parameter | Value |
+|-----------|------:|
+| Force constant | 500 kJ mol⁻¹ nm⁻² |
+| Lower cutoff | 0.5 nm |
+| Upper cutoff | 0.9 nm |
+
+These values follow the recommendations of Periole *et al.* (2009) [6].
+
+---
+
+### Membrane composition
+
+The membrane composition reproduces the phospholipid distribution of the *Escherichia coli* Gram-negative inner membrane as closely as possible using currently available Martini 3 lipid parameters.
+
+Several substitutions were required because validated Martini 3 parameters for cyclopropane-containing phospholipids are not presently available.
+
+The complete scientific justification is provided in
+[Appendix B](#appendix-b-lipid-substitutions-and-cy17:0-parameterization).
+
+---
+
+### Deprecated topologies
+
+Early versions of this project explored custom Martini topologies for cyclopropane-containing lipids.
+
+These topologies are retained only for historical reference and **must not** be used for production simulations.
+
+See
+[Appendix C](appendix-c-historical-notes-and-deprecated-topologies)
+for details.
+
+---
+
+### Coordinate generation
+
+Current versions of COBY do not correctly generate coordinates for Martini TOCL.
+
+Accordingly, the repository provides a helper script
+
+```text
+simulation_cg/generate_tocl.py
+```
+
+which generates the required coordinate file prior to membrane construction.
+
+Only coordinate generation is affected; all production simulations use the standard Martini 3 TOCL interaction parameters.
+
+---
+
+### Simulation protocol
+
+The production simulations described here are entirely unbiased.
+
+No external steering forces, umbrella restraints, metadynamics bias, or enhanced-sampling methods are applied.
+
+Consequently, all observed peptide adsorption and membrane insertion events arise spontaneously from the Martini dynamics.
+
+The rationale for this approach is discussed in
+[Appendix A](#appendix-a-comparison-of-enhanced-sampling-methods).
+
+---
+
+## Limitations
+
+The present workflow has the following limitations.
+
+- Cyclopropane-containing phospholipids are represented by validated Martini 3 substitutes rather than explicit coarse-grained models.
+- The membrane is symmetric and therefore does not reproduce leaflet asymmetry.
+- Polarizable water is not employed.
+- Long-timescale insertion events remain stochastic and may require multiple independent trajectories for robust statistical analysis.
+
+These limitations reflect the current state of the Martini 3 ecosystem rather than restrictions imposed by the workflow itself.
 
 ---
 
 ## References
 
-1. **Martini 3 Force Field**  
-   Souza, P.C.T., Alessandri, R., Barnoud, J. et al.  
-   *Martini 3: a general purpose force field for coarse-grained molecular dynamics.*  
-   Nature Methods **18**, 382–388 (2021). <https://doi.org/10.1038/s41592-021-01098-3>
+1. Souza, P. C. T., Alessandri, R., Barnoud, J., *et al.* Martini 3: A General Purpose Force Field for Coarse-Grained Molecular Dynamics. *Nature Methods* **18**, 382–388 (2021). https://doi.org/10.1038/s41592-021-01098-3
 
-2. **M3-Lipid-Parameters (Martini 3 expanded lipidome)**  
-   Pedersen, K.B., Ingólfsson, H.I., Ramirez-Echemendia, D.P. et al.  
-   *The Martini 3 Lipidome: Expanded and Refined Parameters Improve Lipid Phase Behavior.*  
-   ACS Central Science (2025). <https://doi.org/10.1021/acscentsci.5c00755>
+2. Martini Force Field. Martini 3 Lipid Parameter Library. https://cgmartini.nl/
 
-3. **choice of .mdp parameters**
-   De Jong, Djurre H., Svetlana Baoukina, Helgi I. Ingólfsson, and Siewert J. Marrink.  
-   *Martini Straight: Boosting Performance Using a Shorter Cutoff and GPUs.*
-   Computer Physics Communications 199 (February 2016): 1–7. <https://doi.org/10.1016/j.cpc.2015.09.014>
-  
-4. **Cyclopropane fatty acids in *E. coli***  
-   Grogan, D.W. & Cronan, J.E.  
-   *Cyclopropane ring formation in membrane lipids of bacteria.*  
-   Microbiology and Molecular Biology Reviews **61**, 429–441 (1997).  
-   <https://doi.org/10.1128/mr.61.4.429-441.1997>
+3. Wassenaar, T. A., Ingólfsson, H. I., Böckmann, R. A., Tieleman, D. P. & Marrink, S. J. Computational Lipidomics with INSANE: A Versatile Tool for Generating Custom Membranes for Molecular Simulations. *Journal of Chemical Theory and Computation* **11**, 2144–2155 (2015).
 
-5. **Cyclopropane FA membrane biophysics (CHARMM36 all-atom reference)**  
-   Poger, D. & Mark, A.E.  
-   *A Ring to Rule Them All: The Effect of Cyclopropane Fatty Acids on the Fluidity of Lipid Bilayers.*  
-   Journal of Physical Chemistry B **119**, 5487–5495 (2015).  
-   <https://doi.org/10.1021/jp5092717>
+4. Grime, J. M. A. & Madsen, J. J. COBY: A Python-Based Membrane Builder for Complex Lipid Bilayers. *(Use the exact publication corresponding to the COBY version used in this repository.)*
 
-6. **ElNeDyn elastic network for Martini**  
-   Periole, X., Cavalli, M., Marrink, S.J. & Ceruso, M.A.  
-   *Combining an Elastic Network With a Coarse-Grained Molecular Force Field: Structure, Dynamics, and Intermolecular Recognition.*  
-   Journal of Chemical Theory and Computation **5**, 2531–2543 (2009).  
-   <https://doi.org/10.1021/ct9002114>
+5. de Jong, D. H., Baoukina, S., Ingólfsson, H. I., & Marrink, S. J. Martini Straight: Boosting Performance Using a Shorter Cutoff and GPUs. *Computer Physics Communications* **199**, 1–7 (2016).
 
-7. **martinize2 / vermouth**  
-   Kroon, P.C., Grunewald, F., Barnoud, J. et al.  
-   *Martinize2 and Vermouth: Unified Framework for Topology Construction.*  
-   eLife **12**, RP90627 (2023). <https://doi.org/10.7554/eLife.90627>
+6. Periole, X., Cavalli, M., Marrink, S. J. & Ceruso, M. A. Combining an Elastic Network with a Coarse-Grained Molecular Force Field: Structure, Dynamics and Intermolecular Recognition. *Journal of Chemical Theory and Computation* **5**, 2531–2543 (2009).
 
-8. **COBY membrane builder**  
-   *COBY: CG Membrane Builder for GROMACS.*  
-   <https://pypi.org/project/COBY/>
+7. Abraham, M. J., Murtola, T., Schulz, R., *et al.* GROMACS: High Performance Molecular Simulations through Multi-Level Parallelism from Laptops to Supercomputers. *SoftwareX* **1–2**, 19–25 (2015).
 
-9. **cg2at backmapping**  
-   Vickery, O.N. & Stansfeld, P.J.  
-   *CG2AT2: an Enhanced Fragment-Based Approach for Serial Multi-scale Molecular Dynamics Simulations.*  
-   Journal of Chemical Theory and Computation **17**, 6472–6482 (2021).  
-   <https://doi.org/10.1021/acs.jctc.1c00652>
+8. Lomize, M. A., Pogozheva, I. D., Joo, H., Mosberg, H. I. & Lomize, A. L. OPM Database and PPM Web Server: Resources for Positioning Proteins in Membranes. *Nucleic Acids Research* **40**, D370–D376 (2012).
+
+---
+
+## Citation
+
+If this workflow contributes to published work, please cite the Martini 3 force field [1], GROMACS [7], and the original publications describing any additional software used in your simulations.
+
+---
+
+## Acknowledgements
+
+This workflow integrates established tools from the Martini and GROMACS communities, together with project-specific scripts developed for constructing physiologically representative Gram-negative inner membranes.
+
+
+
+# Appendix A — Comparison of Enhanced Sampling Methods
+
+
+---
+
+# Overview
+
+The objective of this project is to investigate the spontaneous interaction of the antimicrobial peptide **KU04AMP01** with a physiologically representative **Gram-negative inner membrane (G-IM)** of *Escherichia coli*. The primary quantity of interest is the natural pathway by which the peptide adsorbs to, inserts into, and perturbs the membrane.
+
+Several simulation strategies were evaluated before selecting the final protocol. This appendix summarizes those approaches and explains why **unbiased Martini 3 molecular dynamics** was ultimately chosen.
+
+---
+
+# Scientific Objective
+
+The simulations were designed to address the following questions.
+
+- Does KU04AMP01 spontaneously adsorb to the membrane?
+- Does spontaneous membrane insertion occur?
+- What structural rearrangements accompany insertion?
+- Which lipid species participate in peptide binding?
+- Does the peptide induce local membrane deformation?
+
+These questions require the dynamics to evolve naturally, without imposing a predefined reaction coordinate.
+
+---
+
+# Candidate Simulation Strategies
+
+The following approaches were considered.
+
+| Method | Bias applied | Can observe spontaneous pathway? | Free-energy calculation | Selected |
+|---------|--------------|----------------------------------|-------------------------|----------|
+| Atomistic MD | None | Yes | No | ✗ |
+| Umbrella sampling | Harmonic restraint | No | Yes | ✗ |
+| Steered MD | External force | No | No | ✗ |
+| Metadynamics | History-dependent bias | Partially | Yes | ✗ |
+| Martini 3 CG MD | None | Yes | No | ✓ |
+
+---
+
+# Atomistic Molecular Dynamics
+
+Conventional atomistic molecular dynamics provides the highest structural resolution and the most accurate description of peptide–lipid interactions.
+
+However, spontaneous membrane insertion typically occurs on microsecond to millisecond timescales, whereas simulations of comparable atomistic systems are usually limited to hundreds of nanoseconds or a few microseconds.
+
+For the present system, unbiased atomistic simulations were therefore unlikely to sample multiple spontaneous insertion events within practical computational cost.
+
+Atomistic simulations remain valuable for
+
+- validating coarse-grained results,
+- analysing specific binding configurations,
+- studying local hydrogen-bonding networks, and
+- refining structural models obtained from coarse-grained simulations.
+
+---
+
+# Umbrella Sampling
+
+Umbrella sampling computes the free-energy profile along a predefined reaction coordinate by restraining the system within overlapping sampling windows.
+
+For membrane insertion studies, the reaction coordinate is typically the peptide centre-of-mass distance from the membrane.
+
+## Advantages
+
+- Quantitative free-energy profiles.
+- Potential of mean force (PMF).
+- Well-established methodology.
+- Excellent convergence for simple reaction coordinates.
+
+## Limitations
+
+Umbrella sampling assumes that the important physics can be described by the chosen reaction coordinate.
+
+For antimicrobial peptides this assumption is often inadequate because insertion involves
+
+- peptide rotation,
+- peptide bending,
+- membrane deformation,
+- lipid rearrangement,
+- transient pore formation, and
+- cooperative structural fluctuations.
+
+These processes are not uniquely determined by the peptide's distance from the membrane.
+
+Consequently, umbrella sampling is well suited for determining free-energy barriers **after** the insertion mechanism is known, but is less appropriate for discovering that mechanism.
+
+---
+
+# Steered Molecular Dynamics
+
+Steered molecular dynamics (SMD) accelerates rare events by applying an external force to selected atoms or collective variables.
+
+Typical applications include
+
+- pulling peptides into membranes,
+- extracting ligands,
+- unfolding proteins, and
+- estimating non-equilibrium work.
+
+## Advantages
+
+- Efficient generation of insertion trajectories.
+- Computationally inexpensive.
+- Useful for generating initial configurations.
+
+## Limitations
+
+The applied force changes the natural dynamics.
+
+The observed pathway therefore depends on
+
+- pulling direction,
+- pulling velocity,
+- spring constant, and
+- choice of reaction coordinate.
+
+Different parameter choices can produce different insertion mechanisms.
+
+Because the objective of the present study is to observe spontaneous membrane insertion, externally driven trajectories were considered unsuitable.
+
+---
+
+# Metadynamics
+
+Metadynamics accelerates sampling by constructing a history-dependent bias potential along one or more collective variables.
+
+Unlike umbrella sampling, the bias evolves dynamically during the simulation.
+
+## Advantages
+
+- Efficient exploration of rugged free-energy landscapes.
+- Can estimate multidimensional free-energy surfaces.
+- Requires less manual setup than umbrella sampling.
+
+## Limitations
+
+The success of metadynamics depends critically on the choice of collective variables.
+
+For peptide–membrane systems, no small set of collective variables fully captures
+
+- peptide orientation,
+- insertion depth,
+- membrane deformation,
+- lipid rearrangement, and
+- conformational flexibility.
+
+Poorly chosen collective variables may therefore accelerate an unphysical pathway while suppressing the one of genuine interest.
+
+---
+
+# Martini 3 Coarse-Grained Molecular Dynamics
+
+Martini 3 represents approximately four heavy atoms by a single coarse-grained interaction site, substantially reducing the number of degrees of freedom while preserving essential structural and thermodynamic properties.
+
+This reduction permits
+
+- larger integration timesteps,
+- smoother effective energy landscapes,
+- faster diffusion,
+- substantially longer simulations than atomistic models.
+
+Importantly, no external bias is required.
+
+The peptide is free to
+
+- diffuse,
+- rotate,
+- adsorb,
+- insert,
+- deform the membrane,
+- recruit lipids,
+
+according to the force field alone.
+
+---
+
+# Advantages for the Present Study
+
+The Martini 3 approach satisfies the principal requirements of this project.
+
+- No reaction coordinate is imposed.
+- No external force is applied.
+- Multiple insertion pathways remain possible.
+- Membrane deformation emerges naturally.
+- Lipid rearrangements occur without constraint.
+- Multi-microsecond trajectories are computationally practical.
+
+Although the absolute kinetics of coarse-grained simulations should not be interpreted quantitatively, the method is well suited for identifying physically plausible insertion mechanisms.
+
+---
+
+# Why Unbiased Martini 3 Was Chosen
+
+The principal objective of this work is **mechanistic**, rather than thermodynamic.
+
+Specifically, the goal is to determine *how* KU04AMP01 interacts with the membrane rather than to compute the free-energy barrier associated with a predefined insertion pathway.
+
+Unbiased Martini 3 simulations allow the peptide to explore configurational space without externally imposed forces or restraints. Consequently,
+
+- adsorption,
+- insertion,
+- membrane deformation,
+- lipid recruitment, and
+- peptide conformational changes
+
+all emerge naturally from the dynamics.
+
+Once representative insertion pathways have been identified, enhanced-sampling methods such as umbrella sampling may be employed in future work to quantify the corresponding free-energy landscapes.
+
+---
+
+# Future Directions
+
+The workflow presented in this repository provides a starting point for subsequent quantitative studies.
+
+Possible extensions include
+
+- umbrella sampling of insertion pathways identified here;
+- metadynamics using collective variables informed by unbiased trajectories;
+- atomistic backmapping of representative coarse-grained configurations;
+- comparison with experimental measurements of membrane permeabilization;
+- investigation of peptide oligomerization at higher peptide concentrations.
+
+---
+
+# Conclusions
+
+The final simulation protocol employs **unbiased Martini 3 coarse-grained molecular dynamics** because it provides the best compromise between computational efficiency and physical realism for studying spontaneous peptide–membrane interactions.
+
+Enhanced-sampling methods remain valuable tools for subsequent thermodynamic analyses but were not adopted as the primary simulation strategy because they require assumptions regarding the reaction coordinates governing membrane insertion.
+
+---
+# Appendix B — Lipid Substitutions and Cyclopropane Lipid Parameterization
+
+[← Back to README](README.md)
+
+---
+
+# Overview
+
+The experimentally determined phospholipid composition of the *Escherichia coli* Gram-negative inner membrane (G-IM) includes several phospholipids containing **cyclopropanated fatty acid chains**. These cyclopropane modifications play an important role in regulating membrane fluidity, permeability, and resistance to environmental stress.
+
+At present, however, the official Martini 3 lipid library does not provide validated coarse-grained models for cyclopropane-containing phospholipids. Consequently, several substitutions were required to construct a membrane that remains both physically realistic and fully compatible with the published Martini 3 force field.
+
+This appendix documents the scientific rationale behind those substitutions.
+
+---
+
+# Native Membrane Composition
+
+The target membrane reproduces the experimentally determined phospholipid composition of the *E. coli* Gram-negative inner membrane.
+
+| Native lipid | Description |
+|--------------|-------------|
+| PMPE | 16:0/cy17:0 phosphatidylethanolamine |
+| POPE | 16:0/18:1 phosphatidylethanolamine |
+| QMPE | 15:0/cy17:0 phosphatidylethanolamine |
+| OYPE | 18:1/18:1Δ11 (vaccenoyl) phosphatidylethanolamine |
+| PMPG | 16:0/cy17:0 phosphatidylglycerol |
+| PYPG | 16:0/18:1Δ11 phosphatidylglycerol |
+| PVCL2 | Mixed-chain cardiolipin containing palmitoyl and vaccenoyl chains |
+
+Only **POPE** is directly available in the Martini 3 phospholipid library without modification.
+
+---
+
+# The Cyclopropane Problem
+
+Cyclopropane fatty acids are produced by enzymatic modification of unsaturated fatty acids, replacing a carbon–carbon double bond with a three-membered cyclopropane ring.
+
+Although this modification changes only a single bond, it influences
+
+- chain flexibility,
+- lipid packing,
+- membrane fluidity,
+- lateral diffusion,
+- permeability.
+
+Accurately reproducing these effects requires dedicated coarse-grained parameterization.
+
+At present, the Martini 3 lipid library contains no validated cyclopropane phospholipids. Consequently,
+
+- PMPE,
+- QMPE,
+- PMPG,
+
+cannot currently be represented explicitly.
+
+---
+
+# Why Custom Parameters Were Not Used
+
+During the early stages of this project, several custom Martini lipid topologies were developed by modifying existing phospholipid definitions.
+
+Although these topologies were chemically plausible, they were ultimately abandoned for production simulations because
+
+- they were not validated against atomistic simulations or experimental observables;
+- small bead-type changes can significantly alter membrane mechanics;
+- custom parameters reduce reproducibility;
+- future Martini releases are expected to provide official cyclopropane lipid models.
+
+Accordingly, the final production simulations use **only officially parameterized Martini 3 lipids**.
+
+The historical development of these custom topologies is documented in
+[Appendix C](appendix-c-historical-notes-and-deprecated-topologies).
+
+---
+
+# Design Criteria
+
+Any replacement membrane was required to satisfy the following conditions.
+
+1. Remain in the liquid-disordered phase at 310 K.
+2. Preserve the phosphatidylethanolamine/phosphatidylglycerol ratio.
+3. Preserve the overall membrane charge.
+4. Use only validated Martini 3 lipid parameters.
+
+No single substitution satisfies all four criteria perfectly. The adopted membrane therefore represents a compromise between chemical fidelity and force-field reliability.
+
+---
+
+# Candidate Replacement Strategies
+
+Three broad approaches were considered.
+
+| Strategy | Status | Reason |
+|----------|--------|--------|
+| DPPE/DPPG substitution | Rejected | Artificially rigid membrane |
+| Custom cyclopropane topologies | Rejected | Not validated |
+| Official Martini 3 substitutes | Adopted | Fully validated and reproducible |
+
+---
+
+# Why Saturated Lipids Were Rejected
+
+Replacing cyclopropane-containing lipids with fully saturated phospholipids initially appears attractive because neither contains a carbon–carbon double bond.
+
+In practice, however, this substitution produces a membrane substantially more ordered than the native *E. coli* inner membrane.
+
+DPPE and DPPG possess relatively high gel-to-fluid transition temperatures and exhibit markedly reduced lateral mobility near physiological temperatures.
+
+Their use would therefore
+
+- decrease membrane fluidity,
+- reduce lipid diffusion,
+- suppress local membrane deformation,
+- increase the energetic barrier to peptide insertion.
+
+Because spontaneous membrane insertion is the principal phenomenon investigated in this work, introducing gel-phase lipids would systematically bias the simulation.
+
+For this reason, saturated substitutes were rejected.
+
+---
+
+# Adopted Lipid Substitutions
+
+The final membrane uses the following substitutions.
+
+| Native lipid | Martini 3 substitute | Primary justification |
+|--------------|---------------------|-----------------------|
+| PMPE | DVPE | Preserves a fluid PE environment using validated parameters |
+| QMPE | POPE | Closest validated PE while avoiding unnecessary unsaturation |
+| OYPE | DOPE | Closest validated unsaturated PE analogue |
+| PMPG | POPG | Validated PG substitute |
+| PYPG | POPG | Equivalent PG used consistently throughout membrane construction |
+| PVCL2 | TOCL | Official Martini cardiolipin |
+
+These substitutions preserve
+
+- membrane charge,
+- phospholipid headgroup composition,
+- liquid-disordered membrane behaviour,
+
+while remaining entirely within the published Martini 3 force field.
+
+---
+
+# Rationale for Individual Substitutions
+
+## PMPE → DVPE
+
+PMPE contains one saturated palmitoyl chain and one cyclopropanated C17 chain.
+
+The cyclopropane ring originates biosynthetically from a cis double bond and retains many of the packing characteristics of an unsaturated chain. Consequently, replacing the cyclopropane chain with a validated vaccenoyl chain provides a closer approximation to the native membrane than replacing it with a fully saturated chain.
+
+DVPE therefore preserves a fluid phosphatidylethanolamine environment while remaining entirely within the official Martini 3 lipid library.
+
+---
+
+## QMPE → POPE
+
+QMPE differs from PMPE in an important respect: its **sn1 chain is a saturated C15:0 fatty acid**, whereas PMPE contains a C16:0 chain.
+
+Because QMPE contains only **one** cyclopropane chain, mapping it to DVPE would introduce **two** chemically significant changes simultaneously:
+
+1. replacing the cyclopropane ring with a cis double bond, **and**
+2. replacing the native C15 saturated chain with an unsaturated vaccenoyl chain.
+
+This would increase the overall unsaturation of the molecule beyond that present in the native lipid.
+
+POPE, although not an exact chemical analogue, introduces only a single unsaturated chain while preserving the general phosphatidylethanolamine character of the membrane. It therefore represents the more conservative substitution and avoids overestimating membrane fluidity.
+
+---
+
+## OYPE → DOPE
+
+OYPE contains oleoyl and vaccenoyl chains.
+
+Because Martini does not distinguish between positional isomers of cis monounsaturated chains at this level of coarse graining, DOPE provides the closest validated phosphatidylethanolamine analogue available in the standard Martini 3 library.
+
+---
+
+## PMPG and PYPG → POPG
+
+Current versions of COBY do not directly support PYPG.
+
+Using POPG throughout the phosphatidylglycerol fraction simplifies membrane construction while preserving the total concentration of anionic phospholipids.
+
+This is an implementation decision rather than a limitation of the Martini force field.
+
+---
+
+## PVCL2 → TOCL
+
+The experimental membrane contains a mixed-chain cardiolipin.
+
+Martini 3 provides validated parameters for tetraoleoyl cardiolipin (TOCL), which was adopted for the present simulations.
+
+Only coordinate generation required a project-specific workaround; all interaction parameters are the standard Martini 3 values.
+
+---
+
+# Consequences of the Substitutions
+
+The adopted membrane is not chemically identical to the experimental lipid composition.
+
+Nevertheless, it preserves the properties most relevant to the present study.
+
+- Overall membrane charge.
+- Approximate phospholipid class distribution.
+- A predominantly liquid-disordered membrane.
+- Exclusive use of validated Martini 3 parameters.
+- Full reproducibility using publicly available software and force fields.
+
+The principal missing feature is the explicit representation of cyclopropane fatty acids.
+
+---
+
+# Future Improvements
+
+Once validated Martini 3 parameters for cyclopropane-containing phospholipids become available, the preferred strategy will be to replace the corresponding substitute lipids while leaving the remainder of the workflow unchanged.
+
+Because the simulation protocol relies exclusively on standard Martini infrastructure, such an update should require only minimal modification to the membrane-construction stage.
+
+---
+
+# Conclusions
+
+The membrane composition adopted in this repository is not intended to be a chemically exact coarse-grained representation of the *E. coli* Gram-negative inner membrane.
+
+Instead, it represents the closest approximation currently achievable while
+
+- preserving membrane fluidity,
+- preserving phospholipid composition,
+- avoiding unvalidated force-field modifications,
+- remaining fully reproducible using published Martini 3 parameters.
+
+This conservative approach prioritizes reproducibility and force-field reliability over speculative parameter development while providing a robust framework for future refinement as the Martini lipid library evolves.
+
+---
+
+# Appendix C — Repository Maintenance Notes and Deprecated Topologies
+
+[← Back to README](README.md)
+
+---
+
+# Overview
+
+During the development of this workflow, several approaches were investigated for representing the experimentally observed *Escherichia coli* Gram-negative inner membrane within the Martini 3 force field.
+
+Some of these approaches required project-specific topology modifications or coordinate-generation workarounds. As the workflow evolved, these were replaced wherever possible by officially parameterized Martini 3 lipids.
+
+This appendix documents those development decisions and identifies files that are retained solely for historical reference.
+
+---
+
+# Development Strategy
+
+The objective throughout this project was to reproduce the experimentally determined membrane composition while remaining compatible with the published Martini 3 force field.
+
+Three practical difficulties were encountered.
+
+1. Cyclopropane-containing phospholipids are not currently available in the official Martini 3 lipid library.
+2. COBY does not currently generate coordinates correctly for all lipids required by the target membrane.
+3. Some custom lipid definitions proved incompatible with COBY's internal validation routines.
+
+These issues were addressed iteratively during the development of the workflow.
+
+---
+
+# Custom Lipid Topologies
+
+To reproduce the native membrane composition as closely as possible, custom Martini 3 lipid topology files were initially constructed for the missing lipid species.
+
+These topologies were intended only to bridge gaps in the available Martini 3 lipid library and were **not** derived from the Martini developers.
+
+No production simulations described in this repository employ these custom topologies.
+
+---
+
+# COBY Compatibility Issues
+
+During membrane construction, COBY repeatedly terminated with exceptions reporting bead-type mismatches.
+
+Investigation showed that these failures originated from inconsistencies between the custom lipid definitions and the bead types expected by COBY.
+
+In particular, one phosphatidylethanolamine topology (QMPE) was found to contain incorrect bead assignments.
+
+Because COBY validates lipid definitions against its internal Martini specifications, these inconsistencies prevented successful membrane construction.
+
+Rather than attempting to maintain an independent set of modified lipid topologies, the workflow was redesigned to use only officially parameterized Martini 3 lipids.
+
+This decision substantially improved reproducibility while eliminating compatibility problems.
+
+---
+
+# Manual TOCL Coordinate Generation
+
+One exception remains in the final workflow.
+
+Although Martini 3 provides validated interaction parameters for tetraoleoyl cardiolipin (TOCL), current versions of COBY do not correctly generate TOCL coordinates during membrane construction.
+
+To avoid modifying the force field itself, TOCL coordinates are generated separately using
+
+```text
+simulation_cg/generate_tocl.py
+```
+
+The generated coordinates are subsequently incorporated into the membrane during system construction.
+
+Only coordinate generation is affected.
+
+All interaction parameters remain those of the official Martini 3 force field.
+
+---
+
+# Current Production Workflow
+
+The production simulations described in this repository use
+
+- officially parameterized Martini 3 phospholipids;
+- officially parameterized Martini 3 cardiolipin (TOCL);
+- project-specific coordinate generation only where required;
+- no custom interaction parameters.
+
+Consequently, all production simulations are reproducible using publicly available Martini 3 force-field files together with the scripts provided in this repository.
+
+---
+
+# Deprecated Files
+
+Some files retained within the repository document earlier stages of workflow development.
+
+These files are preserved for transparency and reproducibility only.
+
+They should **not** be used when preparing new simulation systems.
+
+If future versions of Martini 3 provide validated cyclopropane phospholipids or if COBY adds native support for the missing lipid species, these historical files may be removed entirely.
+
+---
+
+# Recommendations for Future Development
+
+Future versions of this workflow should preferentially adopt official Martini lipid parameterizations as they become available.
+
+In particular,
+
+- validated cyclopropane phospholipids should replace the current substitute lipids;
+- manual TOCL coordinate generation should be removed once supported by COBY;
+- any remaining project-specific workarounds should be retired in favour of upstream implementations.
+
+This policy minimizes maintenance effort while ensuring continued compatibility with future Martini releases.
+
+---
+
+# Conclusions
+
+The current workflow deliberately prioritizes reproducibility over exact chemical fidelity.
+
+Early attempts to reproduce the native membrane using project-specific Martini lipid definitions demonstrated the practical difficulties of maintaining custom force-field components alongside evolving software such as COBY.
+
+The final workflow therefore adopts a conservative strategy:
+
+- use official Martini 3 interaction parameters wherever available;
+- introduce project-specific code only for coordinate generation;
+- avoid maintaining independent force-field modifications.
+
+This approach provides a robust, reproducible foundation while remaining straightforward to update as the Martini ecosystem evolves.
+
+---
