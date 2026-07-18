@@ -225,6 +225,32 @@ Re-parametrizing cy17:0 from scratch using the MARTINI 3 small-molecule workflow
 work in itself and is not recommended unless cyclopropane specificity is a primary
 scientific question.
 
+
+So, the substitutions chosen for the G-IM membrane composition in martini3:
+   - PMPE: 46 -> DVPE: 46
+   - POPE: 13 -> POPE: 13
+   - QMPE: 12 -> POPE: 12
+   - OYPE: 8 -> YOPE:8
+   - PMPG: 10 -> PYPG: 10
+   - PYPG: 9 -> PYPG:9
+   - PVCL2: 2  -> TOCL:2
+   (counts per leaflet, symmetric bilayer)
+
+The last substitution was suggested by Gemini, since TOCL is a cardiolipin like PVCL. The other cardiolipin available with martini3 is TMCL, but that is a gel phase at temperature.
+
+Note however, two problems that arose while membrane building. COBY the membrane builder is buggy with PYPG and TOCL. So I substituted PYPG with equivalent POPG and for TOCL Gemini made a compatible gro file to insert manually.
+
+**Final martini3 membrane composition**
+
+
+| Lipid name  | Counts per Leaflet | martini itp file name |                  
+|---|---|---|
+| DVPE | 46 | martini_v3.0.0_phospholipids_PG_v2.itp |
+| POPG | 19 | <-------------do---------------------> |
+| POPE | 25 | martini_v3.0.0_phospholipids_PE_v2.itp |
+| DOPE | 8  | <-------------do---------------------> |
+| TOCL | 2  | martini_v3.0.0_phospholipids_CL_v2.itp |
+
 ---
 
 ## Comparison Summary
@@ -252,7 +278,9 @@ Choose a frame after adsorption has clearly stabilized (e.g., 25–30 ns in your
 One robust suggestion is to make multiple runs (each with different random initial velocities) and get the fraction of trajectories that do translocate.
 
 # Coarse-Grained MD Setup: *E. coli* Inner Membrane with KU04 Peptide
+
 This repository contains the workflow, coordinate construction steps, and custom topology topologies required to simulate a physiologically accurate, seven-lipid *Escherichia coli* inner membrane containing an embedded 36-residue KU04 peptide using the **Martini 3 Coarse-Grained Force Field**.
+
 ---
 ## 🛠️ Step-by-Step Execution Workflow
 ### Step 1: Coarse-Grain the KU04 Peptide
@@ -282,8 +310,13 @@ martinize2 -f KU04AMP01_clean.pdb \
            -x KU04AMP01_cg.pdb -o KU04.top \
            -scfix -ef 500.0 -el 0.5 -eu 0.9 -ea 0 -ep 0 -maxwarn 5
 ```
+Note that membrane builder COBY places the protein inside the membrane by default. also by default, COBY centers the flat membrane bilayer precisely in the middle of your box’s \(Z\)-dimension. With box=[14, 14, 14], the membrane center sits at \(Z = 7.0\text{ nm}\). A standard Martini 3 bilayer spans roughly \(4\text{ nm}\) total thickness, meaning your upper phosphate headgroup leaflet will sit at approximately \(Z \approx 9.0\text{ nm}\). So if you want to start the peptide above the membrane, you'll need to editconf the pdb and move the molecule up by the requisite amount:
 
-This will create a bare topology file KU04.top that transcludes the CG-itp file. If you want, you can systematically change the default name (molecule_0) to the peptide name (KU04).
+```bash
+gmx editconf -f KU04AMP01_cg.pdb -o KU04AMP01_cg_shifted.pdb -translate 0 0 4.5
+```
+
+martinize2 also create a bare topology file KU04.top that transcludes the CG-itp file. If you want, you can systematically change the default name (molecule_0) to the peptide name (KU04).
 
 Change the transclusion of the martini itp file to 
 
@@ -296,42 +329,48 @@ For visualization, install `martiniglass` outside the sif image (didn;t wanna bl
 
 ### Step 2: Build Membrane Coordinates with COBY
 
-To prevent coordinate construction mismatches, configure a Python script (`memb_build.py`) to bypass COBY's outdated 11-bead internal library for `PYPG` and specify the explicit 12-bead structure layout alongside your project's exact target lipid ratios.
+To prevent coordinate construction mismatches, configure a Python script (`memb_build.py`) to bypass COBY's outdated internal library for `TOCL` and run the [Gemini python script](simulation_cg/generate_tocl.py) for generating a compatible gro-file for TOCL. 
 
-Create a file named `memb_build.py` with the following content:
+Then, prepare the header file inclusions for COBY into [top_for_COBY.itp](simulation_cg/top_for_COBY.itp) 
+
+```bash
+#include "martini3/martini_v3.0.0.itp"
+; per the readme in https://github.com/Martini-Force-Field-Initiative/M3-Lipid-Parameters/tree/main/ITPs , this must be there
+#include "martini3/martini_v3.0.0_ffbonded_v2.itp"
+; Lipid ITPs needed
+#include "martini3/martini_v3.0.0_phospholipids_PG_v2.itp"
+#include "martini3/martini_v3.0.0_phospholipids_PE_v2.itp"
+#include "martini3/martini_v3.0.0_phospholipids_CL_v2.itp"
+#include "martini3/martini_v3.0.0_ions_v1.itp"
+; Maybe we don't need this:
+;#include "martini3/martini_v3.0.0_nucleobases_v1.itp"
+#include "martini3/martini_v3.0.0_solvents_v1.itp"
+#include "martini3/martini_v3.0.0_sterols_v1.itp"
+; Finally, transclude the peptide molecule
+#include "KU04.itp"
+```
+
+Finally, create a file named `memb_build.py` (script [saved here](simulation_cg/memb_build.py)) with the following content:
 
 ```python
 #!/usr/bin/env python
 import COBY
 
-sysname = "ku04amp01_gim"
-
-# Custom structural templates to force correct bead layouts matching Martini 3 ITPs
-custom_lipid_definitions = {
-    "PYPG": {
-        "headgroup": ["GL0", "PO4", "GL1", "GL2"],
-        "tails": [["C1A", "C2A", "D3A", "C4A"], ["C1B", "C2B", "C3B", "C4B"]]
-    },
-    "PVCL2": {
-        "headgroup": ["GL0", "PO41", "GL11", "GL12", "PO42", "GL21", "GL22"],
-        "tails": [
-            ["C1A", "C2A", "C3A", "C4A"], ["C1B", "C2B", "D3B", "C4B"],
-            ["C1C", "C2C", "C3C", "C4C"], ["C1D", "C2D", "D3D", "C4D"]
-        ]
-    }
-}
+sysname = "ku04_gim"
 
 COBY.COBY(
-    box =, 
-    custom_lipids = custom_lipid_definitions,
-    membrane = "lipid:PMPE:46:charge:lib lipid:POPE:13 lipid:QMPE:12:charge:lib lipid:OYPE:8:charge:lib lipid:PMPG:10:charge:lib lipid:PYPG:9:charge:lib lipid:PVCL2:2:charge:lib apl:0.5",
-    protein = "file:KU04AMP01_cg.pdb moleculetypes:KU04",
-    solvation = "default",
-    itp_input = "file:top_for_COBY.itp",
-    out_sys = sysname,
-    out_top = sysname + ".top",
-    out_log = sysname + ".log",
-    sn = sysname,
+    box=[14, 14, 14],
+    # Method A: using POPG and DOPE shortcuts to bypass internal diacyl mismatch bugs
+    membrane="lipid:DVPE:46 lipid:POPG:19 lipid:POPE:12 lipid:DOPE:8 lipid:TOCL:2 apl:0.61",
+    protein="file:KU04AMP01_cg_shifted.pdb moleculetypes:KU04 center_protein:False", #Protein was pre-aligned, so do not center again.
+    solvation="default",
+    itp_input="file:top_for_COBY.itp",
+    # Feed COBY the single cardiolipin coordinate file you just generated
+    molecule_import="file:tocl_single.gro moleculetypes:TOCL",
+    out_sys=sysname,
+    out_top=sysname + ".top",
+    out_log=sysname + ".log",
+    sn=sysname,
 )
 ```
 
@@ -341,9 +380,10 @@ Execute the builder:
 python3 memb_build.py
 ```
 
-### Step 3: Append Missing Topologies to `top_for_COBY.itp`
+---
 
-**Warning: Do not do this! See notes below.**
+### **Warning: Do not do step 3! See notes above and below.**
+#### Step 3: Append Missing Topologies to `top_for_COBY.itp`
 
 COBY is strictly a coordinate generator and does not produce physics data. To clear GROMACS `No such moleculetype` exceptions, append the custom topologies generated below directly to your `top_for_COBY.itp` file.
 
@@ -575,18 +615,16 @@ PVCL2             3
  21 22 23   2   120   45
 ```
 
----
 
-### ⚠️ Critical Evaluation of the Custom Topologies Above
+#### ⚠️ Critical Evaluation of the Custom Topologies Above
 
 The five ITP blocks provided in Step 3 (PMPE, QMPE, OYPE, PMPG, PVCL2) are **experimental
 placeholders** for lipids that have no official Martini 3 parameters. Before using them in
 production simulations, the following deficiencies must be understood and, where possible,
 corrected.
 
----
 
-#### 1. Wrong Non-Bonded Bead Types — Most Critical
+##### 1. Wrong Non-Bonded Bead Types — Most Critical
 
 Every bead in these topologies uses **Martini 2-era bead type names** that are not
 equivalent in the Martini 3 non-bonded interaction matrix. Using them with the
@@ -613,9 +651,7 @@ To verify the correct parameters, compare against POPE in
 `/usr/local/share/gromacs/top/martini3.ff/` inside the Singularity image
 [(Pedersen et al. 2025)](https://doi.org/10.1021/acscentsci.5c00755).
 
----
-
-#### 2. cy17:0 Acyl Chain is Under-beaded (PMPE, QMPE, PMPG)
+##### 2. cy17:0 Acyl Chain is Under-beaded (PMPE, QMPE, PMPG)
 
 All three cyclopropane-containing lipids assign **3 `C1` beads** (C1B–C2B–C3B) to
 the cy17:0 sn2 chain. cy17:0 has 17 carbons; the standard Martini 3 4:1 mapping
@@ -630,9 +666,7 @@ requires **4 beads** to represent a 16–17-carbon chain.
 A 3-bead sn2 chain is ~4 Å shorter than a 16:0 palmitoyl sn2, biasing the bilayer
 toward artificial asymmetric thickness.
 
----
-
-#### 3. Cyclopropane Ring is Entirely Absent
+##### 3. Cyclopropane Ring is Entirely Absent
 
 cy17:0 contains a **three-membered carbocycle** (cyclopropane ring at C9–C10 with a
 methylene bridge, total 17 carbons). This ring structure:
@@ -657,9 +691,7 @@ A proper cyclopropane CG model would require treating the ring carbons as an SC-
 bonded parameters validated against atomistic reference data — this constitutes original
 parameterization work.
 
----
-
-#### 4. QMPE sn1 Chain: D3 Bead on a Saturated Odd-Chain Acid
+##### 4. QMPE sn1 Chain: D3 Bead on a Saturated Odd-Chain Acid
 
 QMPE is labeled "15:0/cy17:0" (sn1 = pentadecanoic acid, fully saturated). Yet atom 6
 of the sn1 chain carries bead type `D3` (double-bond bead), which is physically incorrect
@@ -673,9 +705,8 @@ If "Q" in the lipid name instead encodes a *monounsaturated* odd-chain acid (e.g
 double bond, inconsistent with conventional 15:1Δ9 (Δ9 in bead 3 for a 4-bead
 15-carbon chain). This ambiguity must be resolved before the topology can be used.
 
----
 
-#### 5. OYPE sn1 Chain Has 5 Beads (20:1 equivalent), Not 18:1
+##### 5. OYPE sn1 Chain Has 5 Beads (20:1 equivalent), Not 18:1
 
 The OYPE sn1 tail (C1A–C2A–D3A–C4A–C5A, 5 beads with D3 at position 3) corresponds in
 4:1 Martini mapping to a **C20:1Δ11** (gondoic acid) chain, not 18:1Δ9 (oleoyl).
@@ -690,17 +721,13 @@ The **closest officially available Martini 3 substitute** for OYPE (18:1/16:1-PE
 `martini_v3.0.0_phospholipids_PE_v2.itp`. Alternatively, `POPE` (16:0/18:1-PE) is
 fully validated.
 
----
-
-#### 6. PVCL2 Atom-Name Typo
+##### 6. PVCL2 Atom-Name Typo
 
 Atom 19 in the PVCL2 topology is named `C4A` but should be **`C4C`** (it belongs to
 the C-chain acyl tail). This has been corrected in the topology above; verify that your
 working copy reflects the fix before running `gmx grompp`.
 
----
-
-#### Recommended Path Forward
+##### Recommended Path Forward
 
 | Option | Description | Phase risk | Fidelity |
 |---|---|---|---|
@@ -712,6 +739,8 @@ For a first-pass translocation study, **Option B** (vaccenic-acid substitution w
 the minimum scientifically defensible choice. Option A with DPPE/DPPG will produce a
 membrane that is too ordered, artificially suppressing translocation.
 
+**Warning ends: May resume workflow from here.**
+
 ---
 
 ### Step 4: Map Temperature Groups in GROMACS
@@ -720,23 +749,36 @@ Create a comprehensive index file combining your peptide and all 6 separate lipi
 
 ```bash
 gmx make_ndx -f ku04amp01_gim.gro -o index.ndx <<EOF
-"KU04" | "PMPE" | "POPE" | "QMPE" | "OYPE" | "PMPG" | "PYPG" | "PVCL2"
-name 21 KU04_Membrane
+"DVPE" | "POPG" | "POPE" | "DOPE" | "TOCL"
+name 22 Membrane
+"W" | "Ion"
+name 23 solvent
 q
 EOF
 ```
 ## Step 5: Adjust MDP Parameters
+Download the `gromacs` mdp parameters for the various stages of the simulation:
+
+1. Energy Minimization: [minim.mdp](https://www.compchems.com/gromacs_cg_2/minim.mdp)
+2. NPT equilibration (50 ns): [npt.mdp](https://www.compchems.com/gromacs_cg_2/npt.mdp)
+   Note that CG systems are more stable so we only need a rough equilibration. The time-steps are much larger than an AA simulation
+3. Production run (1 microsec): [md.mdp](https://www.compchems.com/gromacs_cg_2/md.mdp)
 
 Audit your .mdp file configuration fields. Ensure the integration variables are altered to match your updated group names:
-gmx tc-grps = KU04_Membrane solvent ref-t = 310 310 gen-t = 310 pcoupltype = semiisotropic 
-
-## Step 6: Assemble and Run the Compiler
-
-Compile the target workspace into a runtime binary (.tpr) layout:
+```bash
+tc-grps = Protein Membrane solvent 
+ref-t = 310 310 310 ; # May have to adjust this in case membrane becomes gel.
+gen_temp = 310 ; # May have to adjust this in case membrane becomes gel.
+pcoupltype = berendsen 
+```
+## Step 6: Assemble and Run the minimization
 
 ```bash 
-gmx grompp -f minimization.mdp \ -c ku04amp01_gim.gro \ -p ku04amp01_gim.top \ -n index.ndx \ -o min.tpr 
+gmx grompp -f minim.mdp -c ku04_gim.gro -r ku04_gim.gro -o em.tpr -p ku04_gim.top
+gmx mdrun -v -deffnm em -nb gpu -nt 12 -gpu_id 0
 ```
+
+Finally, run equilibration and production in HPC with the script [run_eq_prod_martini.pbs](run_eq_prod_martini.pbs).
 
 ------------------------------
 

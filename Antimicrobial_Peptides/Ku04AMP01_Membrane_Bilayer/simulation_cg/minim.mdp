@@ -1,0 +1,19 @@
+;; minim.mdp - used as input into grompp to generate em.tpr
+; Parameters describing what to do, when to stop and what to save
+define = -DPOSRES
+
+integrator      = steep         ; Algorithm (steep = steepest descent minimization)
+;nstxout-compressed     = 1       ; xtc compressed trajectory output every 1000 steps (100 ps)
+;compressed-x-precision = 1       ; precision with which to write to the compressed trajectory file
+
+emtol           = 100.0        ; Stop minimization when the maximum force < 1000.0 kJ/mol/nm
+emstep      = 0.001      ; Energy step size
+nsteps          = 50000         ; Maximum number of (minimization) steps to perform
+
+
+constraints              = none
+constraint_algorithm     = Lincs
+unconstrained_start      = no
+lincs_order              = 4
+lincs_warnangle          = 90
+
