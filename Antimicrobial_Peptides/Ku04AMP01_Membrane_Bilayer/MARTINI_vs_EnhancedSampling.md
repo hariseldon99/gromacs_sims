@@ -274,8 +274,11 @@ intermediate and is always worthwhile. Stage 3 (metadynamics PMF) is recommended
 a peer-review-quality quantitative free-energy estimate is required.
 
 **Initial Conditions** The all-atom CHARMM-ff simulation seems to indicate adsorption in a 50 ns time window.
-Choose a frame after adsorption has clearly stabilized (e.g., 25–30 ns in your case).Convert to Martini, then energy-minimize, equilibrate and run for many microseconds.
-One robust suggestion is to make multiple runs (each with different random initial velocities) and get the fraction of trajectories that do translocate.
+Initial conditions are established by an external webtool for membrane alignment, followed by insertion using `COBY` membrane builder.
+The immersed peptide had to be translated manually to ensure that it was above the membrane. The charged N-terminal was kept pointing towards the phospholipid layer in the outer leaflet to facilitate attraction.
+
+**MD Parameters**
+The gromacs `.mdp` files are enclosed, and the parameters optimized according to established phenomenology (see refs). Also, see comments in the `.mdp` files.
 
 # Coarse-Grained MD Setup: *E. coli* Inner Membrane with KU04 Peptide
 
@@ -821,34 +824,39 @@ The parameters provided above are derived directly from the modular design rules
    *The Martini 3 Lipidome: Expanded and Refined Parameters Improve Lipid Phase Behavior.*  
    ACS Central Science (2025). <https://doi.org/10.1021/acscentsci.5c00755>
 
-3. **Cyclopropane fatty acids in *E. coli***  
+3. **choice of .mdp parameters**
+   De Jong, Djurre H., Svetlana Baoukina, Helgi I. Ingólfsson, and Siewert J. Marrink.  
+   *Martini Straight: Boosting Performance Using a Shorter Cutoff and GPUs.*
+   Computer Physics Communications 199 (February 2016): 1–7. <https://doi.org/10.1016/j.cpc.2015.09.014>
+  
+4. **Cyclopropane fatty acids in *E. coli***  
    Grogan, D.W. & Cronan, J.E.  
    *Cyclopropane ring formation in membrane lipids of bacteria.*  
    Microbiology and Molecular Biology Reviews **61**, 429–441 (1997).  
    <https://doi.org/10.1128/mr.61.4.429-441.1997>
 
-4. **Cyclopropane FA membrane biophysics (CHARMM36 all-atom reference)**  
+5. **Cyclopropane FA membrane biophysics (CHARMM36 all-atom reference)**  
    Poger, D. & Mark, A.E.  
    *A Ring to Rule Them All: The Effect of Cyclopropane Fatty Acids on the Fluidity of Lipid Bilayers.*  
    Journal of Physical Chemistry B **119**, 5487–5495 (2015).  
    <https://doi.org/10.1021/jp5092717>
 
-5. **ElNeDyn elastic network for Martini**  
+6. **ElNeDyn elastic network for Martini**  
    Periole, X., Cavalli, M., Marrink, S.J. & Ceruso, M.A.  
    *Combining an Elastic Network With a Coarse-Grained Molecular Force Field: Structure, Dynamics, and Intermolecular Recognition.*  
    Journal of Chemical Theory and Computation **5**, 2531–2543 (2009).  
    <https://doi.org/10.1021/ct9002114>
 
-6. **martinize2 / vermouth**  
+7. **martinize2 / vermouth**  
    Kroon, P.C., Grunewald, F., Barnoud, J. et al.  
    *Martinize2 and Vermouth: Unified Framework for Topology Construction.*  
    eLife **12**, RP90627 (2023). <https://doi.org/10.7554/eLife.90627>
 
-7. **COBY membrane builder**  
+8. **COBY membrane builder**  
    *COBY: CG Membrane Builder for GROMACS.*  
    <https://pypi.org/project/COBY/>
 
-8. **cg2at backmapping**  
+9. **cg2at backmapping**  
    Vickery, O.N. & Stansfeld, P.J.  
    *CG2AT2: an Enhanced Fragment-Based Approach for Serial Multi-scale Molecular Dynamics Simulations.*  
    Journal of Chemical Theory and Computation **17**, 6472–6482 (2021).  
