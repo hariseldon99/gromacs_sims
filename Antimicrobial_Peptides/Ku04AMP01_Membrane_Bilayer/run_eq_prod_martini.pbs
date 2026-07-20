@@ -119,8 +119,10 @@ if [ "$RUN_EQUIL" = true ]; then
             -nocopyright \
             -v \
             -deffnm npt \
+            -pin on \
             -nb gpu \
-            -nt ${PBS_NCPUS} \
+            -ntmpi 1 \
+            -ntomp ${PBS_NCPUS} \
             -gpu_id 0
     "
 
@@ -170,9 +172,11 @@ if [ "$RESUME_MD" = true ]; then
             -nocopyright \
             -v \
             -deffnm md \
+            -pin on \
             -cpi md.cpt \
+            -ntmpi 1 \
+            -ntomp ${PBS_NCPUS} \
             -nb gpu \
-            -nt ${PBS_NCPUS} \
             -gpu_id 0
     "
 else
@@ -206,8 +210,10 @@ else
                 -nocopyright \
                 -v \
                 -deffnm md \
+                -pin on \                
                 -nb gpu \
-                -nt ${PBS_NCPUS} \
+                -ntmpi 1 \
+                -ntomp ${PBS_NCPUS} \
                 -gpu_id 0
         "
         echo "[INFO] mdrun completed for production"
