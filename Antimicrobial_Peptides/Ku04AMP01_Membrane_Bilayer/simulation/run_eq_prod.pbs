@@ -129,10 +129,12 @@ if [ "$RUN_EQUIL" = true ]; then
                 -nocopyright \
                 -v \
                 -deffnm step${step} \
+                -pin on \
                 -nb gpu \
                 -pme gpu \
                 -bonded gpu \
-                -nt ${PBS_NCPUS} \
+                -ntmpi 1 \
+                -ntomp ${PBS_NCPUS} \
                 -gpu_id 0
         "
 
@@ -253,9 +255,11 @@ for cnt in $(seq ${cnt_start} ${set_cntmax}); do
             -nocopyright \
             -v \
             -deffnm ${istep} \
+            -pin on \
             -nb gpu \
             -pme gpu \
             -bonded gpu \
+            -ntmpi 1 \
             -nt ${PBS_NCPUS} \
             -gpu_id 0
     "
