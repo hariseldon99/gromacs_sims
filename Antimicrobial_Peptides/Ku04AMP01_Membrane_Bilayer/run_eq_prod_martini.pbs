@@ -24,9 +24,10 @@ RUN_PROD=true #Set to false if only PP is desired
 
 RESUME_MD=false #Set to true if resuming from chkpt
 
-EM_OUT="em.gro"
-EQUI_MDP="npt.mdp"
-MD_MDP="md.mdp"
+EM_OUT="em" # Output prefix from energy minimization step
+TOPOL="ku04_gim" # Topology file prefix
+EQUI_MDP="npt" # MDP file prefix for equilibration
+MD_MDP="md" # MDP file prefix for production run
 
 
 # Singularity container
@@ -99,10 +100,10 @@ if [ "$RUN_EQUIL" = true ]; then
 
     SINGULARITY bash -c "
         gmx grompp \
-            -f ${EQUI_MDP} \
+            -f ${EQUI_MDP}.mdp \
             -c ${EM_OUT}.gro \
             -r ${EM_OUT}.gro \
-            -p topol.top \
+            -p ${TOPOL}.top \
             -n index.ndx \
             -o npt.tpr \
             -maxwarn 5
@@ -186,9 +187,9 @@ else
 
         SINGULARITY bash -c "
             gmx grompp \
-                -f ${MD_MDP} \
+                -f ${MD_MDP}.mdp \
                 -c npt.gro \
-                -p topol.top \
+                -p ${TOPOL}.top \
                 -n index.ndx \
                 -o md.tpr \
                 -t npt.cpt \
