@@ -1,6 +1,6 @@
 #!/usr/local/bin/vmd
 # VMD script written by save_state $Revision: 1.48 $
-# VMD version: 2.0.1a1
+# VMD version: 2.0.0a4
 set viewplist {}
 set fixedlist {}
 proc vmdrestoremymaterials {} {
@@ -296,8 +296,8 @@ display dof_fnumber 64.000000
 display dof_focaldist 0.700000
 mol new /home/daneel/gitrepos/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulation_cg/ku04_gim.gro type gro first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol delrep 0 top
-mol representation CPK 1.000000 0.300000 12.000000 12.000000 0 0
-mol color ResName
+mol representation VDW 1.000000 12.000000
+mol color ResType
 mol selection {resname ALA ARG ASN ASP CYS GLU GLN GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL}
 mol material AOChalky
 mol addrep top
@@ -367,20 +367,21 @@ mol clipplane status 5 1 top {0}
 mol rename top ku04_gim.gro
 molinfo top set drawn 0
 molinfo top set active 0
-set viewpoints([molinfo top]) {{{1 0 0 -70.0307} {0 1 0 -70.3231} {0 0 1 -69.9773} {0 0 0 1}} {{-0.227517 -0.93742 0.263585 0} {-0.622927 0.348165 0.700527 0} {-0.74846 -0.00481039 -0.663159 0} {0 0 0 1}} {{0.0688513 0 0 0} {0 0.0688513 0 0} {0 0 0.0688513 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
+set viewpoints([molinfo top]) {{{1 0 0 -70.0307} {0 1 0 -70.3231} {0 0 1 -69.9773} {0 0 0 1}} {{0.689015 -0.536062 0.487746 0} {-0.0441316 0.640706 0.766517 0} {-0.723402 -0.549667 0.4178 0} {0 0 0 1}} {{0.0142341 0 0 0} {0 0.0142341 0 0} {0 0 0.0142341 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 # done with molecule 0
-mol new /home/daneel/gitrepos/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulation_cg/em.gro type gro first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol new /home/daneel/workspace/simulation_cg/em.gro type gro first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol addfile /home/daneel/workspace/simulation_cg/npt.xtc type xtc first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol delrep 0 top
 mol representation VDW 1.000000 12.000000
-mol color Name
+mol color ResType
 mol selection {resname ALA ARG ASN ASP CYS GLU GLN GLY HIS ILE LEU LYS MET PHE PRO SER THR TRP TYR VAL}
 mol material AOChalky
 mol addrep top
 mol selupdate 0 top 0
 mol colupdate 0 top 0
 mol scaleminmax top 0 0.000000 0.000000
-mol smoothrep top 0 0
+mol smoothrep top 0 25
 mol drawframes top 0 {now}
 mol clipplane center 0 0 top {0.0 0.0 0.0}
 mol clipplane color  0 0 top {0.5 0.5 0.5 }
@@ -414,7 +415,7 @@ mol addrep top
 mol selupdate 1 top 0
 mol colupdate 1 top 0
 mol scaleminmax top 1 0.000000 0.000000
-mol smoothrep top 1 0
+mol smoothrep top 1 60
 mol drawframes top 1 {now}
 mol clipplane center 0 1 top {0.0 0.0 0.0}
 mol clipplane color  0 1 top {0.5 0.5 0.5 }
@@ -441,10 +442,10 @@ mol clipplane color  5 1 top {0.5 0.5 0.5 }
 mol clipplane normal 5 1 top {0.0 0.0 1.0}
 mol clipplane status 5 1 top {0}
 mol rename top em.gro
-set viewpoints([molinfo top]) {{{1 0 0 -70.0307} {0 1 0 -70.3231} {0 0 1 -69.9773} {0 0 0 1}} {{-0.641664 0.6436 -0.417188 0} {-0.759545 -0.457639 0.462229 0} {0.106569 0.61347 0.782493 0} {0 0 0 1}} {{0.0208098 0 0 0} {0 0.0208098 0 0} {0 0 0.0208098 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
+set viewpoints([molinfo top]) {{{1 0 0 -70.0307} {0 1 0 -70.3231} {0 0 1 -69.9773} {0 0 0 1}} {{0.689015 -0.536062 0.487746 0} {-0.0441316 0.640706 0.766517 0} {-0.723402 -0.549667 0.4178 0} {0 0 0 1}} {{0.0142341 0 0 0} {0 0.0142341 0 0} {0 0 0.0142341 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 set topmol [molinfo top]
-# done with molecule 1
+# done with molecule 3
 foreach v $viewplist {
   molinfo $v set {center_matrix rotate_matrix scale_matrix global_matrix} $viewpoints($v)
 }
@@ -614,9 +615,6 @@ color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
     {color Element {Y} ochre}
     {color Element {Yb} ochre}
     {color Element {Zr} ochre}
-    {color Resname {HID} silver}
-    {color Resname {HIE} green}
-    {color Resname {PHZ} white}
     {color Resname {DOPE} pink}
     {color Resname {DVPE} cyan}
     {color Resname {POPE} purple}
@@ -628,9 +626,11 @@ color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
     {color Segname {} blue}
     {color Conformation {all} blue}
     {color Molecule {0} blue}
-    {color Molecule {zeb_hb_phz_complex.gro} blue}
     {color Molecule {ku04_gim.gro} blue}
     {color Molecule {1} orange}
+    {color Molecule {em.gro} red}
+    {color Molecule {2} yellow}
+    {color Molecule {3} tan}
     {color Structure {3_10_Helix} blue}
     {color Surface {Grasp} gray}
     {color Labels {Springs} orange}
