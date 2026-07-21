@@ -60,9 +60,17 @@ def seconds_to_hms(sec: float) -> str:
 def _parse_energy_sections(lines: list[str]) -> list[dict]:
     """
     Parse 'Energies (kJ/mol)' blocks printed in GROMACS logs.
-    For each header row, align headers to the following numeric row by using
-    the numeric tokens' start columns, so multi-word labels like
-    'Pres. DC (bar)' and 'Pressure (bar)' stay separate.
+
+    GROMACS right-justifies each term name and its value within a fixed-width
+    field, and the header row uses the SAME field width as the values row
+    below it. Because both are right-justified, the END column of a value
+    lines up with the END column of its header label -- the START columns do
+    NOT line up in general, since labels and numbers are rarely the same
+    length. Slicing on start-of-number (as before) borrows characters from
+    the *next* column whenever that column's number is shorter than its
+    label, producing garbled names like "Temperature Pr" / "essure (bar) C".
+    Anchoring on end positions instead fixes this.
+
     Returns a list of dicts (one per block).
     """
     num_re = re.compile(r'([-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)')
@@ -99,16 +107,16 @@ def _parse_energy_sections(lines: list[str]) -> list[dict]:
                     i = j + 1
                     continue
 
-                # Build header segments aligned to numeric columns
+                # Build header segments aligned to numeric columns.
+                # Field k spans [end of number (k-1), end of number k),
+                # matching how right-justified fixed-width columns align.
                 header_map: dict = {}
+                prev_end = 0
                 for idx, (start, end, val) in enumerate(nums):
-                    seg_start = start
-                    seg_end = nums[idx + 1][0] if idx + 1 < len(nums) else len(vals_line)
-                    # Clip to header line length
-                    if seg_start >= len(hdr):
-                        label = ''
-                    else:
-                        label = hdr[seg_start:min(seg_end, len(hdr))].strip()
+                    seg_start = prev_end
+                    seg_end = min(end, len(hdr))
+                    label = hdr[seg_start:seg_end].strip() if seg_start < len(hdr) else ''
+                    prev_end = end
                     if not label:
                         # Fallback: try splitting header on 2+ spaces and index
                         alt_labels = [h.strip() for h in re.split(r'\s{2,}', hdr.strip()) if h.strip()]
@@ -128,6 +136,7 @@ def _parse_energy_sections(lines: list[str]) -> list[dict]:
             continue
         i += 1
     return blocks
+
 
 def _find_last(lines: list[str], patterns: list[str], conv=float):
     """Find the last occurrence matching any pattern; return converted group(1)."""
@@ -177,7 +186,7 @@ def _parse_last_tpd(lines: list[str]) -> dict:
 def _parse_all_tpd(lines: list[str]) -> list[tuple[float | None, float | None, float | None]]:
     """
     Return a list of (temperature_K, pressure_bar, density_kg_per_m3) tuples
-    found in 'Temperature Pressure [Density]' mini-tables throughout the log.
+    found in '  essure [Density]' mini-tables throughout the log.
     """
     out: list[tuple[float | None, float | None, float | None]] = []
     pat_full = re.compile(r'^\s*Temperature\s+Pressure(?:\s+Density)?\s*$', re.IGNORECASE)
@@ -247,6 +256,52 @@ def _fmt_val_sd(val: float | None, sd: float | None, digits: int = 2) -> str:
     if sd is None or sd == 0:
         return f"{val:.{digits}f}"
     return f"{val:.{digits}f} ± {sd:.{digits}f}"
+
+_UNIT_OVERRIDES = (
+    ('temperature', 'K'),
+    ('pres', 'bar'),      # covers both "Pressure (bar)" and "Pres. DC (bar)"
+    ('density', 'kg/m^3'),
+    ('rmsd', 'nm'),
+)
+
+def _energy_row_label(key: str) -> str:
+    """Give energies-block terms that aren't in kJ/mol their correct unit,
+    instead of blanket-labelling everything 'Energy: ... (kJ/mol)'."""
+    kl = key.lower()
+    already_has_unit = bool(re.search(r'\([^)]*\)\s*$', key))
+    for pat, unit in _UNIT_OVERRIDES:
+        if pat in kl:
+            return key if already_has_unit else f"{key} ({unit})"
+    return f"Energy: {key} (kJ/mol)"
+
+
+def _two_up_table(rows: list[tuple], tablefmt: str, headers: tuple[str, str] = ("Metric", "Value")) -> str:
+    """
+    Render (label, value) rows as two side-by-side tables instead of one
+    tall one: first half on the left, remainder on the right, separated
+    by a double bar, e.g. 'Metric | Value  ║  Metric | Value'.
+    Splitting at the midpoint keeps both halves close to equal height
+    regardless of how many rows are in play.
+    """
+    if not rows:
+        return tabulate([], headers=list(headers), tablefmt=tablefmt)
+
+    half = (len(rows) + 1) // 2
+    left_rows, right_rows = rows[:half], rows[half:]
+
+    left_str = tabulate(left_rows, headers=list(headers), tablefmt=tablefmt)
+    right_str = tabulate(right_rows, headers=list(headers), tablefmt=tablefmt) if right_rows else ""
+
+    left_lines = left_str.split("\n")
+    right_lines = right_str.split("\n") if right_str else []
+    width_left = max((len(ln) for ln in left_lines), default=0)
+
+    n_lines = max(len(left_lines), len(right_lines))
+    left_lines += [""] * (n_lines - len(left_lines))
+    right_lines += [""] * (n_lines - len(right_lines))
+
+    sep = "  \u2551  "  # ║ -- swap for "  ||  " if you'd rather have plain ASCII
+    return "\n".join(f"{l.ljust(width_left)}{sep}{r}".rstrip() for l, r in zip(left_lines, right_lines))
 
 def parse_summary(logfile: str) -> dict:
     with open(logfile, 'r', encoding='utf-8', errors='replace') as f:
@@ -572,7 +627,8 @@ def estimate_eta(logfile: str, smooth_n: int = 2, dt_ps_arg: float = 0.002) -> d
         "dt_ps_detected": dt_ps_detected
     }
 
-def print_summary(summary: dict, tablefmt: str, logfile: str, eta: dict | None = None):
+
+def print_summary(summary: dict, tablefmt: str, logfile: str, eta: dict | None = None, wide: bool = True):
     rows: list[tuple[str, str | float | int]] = [
         ("Log file", logfile),
         ("Performance (last) ns/day", f"{summary.get('performance_ns_per_day_last', float('nan')):.2f}" if summary.get('performance_ns_per_day_last') is not None else "NA"),
@@ -609,7 +665,7 @@ def print_summary(summary: dict, tablefmt: str, logfile: str, eta: dict | None =
     # Energies (last block)
     if 'energies' in summary and summary['energies']:
         for k, v in summary['energies'].items():
-            rows.append((f"Energy: {k} (kJ/mol)" if 'temperature' not in k.lower() and 'pressure' not in k.lower() else f"{k}", v))
+            rows.append((_energy_row_label(k), v))
 
     # ETA rows (if provided)
     if eta:
@@ -624,7 +680,10 @@ def print_summary(summary: dict, tablefmt: str, logfile: str, eta: dict | None =
             ("dt detected (ps)", eta["dt_ps_detected"] if eta["dt_ps_detected"] is not None else "NA"),
         ])
 
-    print(tabulate(rows, headers=["Metric", "Value"], tablefmt=tablefmt))
+    if wide:
+        print(_two_up_table(rows, tablefmt))
+    else:
+        print(tabulate(rows, headers=["Metric", "Value"], tablefmt=tablefmt))
 
     def print_msgs(name: str, msgs):
         if not msgs:
@@ -646,6 +705,7 @@ def main():
     ap.add_argument("--smooth", type=int, default=2, help="Average ETA over last N checkpoints (default: 2)")
     ap.add_argument("--dt", type=float, default=0.002, help="Timestep in ps if not found in log (default: 0.002)")
     ap.add_argument("--no_summary", action="store_true", help="Do not print summary table")
+    ap.add_argument("--single_col", action="store_true", help="Print the classic single 2-column table instead of the default side-by-side 4-column layout")
     args = ap.parse_args()
 
     # Always try to parse summary once (unless suppressed)
@@ -664,8 +724,8 @@ def main():
         return
 
     if not args.no_summary and not (args.eta or args.watch):
-        print_summary(summary, args.tablefmt, args.logfile)
-
+        print_summary(summary, args.tablefmt, args.logfile, wide=not args.single_col)
+    
     # ETA once or watch loop
     if args.eta or args.watch:
         import time
@@ -675,7 +735,7 @@ def main():
                 # Re-parse summary to reflect latest log content while running
                 summary = parse_summary(args.logfile)
                 eta = estimate_eta(args.logfile, smooth_n=args.smooth, dt_ps_arg=args.dt)
-                print_summary(summary, args.tablefmt, args.logfile, eta=eta)
+                print_summary(summary, args.tablefmt, args.logfile, eta=eta, wide=not args.single_col)
             except Exception as e:
                 print(f"\nETA error: {e}")
 
