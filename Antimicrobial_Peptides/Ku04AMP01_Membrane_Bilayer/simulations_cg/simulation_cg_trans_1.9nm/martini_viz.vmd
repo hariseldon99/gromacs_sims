@@ -1,6 +1,6 @@
 #!/usr/local/bin/vmd
 # VMD script written by save_state $Revision: 1.48 $
-# VMD version: 2.0.0a4
+# VMD version: 2.0.1a1
 set viewplist {}
 set fixedlist {}
 proc vmdrestoremymaterials {} {
@@ -14,7 +14,7 @@ proc vmdrestoremymaterials {} {
   material change ambient Opaque 0.000000
   material change diffuse Opaque 0.650000
   material change specular Opaque 0.500000
-  material change shininess Opaque 0.534020
+  material change shininess Opaque 0.534000
   material change mirror Opaque 0.000000
   material change opacity Opaque 1.000000
   material change outline Opaque 0.000000
@@ -23,7 +23,7 @@ proc vmdrestoremymaterials {} {
   material change ambient Transparent 0.000000
   material change diffuse Transparent 0.650000
   material change specular Transparent 0.500000
-  material change shininess Transparent 0.534020
+  material change shininess Transparent 0.534000
   material change mirror Transparent 0.000000
   material change opacity Transparent 0.300000
   material change outline Transparent 0.000000
@@ -273,7 +273,7 @@ atomselect macro qwikmd_glycan {(not name QWIKMDDELETE and glycan)}
 atomselect macro qwikmd_lipid {(not name QWIKMDDELETE and lipid)}
 atomselect macro qwikmd_hetero {(not name QWIKMDDELETE and hetero and not qwikmd_protein and not qwikmd_lipid and not qwikmd_nucleic and not qwikmd_glycan and not water)}
 # Display settings
-display eyesep       0.065000
+display eyesep       0.070000
 display focallength  2.000000
 display height       6.000000
 display distance     -2.000000
@@ -294,9 +294,7 @@ display aodirect 0.300000
 display dof off
 display dof_fnumber 64.000000
 display dof_focaldist 0.700000
-mol new /home/daneel/gitrepos/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulation_cg/ku04_gim.gro type gro first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
-mol addfile /home/daneel/gitrepos/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulation_cg/KU04AMP01_cg.pdb type pdb first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
-mol addfile /home/daneel/gitrepos/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulation_cg/KU04AMP01_cg.pdb type pdb first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol new /home/daneel/gitrepos/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulations_cg/simulation_cg_trans_1.9nm/ku04_gim.gro type gro first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol delrep 0 top
 mol representation VDW 1.000000 12.000000
 mol color ResType
@@ -333,9 +331,9 @@ mol clipplane color  5 0 top {0.5 0.5 0.5 }
 mol clipplane normal 5 0 top {0.0 0.0 1.0}
 mol clipplane status 5 0 top {0}
 mol representation QuickSurf 1.000000 0.500000 1.000000 1.000000
-mol color Name
+mol color Type
 mol selection {resname DVPE POPG POPE DOPE TOCL}
-mol material AOChalky
+mol material AOEdgy
 mol addrep top
 mol selupdate 1 top 0
 mol colupdate 1 top 0
@@ -368,10 +366,10 @@ mol clipplane normal 5 1 top {0.0 0.0 1.0}
 mol clipplane status 5 1 top {0}
 mol rename top ku04_gim.gro
 molinfo top set drawn 0
-set viewpoints([molinfo top]) {{{1 0 0 -70.1219} {0 1 0 -69.8506} {0 0 1 -39.9655} {0 0 0 1}} {{0.755257 -0.604545 -0.253202 0} {0.536014 0.347384 0.769421 0} {-0.377192 -0.716833 0.586409 0} {0 0 0 1}} {{0.0107151 0 0 0} {0 0.0107151 0 0} {0 0 0.0107151 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
+set viewpoints([molinfo top]) {{{1 0 0 -69.8389} {0 1 0 -69.7944} {0 0 1 -39.9878} {0 0 0 1}} {{0.947135 0.319573 0.0284244 0} {-0.214447 0.564681 0.796961 0} {0.238636 -0.760926 0.603361 0} {0 0 0 1}} {{0.0107143 0 0 0} {0 0.0107143 0 0} {0 0 0.0107143 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 # done with molecule 0
-mol new /home/daneel/gitrepos/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulation_cg/em.gro type gro first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
+mol new /home/daneel/gitrepos/gromacs_sims/Antimicrobial_Peptides/Ku04AMP01_Membrane_Bilayer/simulations_cg/simulation_cg_trans_1.9nm/em.gro type gro first 0 last -1 step 1 filebonds 1 autobonds 1 waitfor all
 mol delrep 0 top
 mol representation VDW 1.000000 12.000000
 mol color ResType
@@ -408,9 +406,9 @@ mol clipplane color  5 0 top {0.5 0.5 0.5 }
 mol clipplane normal 5 0 top {0.0 0.0 1.0}
 mol clipplane status 5 0 top {0}
 mol representation QuickSurf 1.000000 0.500000 1.000000 1.000000
-mol color Name
+mol color Type
 mol selection {resname DVPE POPG POPE DOPE TOCL}
-mol material AOChalky
+mol material AOEdgy
 mol addrep top
 mol selupdate 1 top 0
 mol colupdate 1 top 0
@@ -441,8 +439,8 @@ mol clipplane center 5 1 top {0.0 0.0 0.0}
 mol clipplane color  5 1 top {0.5 0.5 0.5 }
 mol clipplane normal 5 1 top {0.0 0.0 1.0}
 mol clipplane status 5 1 top {0}
-mol rename top {energy minimized}
-set viewpoints([molinfo top]) {{{1 0 0 -70.1219} {0 1 0 -69.8506} {0 0 1 -39.9655} {0 0 0 1}} {{0.755257 -0.604545 -0.253202 0} {0.536014 0.347384 0.769421 0} {-0.377192 -0.716833 0.586409 0} {0 0 0 1}} {{0.0107151 0 0 0} {0 0.0107151 0 0} {0 0 0.0107151 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
+mol rename top em.gro
+set viewpoints([molinfo top]) {{{1 0 0 -69.8389} {0 1 0 -69.7944} {0 0 1 -39.9878} {0 0 0 1}} {{0.947135 0.319573 0.0284244 0} {-0.214447 0.564681 0.796961 0} {0.238636 -0.760926 0.603361 0} {0 0 0 1}} {{0.0107143 0 0 0} {0 0.0107143 0 0} {0 0 0.0107143 0} {0 0 0 1}} {{1 0 0 0} {0 1 0 0} {0 0 1 0} {0 0 0 1}}}
 lappend viewplist [molinfo top]
 set topmol [molinfo top]
 # done with molecule 1
@@ -495,8 +493,8 @@ color scale colors turbo {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
 color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
   color scale method RWB
   set colorcmds {
-    {color Display {BackgroundTop} gray}
-    {color Display {BackgroundBot} black}
+    {color Display {BackgroundTop} black}
+    {color Display {BackgroundBot} blue2}
     {color Display {FPS} white}
     {color Name {LPA} green}
     {color Name {LPB} green}
@@ -615,19 +613,22 @@ color scale colors CET_R2 {0.0 0.0 0.0} {0.0 0.0 0.0} {0.0 0.0 0.0}
     {color Element {Y} ochre}
     {color Element {Yb} ochre}
     {color Element {Zr} ochre}
-    {color Resname {DOPE} silver}
-    {color Resname {DVPE} green}
-    {color Resname {POPE} white}
-    {color Resname {POPG} pink}
-    {color Resname {TOCL} cyan}
-    {color Resname {W} purple}
-    {color Resname {ION} lime}
+    {color Resname {HID} silver}
+    {color Resname {HIE} green}
+    {color Resname {PHZ} white}
+    {color Resname {DOPE} pink}
+    {color Resname {DVPE} cyan}
+    {color Resname {POPE} purple}
+    {color Resname {POPG} lime}
+    {color Resname {TOCL} mauve}
+    {color Resname {W} ochre}
+    {color Resname {ION} iceblue}
     {color Chain {X} blue}
     {color Segname {} blue}
     {color Conformation {all} blue}
     {color Molecule {0} blue}
-    {color Molecule {1} red}
-    {color Molecule {energy minimized} red}
+    {color Molecule {zeb_hb_phz_complex.gro} blue}
+    {color Molecule {1} gray}
     {color Structure {3_10_Helix} blue}
     {color Surface {Grasp} gray}
     {color Labels {Springs} orange}

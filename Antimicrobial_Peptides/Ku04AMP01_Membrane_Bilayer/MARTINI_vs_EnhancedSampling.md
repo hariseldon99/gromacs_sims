@@ -421,7 +421,12 @@ The translation assumes the default simulation box
 14 × 14 × 8 nm³
 ```
 
-used in this simulation. This differs from the more standard 14 × 14 × 84 nm³ box in order to shorten the z-dimension. When filled with water, less water height leaves no room for the peptide to escape into a bulk-water buffer zone.
+used in this simulation. This differs from the more standard 14 × 14 × 84 nm³ box in order to shorten the z-dimension. When filled with water, less water 
+height leaves no room for the peptide to escape into a bulk-water buffer zone.
+
+> **Note**
+> 
+>You may have to experiment with this z-shift a bit. Even 2.4 nm is too far for insertion. 
 
 ### Expected output
 
