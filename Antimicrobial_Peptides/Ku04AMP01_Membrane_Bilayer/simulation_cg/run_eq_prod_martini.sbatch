@@ -20,10 +20,10 @@
 #--------------------------------------------------
 
 # Toggle equilibration 
-RUN_EQUIL=true
+RUN_EQUIL=false
 
 # Toggle Production run
-RUN_PROD=true #Set to false if only PP is desired
+RUN_PROD=false #Set to false if only PP is desired
 
 RESUME_MD=false #Set to true if resuming from chkpt
 
@@ -34,7 +34,7 @@ MD_MDP="md" # MDP file prefix for production run
 
 
 # Singularity container
-SIF_PATH="/home/daneel/SIFDIR/gromacs/gromacs_2024.5.1-GPU_20260718.sif"
+SIF_PATH="${HOME}/SIFDIR/gromacs/gromacs_2024.5.1-GPU_20260718.sif"
 
 #--------------------------------------------------
 # INITIALIZATION
@@ -258,7 +258,7 @@ else
     echo "[INFO] Concatenating trajectories sequentially"
 
     # Removed -cat because the chunks should possess native, sequential time markers
-    bash -c "
+    SINGULARITY bash -c "
         gmx trjcat \
             -f ${xtc_list} \
             -o traj_prod.xtc
@@ -273,7 +273,7 @@ else
     #--------------------------------------------------
     echo "System" > trjconv_whole.in
     echo "[INFO] Running whole-PBC repair"
-    bash -c "
+    SINGULARITY bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_prod.xtc \
@@ -292,7 +292,7 @@ else
     # Change "Membrane" below to match your actual index group name if needed
     echo -e "Membrane\nSystem" > trjconv_center.in
     echo "[INFO] Centering the bilayer sheet"
-    bash -c "
+    SINGULARITY bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_whole.xtc \
@@ -311,7 +311,7 @@ else
     #--------------------------------------------------
     echo "System" > trjconv_nojump.in
     echo "[INFO] Running nojump to remove PBC-crossing artifacts"
-    bash -c "
+    SINGULARITY bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_centered.xtc \
