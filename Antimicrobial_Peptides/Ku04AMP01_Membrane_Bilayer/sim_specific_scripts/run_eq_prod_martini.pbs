@@ -273,10 +273,11 @@ else
 
     echo ">>> Concatenated trajectory created: traj_prod.xtc"
 
+    #--------------------------------------------------
+    # STEP 1: Make molecules whole
+    #--------------------------------------------------
     echo "System" > trjconv_whole.in
-
     echo "[INFO] Running whole-PBC repair"
-
     bash -c "
         gmx trjconv \
             -s md.tpr \
@@ -285,31 +286,49 @@ else
             -o traj_whole.xtc \
             < trjconv_whole.in
     "
-
     test -f traj_whole.xtc
 
-    echo ">>> Whole trajectory created: traj_whole.xtc"
-
-    echo "System" > trjconv_nojump.in
-
-    echo "[INFO] Running nojump to remove PBC-crossing artifacts"
-
+    #--------------------------------------------------
+    # STEP 2: Center the membrane in the box (NEW STEP)
+    #--------------------------------------------------
+    # We need to provide TWO inputs for centering:
+    # 1. The group to center on (e.g., Membrane or POPE_POPG...)
+    # 2. The group to output (System)
+    # Change "Membrane" below to match your actual index group name if needed
+    echo -e "Membrane\nSystem" > trjconv_center.in
+    echo "[INFO] Centering the bilayer sheet"
     bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_whole.xtc \
+            -n index.ndx \
+            -center \
+            -pbc mol \
+            -ur compact \
+            -boxcenter rect \
+            -o traj_centered.xtc \
+            < trjconv_center.in
+    "
+    test -f traj_centered.xtc
+
+    #--------------------------------------------------
+    # STEP 3: Remove frame-skipping jumps
+    #--------------------------------------------------
+    echo "System" > trjconv_nojump.in
+    echo "[INFO] Running nojump to remove PBC-crossing artifacts"
+    bash -c "
+        gmx trjconv \
+            -s md.tpr \
+            -f traj_centered.xtc \
             -pbc nojump \
             -o traj_nojump.xtc \
             < trjconv_nojump.in
     "
-
     test -f traj_nojump.xtc
 
-    echo ">>> Nojump trajectory created: traj_nojump.xtc"
-
-    rm -f traj_whole.xtc
-    rm -f trjconv_whole.in
-    rm -f trjconv_nojump.in
+    # Clean up intermediate files
+    rm -f traj_whole.xtc traj_centered.xtc
+    rm -f trjconv_whole.in trjconv_center.in trjconv_nojump.in
 fi
 
 #--------------------------------------------------

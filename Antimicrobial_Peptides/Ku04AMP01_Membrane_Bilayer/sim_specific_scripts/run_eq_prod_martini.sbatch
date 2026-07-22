@@ -1,14 +1,20 @@
 #!/bin/bash
-#--------------------------------------------------
-# PBS SETTINGS
-#--------------------------------------------------
-#PBS -N ku04-gm-eqprd
-#PBS -q workq
-#PBS -l select=1:ncpus=24:mpiprocs=24:host=kuhpcgn1
-#PBS -o ku04-gm-eqprd.out
-#PBS -j oe
-#PBS -l walltime=168:00:00
-#--------------------------------------------------
+----------------------------------------------------------
+# This sets the name of the job
+#SBATCH --job-name=ku04-gim
+#SBATCH --partition=GPU
+#SBATCH --gres=gpu
+#This allocates 1 GPU as a Global Resource (gres). Important for GPU jobs
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=32
+# This allocates the walltime to 10  days. The program will not run for longer.
+#SBATCH --time=240:00:00
+# This sets the quality of service to 'elevated'
+#SBATCH --qos=elevated
+#SBATCH --mail-type=FAIL,END
+#SBATCH --mail-user=telegram:-1001215703
+#----------------------------------------------------------
+
 
 set -euo pipefail
 
@@ -17,7 +23,7 @@ set -euo pipefail
 #--------------------------------------------------
 
 # Toggle equilibration 
-RUN_EQUIL=false
+RUN_EQUIL=true
 
 # Toggle Production run
 RUN_PROD=true #Set to false if only PP is desired
@@ -31,13 +37,12 @@ MD_MDP="md" # MDP file prefix for production run
 
 
 # Singularity container
-SIF_PATH="/home/arunima/images/gromacs_2024.5.1-GPU_20260718.sif"
+SIF_PATH="/home/daneel/SIFDIR/gromacs/gromacs_2024.5.1-GPU_20260718.sif"
 
 #--------------------------------------------------
 # INITIALIZATION
 #--------------------------------------------------
 
-cd "$PBS_O_WORKDIR"
 
 LOGFILE="wrapper_$(date +%Y%m%d_%H%M%S).log"
 
@@ -46,25 +51,18 @@ exec > >(stdbuf -oL tee -a "$LOGFILE")
 exec 2>&1
 
 echo "================================================="
-echo "PBS JOB START"
+echo "SLURM JOB START"
 echo "================================================="
 echo "Date        : $(date)"
 echo "Hostname    : $(hostname)"
 echo "Working dir : $(pwd)"
-echo "PBS_JOBID   : ${PBS_JOBID}"
-echo "PBS_JOBNAME : ${PBS_JOBNAME}"
+echo "SLURM_JOBID   : ${SLURM_JOB_ID}"
+echo "SLURM_JOBNAME : ${SLURM_JOB_NAME}"
 echo "================================================="
 
-#--------------------------------------------------
-# MODULES
-#--------------------------------------------------
+export SLURM_NCPUS=$SLURM_CPUS_PER_TASK
 
-module load ohpc
-module load cuda
-
-export PBS_NCPUS=$(wc -l "$PBS_NODEFILE" | awk '{print $1}')
-
-echo "[INFO] Detected PBS_NCPUS=${PBS_NCPUS}"
+echo "[INFO] Detected SLURM_NCPUS=${SLURM_NCPUS}"
 
 #--------------------------------------------------
 # SINGULARITY WRAPPER
@@ -122,7 +120,7 @@ if [ "$RUN_EQUIL" = true ]; then
             -pin on \
             -nb gpu \
             -ntmpi 1 \
-            -ntomp ${PBS_NCPUS} \
+            -ntomp ${SLURM_NCPUS} \
             -gpu_id 0
     "
 
@@ -175,7 +173,7 @@ if [ "$RESUME_MD" = true ]; then
             -pin on \
             -cpi md.cpt \
             -ntmpi 1 \
-            -ntomp ${PBS_NCPUS} \
+            -ntomp ${SLURM_NCPUS} \
             -nb gpu \
             -gpu_id 0
     "
@@ -213,7 +211,7 @@ else
                 -pin on \
                 -nb gpu \
                 -ntmpi 1 \
-                -ntomp ${PBS_NCPUS} \
+                -ntomp ${SLURM_NCPUS} \
                 -gpu_id 0
         "
         echo "[INFO] mdrun completed for production"
@@ -273,10 +271,11 @@ else
 
     echo ">>> Concatenated trajectory created: traj_prod.xtc"
 
+    #--------------------------------------------------
+    # STEP 1: Make molecules whole
+    #--------------------------------------------------
     echo "System" > trjconv_whole.in
-
     echo "[INFO] Running whole-PBC repair"
-
     bash -c "
         gmx trjconv \
             -s md.tpr \
@@ -285,31 +284,49 @@ else
             -o traj_whole.xtc \
             < trjconv_whole.in
     "
-
     test -f traj_whole.xtc
 
-    echo ">>> Whole trajectory created: traj_whole.xtc"
-
-    echo "System" > trjconv_nojump.in
-
-    echo "[INFO] Running nojump to remove PBC-crossing artifacts"
-
+    #--------------------------------------------------
+    # STEP 2: Center the membrane in the box (NEW STEP)
+    #--------------------------------------------------
+    # We need to provide TWO inputs for centering:
+    # 1. The group to center on (e.g., Membrane or POPE_POPG...)
+    # 2. The group to output (System)
+    # Change "Membrane" below to match your actual index group name if needed
+    echo -e "Membrane\nSystem" > trjconv_center.in
+    echo "[INFO] Centering the bilayer sheet"
     bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_whole.xtc \
+            -n index.ndx \
+            -center \
+            -pbc mol \
+            -ur compact \
+            -boxcenter rect \
+            -o traj_centered.xtc \
+            < trjconv_center.in
+    "
+    test -f traj_centered.xtc
+
+    #--------------------------------------------------
+    # STEP 3: Remove frame-skipping jumps
+    #--------------------------------------------------
+    echo "System" > trjconv_nojump.in
+    echo "[INFO] Running nojump to remove PBC-crossing artifacts"
+    bash -c "
+        gmx trjconv \
+            -s md.tpr \
+            -f traj_centered.xtc \
             -pbc nojump \
             -o traj_nojump.xtc \
             < trjconv_nojump.in
     "
-
     test -f traj_nojump.xtc
 
-    echo ">>> Nojump trajectory created: traj_nojump.xtc"
-
-    rm -f traj_whole.xtc
-    rm -f trjconv_whole.in
-    rm -f trjconv_nojump.in
+    # Clean up intermediate files
+    rm -f traj_whole.xtc traj_centered.xtc
+    rm -f trjconv_whole.in trjconv_center.in trjconv_nojump.in
 fi
 
 #--------------------------------------------------
@@ -326,18 +343,3 @@ echo "JOB COMPLETE"
 echo "================================================="
 echo "Runtime: ${RUNTIME} sec"
 echo "================================================="
-
-#--------------------------------------------------
-# NOTIFICATION
-#--------------------------------------------------
-
-NTFY_URL="https://ntfy.sh/kuhpchn"
-
-MESSAGE="PBS job complete: ${PBS_JOBNAME} (${PBS_JOBID}) runtime=${RUNTIME} sec"
-
-echo "[INFO] Sending ntfy notification"
-
-timeout 20 curl -X POST -d "$MESSAGE" "$NTFY_URL" || true
-
-echo
-echo "[$(date)] Script exiting normally."

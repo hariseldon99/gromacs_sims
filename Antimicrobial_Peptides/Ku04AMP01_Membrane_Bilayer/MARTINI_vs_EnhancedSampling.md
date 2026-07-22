@@ -408,7 +408,7 @@ COBY centers proteins within the membrane by default. For the present simulation
 gmx editconf \
     -f KU04AMP01_cg.pdb \
     -o KU04AMP01_cg_shifted.pdb \
-    -translate 0 0 4.5
+    -translate 0 0 2.4
 ```
 
 > **Warning**
@@ -418,10 +418,10 @@ gmx editconf \
 The translation assumes the default simulation box
 
 ```text
-14 × 14 × 14 nm³
+14 × 14 × 8 nm³
 ```
 
-used throughout this repository.
+used in this simulation. This differs from the more standard 14 × 14 × 84 nm³ box in order to shorten the z-dimension. When filled with water, less water height leaves no room for the peptide to escape into a bulk-water buffer zone.
 
 ### Expected output
 
@@ -502,6 +502,10 @@ Construct the complete system
 ```bash
 python simulation_cg/memb_build.py
 ```
+
+> **Warning**
+>
+> If COBY spits out a warning that the protein is too high and jumps across the bounding box, then reduce the z-shift of KU04 a bit in the previous step. ALternatively, increase the z-height of the box.
 
 ### Expected output
 
