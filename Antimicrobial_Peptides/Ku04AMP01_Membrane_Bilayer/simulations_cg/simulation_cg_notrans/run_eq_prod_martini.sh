@@ -45,17 +45,6 @@ export SLURM_NCPUS=4
 
 echo "[INFO] Detected SLURM_NCPUS=${SLURM_NCPUS}"
 
-#--------------------------------------------------
-# SINGULARITY WRAPPER
-#--------------------------------------------------
-
-SINGULARITY() {
-    singularity exec \
-        --nv \
-        -B "${PWD}:/host_pwd" \
-        --pwd /host_pwd \
-        "$SIF_PATH" "$@"
-}
 
 #--------------------------------------------------
 # START TIMER
@@ -77,7 +66,7 @@ if [ "$RUN_EQUIL" = true ]; then
 
     echo "[INFO] Running grompp for equilibration"
 
-    SINGULARITY bash -c "
+    bash -c "
         gmx grompp \
             -f ${EQUI_MDP}.mdp \
             -c ${EM_OUT}.gro \
@@ -92,7 +81,7 @@ if [ "$RUN_EQUIL" = true ]; then
 
     echo "[INFO] Starting mdrun for equilibration"
 
-    SINGULARITY bash -c "
+    bash -c "
         gmx mdrun \
             -nobackup \
             -nocopyright \
@@ -145,7 +134,7 @@ if [ "$RESUME_MD" = true ]; then
     fi
     echo "[INFO] resuming from checkpoint md.cpt"
 
-    SINGULARITY bash -c "
+    bash -c "
         gmx mdrun \
             -nobackup \
             -nocopyright \
@@ -168,7 +157,7 @@ else
         
         echo "[INFO] Running grompp for production"
 
-        SINGULARITY bash -c "
+        bash -c "
             gmx grompp \
                 -f ${MD_MDP}.mdp \
                 -c npt.gro \
@@ -183,7 +172,7 @@ else
 
         echo "[INFO] Starting mdrun for production"
 
-        SINGULARITY bash -c "
+        bash -c "
             gmx mdrun \
                 -nobackup \
                 -nocopyright \
@@ -242,7 +231,7 @@ else
     echo "[INFO] Concatenating trajectories sequentially"
 
     # Removed -cat because the chunks should possess native, sequential time markers
-    SINGULARITY bash -c "
+    bash -c "
         gmx trjcat \
             -f ${xtc_list} \
             -o traj_prod.xtc
@@ -257,7 +246,7 @@ else
     #--------------------------------------------------
     echo "System" > trjconv_whole.in
     echo "[INFO] Running whole-PBC repair"
-    SINGULARITY bash -c "
+    bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_prod.xtc \
@@ -276,7 +265,7 @@ else
     # Change "Membrane" below to match your actual index group name if needed
     echo -e "Membrane\nSystem" > trjconv_center.in
     echo "[INFO] Centering the bilayer sheet"
-    SINGULARITY bash -c "
+    bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_whole.xtc \
@@ -295,7 +284,7 @@ else
     #--------------------------------------------------
     echo "System" > trjconv_nojump.in
     echo "[INFO] Running nojump to remove PBC-crossing artifacts"
-    SINGULARITY bash -c "
+    bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_centered.xtc \
