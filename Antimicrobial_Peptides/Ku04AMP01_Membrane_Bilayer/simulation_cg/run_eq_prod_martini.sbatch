@@ -1,5 +1,5 @@
 #!/bin/bash
-----------------------------------------------------------
+#----------------------------------------------------------
 # This sets the name of the job
 #SBATCH --job-name=ku04-gim
 #SBATCH --partition=GPU
@@ -14,9 +14,6 @@
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=telegram:-1001215703
 #----------------------------------------------------------
-
-
-set -euo pipefail
 
 #--------------------------------------------------
 # USER SETTINGS
