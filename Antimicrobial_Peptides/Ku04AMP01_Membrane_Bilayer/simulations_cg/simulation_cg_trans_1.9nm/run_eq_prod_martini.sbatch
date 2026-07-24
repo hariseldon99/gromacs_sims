@@ -20,10 +20,10 @@
 #--------------------------------------------------
 
 # Toggle equilibration 
-RUN_EQUIL=false
+RUN_EQUIL=true
 
 # Toggle Production run
-RUN_PROD=false #Set to false if only PP is desired
+RUN_PROD=true #Set to false if only PP is desired
 
 RESUME_MD=false #Set to true if resuming from chkpt
 
