@@ -1,0 +1,227 @@
+#!/bin/bash
+#--------------------------------------------------
+# PBS SETTINGS
+#--------------------------------------------------
+#PBS -N ku04-gim-ext
+#PBS -q workq
+#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn2
+#PBS -o ku04-gim-ext.out
+#PBS -j oe
+#PBS -l walltime=168:00:00
+#--------------------------------------------------
+
+set -euo pipefail
+
+#--------------------------------------------------
+# USER SETTINGS
+#--------------------------------------------------
+
+# Toggle Simulation Extension
+EXTEND_MD=true
+
+# Checkpoint and Topology settings
+OLD_TPR="md.tpr"
+EXT_TPR="md_extend.tpr"
+CPT_FILE="md.cpt"
+INDEX_FILE="index.ndx"
+
+# Singularity container path from OpenPBS environment
+SIF_PATH="/home/arunima/images/gromacs_2024.5.1-GPU_20260718.sif"
+
+#--------------------------------------------------
+# INITIALIZATION
+#--------------------------------------------------
+
+cd "$PBS_O_WORKDIR"
+
+LOGFILE="wrapper_extend_$(date +%Y%m%d_%H%M%S).log"
+
+# Persistent unbuffered logging
+exec > >(stdbuf -oL tee -a "$LOGFILE")
+exec 2>&1
+
+echo "================================================="
+echo "PBS EXTENSION JOB START"
+echo "================================================="
+echo "Date        : $(date)"
+echo "Hostname    : $(hostname)"
+echo "Working dir : $(pwd)"
+echo "PBS_JOBID   : ${PBS_JOBID}"
+echo "PBS_JOBNAME : ${PBS_JOBNAME}"
+echo "================================================="
+
+#--------------------------------------------------
+# MODULES & ENVIRONMENT
+#--------------------------------------------------
+
+module load ohpc
+module load cuda
+
+export PBS_NCPUS=$(wc -l "$PBS_NODEFILE" | awk '{print $1}')
+echo "[INFO] Detected PBS_NCPUS=${PBS_NCPUS}"
+
+#--------------------------------------------------
+# SINGULARITY WRAPPER
+#--------------------------------------------------
+
+SINGULARITY() {
+    singularity exec \
+        --nv \
+        -B "${PWD}:/host_pwd" \
+        --pwd /host_pwd \
+        "$SIF_PATH" "$@"
+}
+
+#--------------------------------------------------
+# START TIMER
+#--------------------------------------------------
+start=$(date +%s.%N)
+
+#--------------------------------------------------
+# EXTEND PRODUCTION RUN
+#--------------------------------------------------
+if [ "$EXTEND_MD" = true ]; then
+    echo
+    echo "================================================="
+    echo "EXTENDING MD SIMULATION BY 2000000 ps (2 microsecond)"
+    echo "================================================="
+
+    # Validation check for required base files
+    test -f "$OLD_TPR"
+    test -f "$CPT_FILE"
+
+    echo "[INFO] Modifying the run input file to extend time..."
+    SINGULARITY bash -c "
+        gmx convert-tpr \
+            -s ${OLD_TPR} \
+            -extend 2000000 \
+            -o ${EXT_TPR}
+    "
+
+    test -f "$EXT_TPR"
+    echo "[INFO] Successfully generated extended topology: ${EXT_TPR}"
+
+    echo "[INFO] Launching mdrun with GPU offloading configuration..."
+    # Configured with explicit GPU offloading parameters required by this cluster partition
+    SINGULARITY bash -c "
+        gmx mdrun \
+            -nobackup \
+            -nocopyright \
+            -v \
+            -s ${EXT_TPR} \
+            -cpi ${CPT_FILE} \
+            -deffnm md \
+            -pin on \
+            -nb gpu \
+            -ntmpi 1 \
+            -ntomp ${PBS_NCPUS} \
+            -gpu_id 0
+    "
+    echo "[INFO] mdrun extension completed successfully"
+
+    test -f "md.gro"
+    test -f "md.cpt"
+    test -f "md.log"
+
+    echo "================================================="
+    echo "EXTENSION RUN COMPLETE"
+    echo "================================================="
+fi
+
+#--------------------------------------------------
+# POST-PROCESSING
+#--------------------------------------------------
+echo
+echo "================================================="
+echo "POST-PROCESSING"
+echo "================================================="
+
+# Clean past post-processed outputs to ensure data consistency
+rm -f traj_prod.xtc traj_whole.xtc traj_centered.xtc traj_nojump.xtc
+
+xtc_list=$(ls -v md*.xtc 2>/dev/null | tr '\n' ' ')
+
+if [ -z "${xtc_list}" ]; then
+    echo "[WARNING] No production XTC files found. Skipping post-processing."
+else
+    echo "[INFO] Concatenating trajectories sequentially"
+    SINGULARITY bash -c "
+        gmx trjcat \
+            -f ${xtc_list} \
+            -o traj_prod.xtc
+    "
+    test -f traj_prod.xtc
+    echo ">>> Concatenated trajectory created: traj_prod.xtc"
+
+    # STEP 1: Make molecules whole
+    echo "System" > trjconv_whole.in
+    echo "[INFO] Running whole-PBC repair"
+    SINGULARITY bash -c "
+        gmx trjconv \
+            -s ${EXT_TPR} \
+            -f traj_prod.xtc \
+            -pbc whole \
+            -o traj_whole.xtc \
+            < trjconv_whole.in
+    "
+    test -f traj_whole.xtc
+
+    # STEP 2: Center the membrane in the box
+    # Note: Swap "Membrane" to "MEMB" if your index group mirrors file 2
+    echo -e "Membrane\nSystem" > trjconv_center.in
+    echo "[INFO] Centering the bilayer sheet"
+    SINGULARITY bash -c "
+        gmx trjconv \
+            -s ${EXT_TPR} \
+            -f traj_whole.xtc \
+            -n ${INDEX_FILE} \
+            -center \
+            -pbc mol \
+            -ur compact \
+            -boxcenter rect \
+            -o traj_centered.xtc \
+            < trjconv_center.in
+    "
+    test -f traj_centered.xtc
+
+    # STEP 3: Remove frame-skipping jumps
+    echo "System" > trjconv_nojump.in
+    echo "[INFO] Running nojump to remove PBC-crossing artifacts"
+    SINGULARITY bash -c "
+        gmx trjconv \
+            -s ${EXT_TPR} \
+            -f traj_centered.xtc \
+            -pbc nojump \
+            -o traj_nojump.xtc \
+            < trjconv_nojump.in
+    "
+    test -f traj_nojump.xtc
+
+    # Clean up intermediate input files
+    rm -f trjconv_whole.in trjconv_center.in trjconv_nojump.in
+fi
+
+#--------------------------------------------------
+# END TIMER
+#--------------------------------------------------
+end=$(date +%s.%N)
+RUNTIME=$(echo "$end - $start" | bc -l)
+
+echo
+echo "================================================="
+echo "JOB COMPLETE"
+echo "================================================="
+echo "Runtime: ${RUNTIME} sec"
+echo "================================================="
+
+#--------------------------------------------------
+# NOTIFICATION
+#--------------------------------------------------
+NTFY_URL="https://ntfy.sh"
+MESSAGE="OpenPBS Extension Job Complete: ${PBS_JOBNAME} (${PBS_JOBID}) Runtime=${RUNTIME} sec"
+
+echo "[INFO] Sending ntfy notification"
+timeout 20 curl -X POST -d "$MESSAGE" "$NTFY_URL" || true
+
+echo
+echo "[$(date)] Script exiting normally."
