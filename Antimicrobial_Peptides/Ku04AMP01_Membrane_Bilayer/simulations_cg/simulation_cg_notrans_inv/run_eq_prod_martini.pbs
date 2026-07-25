@@ -1,19 +1,16 @@
 #!/bin/bash
-#----------------------------------------------------------
-# This sets the name of the job
-#SBATCH --job-name=ku04-gim
-#SBATCH --partition=GPU
-#SBATCH --gres=gpu
-#This allocates 1 GPU as a Global Resource (gres). Important for GPU jobs
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
-# This allocates the walltime to 10  days. The program will not run for longer.
-#SBATCH --time=240:00:00
-# This sets the quality of service to 'elevated'
-#SBATCH --qos=elevated
-#SBATCH --mail-type=FAIL,END
-#SBATCH --mail-user=telegram:-1001215703
-#----------------------------------------------------------
+#--------------------------------------------------
+# PBS SETTINGS
+#--------------------------------------------------
+#PBS -N ku04-gm-eqprd
+#PBS -q workq
+#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn2
+#PBS -o ku04-gm-eqprd.out
+#PBS -j oe
+#PBS -l walltime=168:00:00
+#--------------------------------------------------
+
+set -euo pipefail
 
 #--------------------------------------------------
 # USER SETTINGS
@@ -34,12 +31,13 @@ MD_MDP="md" # MDP file prefix for production run
 
 
 # Singularity container
-SIF_PATH="${HOME}/SIFDIR/gromacs/gromacs_2024.5.1-GPU_20260718.sif"
+SIF_PATH="/home/arunima/images/gromacs_2024.5.1-GPU_20260718.sif"
 
 #--------------------------------------------------
 # INITIALIZATION
 #--------------------------------------------------
 
+cd "$PBS_O_WORKDIR"
 
 LOGFILE="wrapper_$(date +%Y%m%d_%H%M%S).log"
 
@@ -48,18 +46,25 @@ exec > >(stdbuf -oL tee -a "$LOGFILE")
 exec 2>&1
 
 echo "================================================="
-echo "SLURM JOB START"
+echo "PBS JOB START"
 echo "================================================="
 echo "Date        : $(date)"
 echo "Hostname    : $(hostname)"
 echo "Working dir : $(pwd)"
-echo "SLURM_JOBID   : ${SLURM_JOB_ID}"
-echo "SLURM_JOBNAME : ${SLURM_JOB_NAME}"
+echo "PBS_JOBID   : ${PBS_JOBID}"
+echo "PBS_JOBNAME : ${PBS_JOBNAME}"
 echo "================================================="
 
-export SLURM_NCPUS=$SLURM_CPUS_PER_TASK
+#--------------------------------------------------
+# MODULES
+#--------------------------------------------------
 
-echo "[INFO] Detected SLURM_NCPUS=${SLURM_NCPUS}"
+module load ohpc
+module load cuda
+
+export PBS_NCPUS=$(wc -l "$PBS_NODEFILE" | awk '{print $1}')
+
+echo "[INFO] Detected PBS_NCPUS=${PBS_NCPUS}"
 
 #--------------------------------------------------
 # SINGULARITY WRAPPER
@@ -117,7 +122,7 @@ if [ "$RUN_EQUIL" = true ]; then
             -pin on \
             -nb gpu \
             -ntmpi 1 \
-            -ntomp ${SLURM_NCPUS} \
+            -ntomp ${PBS_NCPUS} \
             -gpu_id 0
     "
 
@@ -170,7 +175,7 @@ if [ "$RESUME_MD" = true ]; then
             -pin on \
             -cpi md.cpt \
             -ntmpi 1 \
-            -ntomp ${SLURM_NCPUS} \
+            -ntomp ${PBS_NCPUS} \
             -nb gpu \
             -gpu_id 0
     "
@@ -208,7 +213,7 @@ else
                 -pin on \
                 -nb gpu \
                 -ntmpi 1 \
-                -ntomp ${SLURM_NCPUS} \
+                -ntomp ${PBS_NCPUS} \
                 -gpu_id 0
         "
         echo "[INFO] mdrun completed for production"
@@ -258,7 +263,7 @@ else
     echo "[INFO] Concatenating trajectories sequentially"
 
     # Removed -cat because the chunks should possess native, sequential time markers
-    SINGULARITY bash -c "
+    bash -c "
         gmx trjcat \
             -f ${xtc_list} \
             -o traj_prod.xtc
@@ -273,7 +278,7 @@ else
     #--------------------------------------------------
     echo "System" > trjconv_whole.in
     echo "[INFO] Running whole-PBC repair"
-    SINGULARITY bash -c "
+    bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_prod.xtc \
@@ -292,7 +297,7 @@ else
     # Change "Membrane" below to match your actual index group name if needed
     echo -e "Membrane\nSystem" > trjconv_center.in
     echo "[INFO] Centering the bilayer sheet"
-    SINGULARITY bash -c "
+    bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_whole.xtc \
@@ -311,7 +316,7 @@ else
     #--------------------------------------------------
     echo "System" > trjconv_nojump.in
     echo "[INFO] Running nojump to remove PBC-crossing artifacts"
-    SINGULARITY bash -c "
+    bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_centered.xtc \
@@ -322,7 +327,7 @@ else
     test -f traj_nojump.xtc
 
     # Clean up intermediate files
-    #rm -f traj_whole.xtc traj_centered.xtc
+    rm -f traj_whole.xtc traj_centered.xtc
     rm -f trjconv_whole.in trjconv_center.in trjconv_nojump.in
 fi
 
@@ -340,3 +345,18 @@ echo "JOB COMPLETE"
 echo "================================================="
 echo "Runtime: ${RUNTIME} sec"
 echo "================================================="
+
+#--------------------------------------------------
+# NOTIFICATION
+#--------------------------------------------------
+
+NTFY_URL="https://ntfy.sh/kuhpchn"
+
+MESSAGE="PBS job complete: ${PBS_JOBNAME} (${PBS_JOBID}) runtime=${RUNTIME} sec"
+
+echo "[INFO] Sending ntfy notification"
+
+timeout 20 curl -X POST -d "$MESSAGE" "$NTFY_URL" || true
+
+echo
+echo "[$(date)] Script exiting normally."
