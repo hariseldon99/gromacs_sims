@@ -1,8 +1,8 @@
 ;
 ;	File 'mdout.mdp' was generated
-;	By user: ubuntu (1000)
-;	On host: sudarshan
-;	At date: Sat Jul 25 13:09:49 2026
+;	By user: unknown (528)
+;	On host: kuhpcgn2
+;	At date: Sat Jul 25 14:34:41 2026
 ;
 ;	Created by:
 ;	               :-) GROMACS - gmx grompp, 2024.5-conda_forge (-:
@@ -11,21 +11,21 @@
 ;	Data prefix:  /usr/local
 ;	Working dir:  /host_pwd
 ;	Command line:
-;	  gmx grompp -f minim.mdp -c ku04_gim.gro -r ku04_gim.gro -p ku04_gim.top -o em.tpr
+;	  gmx grompp -f md.mdp -c npt.gro -p ku04_gim.top -n index.ndx -o md.tpr -t npt.cpt -maxwarn 2
 
 ; VARIOUS PREPROCESSING OPTIONS
 ; Preprocessor information: use cpp syntax.
 ; e.g.: -I/home/joe/doe -I/home/mary/roe
 include                  = 
 ; e.g.: -DPOSRES -DFLEXIBLE (note these variable names are case sensitive)
-define                   = -DPOSRES
+define                   = 
 
 ; RUN CONTROL PARAMETERS
-integrator               = steep
+integrator               = md
 ; Start time and timestep in ps
 tinit                    = 0
-dt                       = 0.001
-nsteps                   = 50000
+dt                       = 0.02
+nsteps                   = 150000000
 ; For exact run continuation or redoing part of a run
 init-step                = 0
 ; Part index is updated automatically on checkpointing (keeps files separate)
@@ -48,8 +48,8 @@ ld-seed                  = -1
 
 ; ENERGY MINIMIZATION OPTIONS
 ; Force tolerance and initial step-size
-emtol                    = 100.0
-emstep                   = 0.001
+emtol                    = 10
+emstep                   = 0.01
 ; Max number of iterations in relax-shells
 niter                    = 20
 ; Step size (ps^2) for minimization of flexible constraints
@@ -67,12 +67,12 @@ nstxout                  = 0
 nstvout                  = 0
 nstfout                  = 0
 ; Output frequency for energies to log file and energy file
-nstlog                   = 1000
-nstcalcenergy            = 100
-nstenergy                = 1000
+nstlog                   = 10000
+nstcalcenergy            = 10000
+nstenergy                = 10000
 ; Output frequency and precision for .xtc file
-nstxout-compressed       = 0
-compressed-x-precision   = 1000
+nstxout-compressed       = 10000
+compressed-x-precision   = 10000
 ; This selects the subset of atoms for the compressed
 ; trajectory file. You can select multiple groups. By
 ; default, all atoms will be written.
@@ -82,9 +82,9 @@ energygrps               =
 
 ; NEIGHBORSEARCHING PARAMETERS
 ; cut-off scheme (Verlet: particle based cut-offs)
-cutoff-scheme            = Verlet
+cutoff-scheme            = verlet
 ; nblist update frequency
-nstlist                  = 10
+nstlist                  = 20
 ; Periodic boundary conditions: xyz, no, xy
 pbc                      = xyz
 periodic-molecules       = no
@@ -99,19 +99,19 @@ rlist                    = 1
 
 ; OPTIONS FOR ELECTROSTATICS AND VDW
 ; Method for doing electrostatics
-coulombtype              = Cut-off
+coulombtype              = reaction-field
 coulomb-modifier         = Potential-shift-Verlet
 rcoulomb-switch          = 0
-rcoulomb                 = 1
+rcoulomb                 = 1.1
 ; Relative dielectric constant for the medium and the reaction field
-epsilon-r                = 1
-epsilon-rf               = 0
+epsilon_r                = 15
+epsilon_rf               = 0
 ; Method for doing Van der Waals
-vdw-type                 = Cut-off
-vdw-modifier             = Potential-shift-Verlet
+vdw_type                 = cutoff
+vdw-modifier             = Potential-shift-verlet
 ; cut-off lengths       
 rvdw-switch              = 0
-rvdw                     = 1
+rvdw                     = 1.1
 ; Apply long range dispersion corrections for Energy and Pressure
 DispCorr                 = No
 ; Extension of the potential lookup tables beyond the cut-off
@@ -137,23 +137,23 @@ implicit-solvent         = no
 ensemble-temperature-setting = auto
 ensemble-temperature     = -1
 ; Temperature coupling  
-tcoupl                   = No
+tcoupl                   = v-rescale
 nsttcouple               = -1
 nh-chain-length          = 10
 print-nose-hoover-chain-variables = no
 ; Groups to couple separately
-tc-grps                  = 
+tc-grps                  = Membrane Protein solvent
 ; Time constant (ps) and reference temperature (K)
-tau-t                    = 
-ref-t                    = 
+tau_t                    = 1.0 1.0 1.0
+ref_t                    = 310 310 310
 ; pressure coupling     
-pcoupl                   = No
-pcoupltype               = Isotropic
+Pcoupl                   = parrinello-rahman
+Pcoupltype               = semiisotropic
 nstpcouple               = -1
 ; Time constant (ps), compressibility (1/bar) and reference P (bar)
-tau-p                    = 5
-compressibility          = 
-ref-p                    = 
+tau_p                    = 12.0
+compressibility          = 3e-4  3e-4
+ref_p                    = 1.0 1.0
 ; Scaling of reference coordinates, No, All or COM
 refcoord-scaling         = No
 
@@ -173,9 +173,9 @@ annealing-time           =
 annealing-temp           = 
 
 ; GENERATE VELOCITIES FOR STARTUP RUN
-gen-vel                  = no
-gen-temp                 = 300
-gen-seed                 = -156239234
+gen_vel                  = no
+gen_temp                 = 310
+gen-seed                 = -12296
 
 ; OPTIONS FOR BONDS    
 constraints              = none
