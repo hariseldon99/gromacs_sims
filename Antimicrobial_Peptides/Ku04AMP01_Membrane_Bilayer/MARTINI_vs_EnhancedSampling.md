@@ -37,6 +37,7 @@
     - [Expected output](#expected-output-3)
   - [4.3 Build the membrane](#43-build-the-membrane)
     - [Expected output](#expected-output-4)
+    - [Using multiple peptide molecules](#using-multiple-peptide-molecules)
 - [5. Create the Index File](#5-create-the-index-file)
     - [Objective](#objective-4)
     - [Expected output](#expected-output-5)
@@ -508,9 +509,35 @@ Construct the complete system
 python simulation_cg/memb_build.py
 ```
 
+Note: The memb-build script looks like this:
+
+```python
+#!/usr/bin/env python
+import COBY
+
+sysname = "ku04_gim_multi"
+
+COBY.COBY(
+    box=[14, 14, 8],
+    # Leaflet compositions remain unchanged
+    membrane="lipid:DVPE:46 lipid:POPG:19 lipid:POPE:12 lipid:DOPE:8 lipid:TOCL:2 apl:0.61",
+    
+    # POINT TO THE PEPTIDE FILE HERE
+    protein="file:KU04AMP01_cg.pdb moleculetypes:KU04 center_protein:False", 
+    
+    solvation="default",
+    itp_input="file:top_for_COBY.itp",
+    molecule_import="file:tocl_single.gro moleculetypes:TOCL",
+    out_sys=sysname,
+    out_top=sysname + ".top",
+    out_log=sysname + ".log",
+    sn=sysname,
+)
+```
+
 > **Warning**
 >
-> If COBY spits out a warning that the protein is too high and jumps across the bounding box, then reduce the z-shift of KU04 a bit in the previous step. ALternatively, increase the z-height of the box.
+> If COBY spits out a warning that the protein is too high and jumps across the bounding box, then reduce the z-shift of KU04 a bit in the previous step. Alternatively, increase the z-height of the box.
 
 ### Expected output
 
@@ -520,13 +547,41 @@ ku04_gim.top
 ku04_gim.log
 ```
 
+
+### Using multiple peptide molecules
+
+An alternative is to use multiple peptides in order to increase the odds of membrane translocation. The argument goes that this allows the peptides to naturally aggregate, partition into the interface, and cooperatively nucleate a pore once a threshold peptide-to-lipid (P:L) ratio is reached.
+
+Use a P:L ratio of roughly 1:10 to 1:30 (e.g., 8 to 16 peptides on a patch of 200–400 lipids). Place them all in the water phase on one side of the bilayer to mimic experimental addition.
+
+In order to do a Multi-Peptide Martini 3 setup at a high concentration (e.g., P:L = 1:20) on one leaflet, do this additional step after generating the single-peptide membrane complex.
+
+```bash
+gmx insert-molecules -f ku04_gim.gro -ci KU04AMP01_cg.pdb -nmol 7 -box 14 14 8 -radius 0.13 -replace W -o ku04_gim_8peptides.gro -try 500
+```
+
+For consistency, replace the default file with the multi-peptide file
+
+```bash
+mv ku04_gim_8peptides.gro ku04_gim.gro
+```
+
+
+In order for the topology and complex structure file to match, the multi-peptide file must be re-ordered:
+Run the `reorder_gro.py` script below:
+
+```python
+
+```
+This will instantly output ku04_gim_ordered.gro with the exact sorting required.
+
 ---
 
 # 5. Create the Index File
 
 ### Objective
 
-Create temperature-coupling groups for GROMACS.
+Create temperature-coupling groups for GROMACS. Replace `ku04_gim.gro` with whatever final gro file you got, if running multi-peptide sims.
 
 ```bash
 gmx make_ndx \
@@ -565,6 +620,33 @@ index.ndx
 # 6. Energy Minimization
 
 ### Objective
+
+Update the default `minim.mdp`: update the top parameters and append the Martini 3 interaction blocks to look like this:
+
+```bash
+define                  = -DFLEXIBLE   ; Allows water/peptides to relax fully
+integrator              = steep
+emtol                   = 10.0         ; Tighter tolerance ensures a very stable starting structure
+emstep                  = 0.01         ; Faster, robust relaxation for crowded boxes
+nsteps                  = 50000
+
+; MANDATORY MARTINI 3 NON-BONDED PARAMETERS
+cutoff-scheme            = Verlet
+nstlist                  = 20
+ns-type                  = grid
+pbc                      = xyz
+verlet-buffer-tolerance  = 0.005
+
+coulombtype              = cutoff
+coulomb-modifier         = Potential-shift-verlet
+rcoulomb                 = 1.1
+epsilon_r                = 15          ; Martini 3 screening constant
+vdwtype                  = cutoff
+vdw-modifier             = Potential-shift-verlet
+rvdw                     = 1.1
+
+constraints              = none
+```
 
 Remove steric clashes and relax the initial configuration.
 
@@ -681,6 +763,7 @@ The repository includes three GROMACS parameter files:
 | File | Purpose |
 |------|---------|
 | `minim.mdp` | Energy minimization |
+| `minim_mult.mdp`| Energy minimization for the multiple peptide case |
 | `npt.mdp` | Equilibration under NPT conditions |
 | `md.mdp` | Production molecular dynamics |
 
