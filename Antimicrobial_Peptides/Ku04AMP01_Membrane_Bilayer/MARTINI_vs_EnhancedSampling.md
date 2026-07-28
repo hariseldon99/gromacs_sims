@@ -37,7 +37,6 @@
     - [Expected output](#expected-output-3)
   - [4.3 Build the membrane](#43-build-the-membrane)
     - [Expected output](#expected-output-4)
-    - [Using multiple peptide molecules](#using-multiple-peptide-molecules)
 - [5. Create the Index File](#5-create-the-index-file)
     - [Objective](#objective-4)
     - [Expected output](#expected-output-5)
@@ -548,33 +547,6 @@ ku04_gim.log
 ```
 
 
-### Using multiple peptide molecules
-
-An alternative is to use multiple peptides in order to increase the odds of membrane translocation. The argument goes that this allows the peptides to naturally aggregate, partition into the interface, and cooperatively nucleate a pore once a threshold peptide-to-lipid (P:L) ratio is reached.
-
-Use a P:L ratio of roughly 1:10 to 1:30 (e.g., 8 to 16 peptides on a patch of 200–400 lipids). Place them all in the water phase on one side of the bilayer to mimic experimental addition.
-
-In order to do a Multi-Peptide Martini 3 setup at a high concentration (e.g., P:L = 1:20) on one leaflet, do this additional step after generating the single-peptide membrane complex.
-
-```bash
-gmx insert-molecules -f ku04_gim.gro -ci KU04AMP01_cg.pdb -nmol 7 -box 14 14 8 -radius 0.13 -replace W -o ku04_gim_8peptides.gro -try 500
-```
-
-For consistency, replace the default file with the multi-peptide file
-
-```bash
-mv ku04_gim_8peptides.gro ku04_gim.gro
-```
-
-
-In order for the topology and complex structure file to match, the multi-peptide file must be re-ordered:
-Run the `reorder_gro.py` script below:
-
-```python
-
-```
-This will instantly output ku04_gim_ordered.gro with the exact sorting required.
-
 ---
 
 # 5. Create the Index File
@@ -763,7 +735,6 @@ The repository includes three GROMACS parameter files:
 | File | Purpose |
 |------|---------|
 | `minim.mdp` | Energy minimization |
-| `minim_mult.mdp`| Energy minimization for the multiple peptide case |
 | `npt.mdp` | Equilibration under NPT conditions |
 | `md.mdp` | Production molecular dynamics |
 
