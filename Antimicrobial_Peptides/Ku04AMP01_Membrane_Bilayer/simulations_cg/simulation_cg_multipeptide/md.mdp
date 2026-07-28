@@ -19,7 +19,7 @@
 
 integrator               = md
 dt                       = 0.02 
-nsteps                   = 50000000
+nsteps                   = 150000000
 
 ;-----------------------------
 ; Output control
@@ -30,7 +30,7 @@ nstxout-compressed     = 10000       ; xtc compressed trajectory output every 10
 compressed-x-precision = 10000       ; precision with which to write to the compressed trajectory file
 nstlog                 = 10000     ; update log file every 2 ps
 nstenergy              = 10000      ; save energies every 2 ps
-nstcalcenergy          = 10000      ; calculate energies every 100 steps
+nstcalcenergy          = 100      ; calculate energies every 100 steps
 
 ;-----------------------------
 ; COM motion removal
@@ -84,7 +84,8 @@ verlet-buffer-tolerance  = 0.005
 ; when the LJ cutoff is reduced to 1.1 nm. Be sure to test the effects for 
 ; your particular system. The advantage is a gain of speed of 50-100%.
 
-coulombtype              = reaction-field
+coulombtype              = cutoff
+coulomb-modifier         = Potential-shift-verlet
 rcoulomb                 = 1.1
 epsilon_r                = 15	; 2.5 (with polarizable water)
 epsilon_rf               = 0   ; epsilon_rf = 0 really means epsilon_rf = infinity
@@ -119,10 +120,10 @@ tau_t                    = 1.0 1.0 1.0
 ref_t                    = 310 310 310
 gen_temp                 = 310
 
-Pcoupl                   = parrinello-rahman
+Pcoupl                   = c-rescale ; More thermodynamically accurate
 Pcoupltype               = semiisotropic
 ref_p                    = 1.0 1.0
-tau_p                    = 12.0
+tau_p                    = 4.0
 compressibility          = 3e-4  3e-4  ; isothermal compressibility, bar^-1
 
 
