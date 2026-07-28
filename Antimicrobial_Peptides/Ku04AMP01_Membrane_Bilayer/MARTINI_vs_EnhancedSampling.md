@@ -36,6 +36,7 @@
   - [4.2 Generate TOCL coordinates](#42-generate-tocl-coordinates)
     - [Expected output](#expected-output-3)
   - [4.3 Build the membrane](#43-build-the-membrane)
+      - [Multiple Peptides](#multiple-peptides)
     - [Expected output](#expected-output-4)
 - [5. Create the Index File](#5-create-the-index-file)
     - [Objective](#objective-4)
@@ -533,10 +534,59 @@ COBY.COBY(
     sn=sysname,
 )
 ```
-
 > **Warning**
 >
 > If COBY spits out a warning that the protein is too high and jumps across the bounding box, then reduce the z-shift of KU04 a bit in the previous step. Alternatively, increase the z-height of the box.
+
+#### Multiple Peptides
+If single peptide molecule refuses to translocate, then you may need to put multiple peptides. Antimicrobial peptides like KU04AMP01 frequently rely on cooperative mechanisms to insert or translocate. At single-peptide concentrations, the peptide may only adsorb and diffuse on the membrane surface.
+
+Why this option is superior for mechanism discovery:
+
+* Threshold Concentration (P/L Ratio): Translocation typically requires achieving a critical peptide-to-lipid (P/L) ratio to locally strain the membrane, alter lipid packing, or induce transient pore formation.  
+* Preserves Unbiased Dynamics: Adding multiple peptide copies stays true to the unbiased Martini 3 philosophy. It allows spontaneous self-assembly, oligomerization, and lipid recruitment to emerge naturally without predefining a reaction pathway.
+
+
+**You can build the multi-peptide/membrane complex entirely using COBY** by modifying the previous membrane build script. 
+
+
+1. Determining a Scientifically Valid P/L Ratio
+
+To select a realistic **Peptide-to-Lipid (P/L)** ratio, we first calculate the total lipid count based on the membrane parameters coded in your README:
+
+   * **Box Dimensions:** $14 \times 14 \text{ nm}^2$ lateral area.
+   * **Area per Lipid (APL):** $0.61 \text{ nm}^2/\text{lipid}$.
+   * **Lipids per Leaflet:** $\frac{14 \times 14}{0.61} \approx 320 \text{ lipids/leaflet}$.
+   * **Total Bilayer Lipids ($L_{\text{total}}$):** $\approx 640 \text{ lipids}$ total.
+
+2. Recommended P/L Target: **1:40 to 1:50**
+
+In experimental literature for cationic antimicrobial peptides (AMPs), spontaneous insertion, self-assembly, and pore formation typically require reaching a threshold concentration between **P/L = 1:20 and 1:50** (relative to total lipids):
+
+| Peptide Count | Effective P/L ($L_{\text{total}} \approx 640$) | Effective P/L ($L_{\text{upper}} \approx 320$) | Suitability |
+| --- | --- | --- | --- |
+| **4 Peptides** | 1 : 160 | 1 : 80 | Often too dilute for cooperative insertion |
+| **8 Peptides** | 1 : 80 | 1 : 40 | Low insertion threshold |
+| **12 Peptides** | **1 : 53** | **1 : 27** | **Optimal starting point** |
+| **16 Peptides** | **1 : 40** | **1 : 20** | **Strong cooperative insertion & pore formation** |
+
+**Recommendation:** Start with **12 or 16 peptides**. This places enough local peptide mass above the upper leaflet ($P/L_{\text{upper}} \approx 1:20 \text{--} 1:27$) to induce the required electrostatic surface strain and headgroup displacement without causing artificial crowding in the bulk water phase.
+
+3. Use vibe-coded script
+
+A vibe-coded script (build_multi_system.py)[sim_specific_scripts/build_multi_system.py], was prepared to run on the cg-ligand PDB that makes copies, ensures that there are no PBC artifacts by appropriate translations/rotations, and then builds the aggregate peptides with the membrane.
+
+> **Note on Box Height:** When running 12–16 peptides above the upper leaflet, it is advisable to increase the $z$-dimension from **8 nm to 12 nm**. This prevents the peptides from interacting with the bottom leaflet across the periodic boundary box (PBC).
+> 
+> 
+
+> **Note on membrane composition**
+> The vibe coding Ai jacked up the POPE count from 12 to 25. The justification was PE dominance: Real E. coli inner membranes are roughly $75\text{--} 80\%$ 
+> phosphatidylethanolamine (PE) by mass. The $25\%$ POPE fraction provides realistic physical packing and phase behavior alongside the major DVPE
+> component, balanced by the anionic lipids POPG ($19\%$) and TOCL ($2\%$) required to recruit cationic antimicrobial peptides like KU04.
+> In this standard Martini GIM model, the $79\%$ total PE content is split across three acyl chain variants to capture realistic fluidity:DVPE (46%): Di-vaccenoyl PE ($18:1 \Delta 11\text{-cis})$
+> POPE (25%): Palmitoyl-oleoyl PE ($16:0\text{--}18:1$)DOPE (8%): Dioleoyl PE ($18:1\text{--}18:1$)
+
 
 ### Expected output
 

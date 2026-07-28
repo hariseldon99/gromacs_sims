@@ -1,0 +1,22 @@
+define                  = -DFLEXIBLE   ; Allows water/peptides to relax fully
+integrator              = steep
+emtol                   = 10.0         ; Tighter tolerance ensures a very stable starting structure
+emstep                  = 0.01         ; Faster, robust relaxation for crowded boxes
+nsteps                  = 50000
+
+; MANDATORY MARTINI 3 NON-BONDED PARAMETERS
+cutoff-scheme            = Verlet
+nstlist                  = 20
+ns-type                  = grid
+pbc                      = xyz
+verlet-buffer-tolerance  = 0.005
+
+coulombtype              = cutoff
+coulomb-modifier         = Potential-shift-verlet
+rcoulomb                 = 1.1
+epsilon_r                = 15          ; Martini 3 screening constant
+vdwtype                  = cutoff
+vdw-modifier             = Potential-shift-verlet
+rvdw                     = 1.1
+
+constraints              = none
