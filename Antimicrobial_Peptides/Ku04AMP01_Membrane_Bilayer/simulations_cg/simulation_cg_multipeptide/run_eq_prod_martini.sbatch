@@ -6,7 +6,7 @@
 #SBATCH --gres=gpu
 #This allocates 1 GPU as a Global Resource (gres). Important for GPU jobs
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=56
 # This allocates the walltime to 10  days. The program will not run for longer.
 #SBATCH --time=240:00:00
 # This sets the quality of service to 'elevated'
