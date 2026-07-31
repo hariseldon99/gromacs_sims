@@ -538,6 +538,9 @@ COBY.COBY(
 >
 > If COBY spits out a warning that the protein is too high and jumps across the bounding box, then reduce the z-shift of KU04 a bit in the previous step. Alternatively, increase the z-height of the box.
 
+> **Note**
+> The control simulation (membrane only, no peptides) only differs from this one at this point, when the COBY script lacks a protein statement
+
 #### Multiple Peptides
 If single peptide molecule refuses to translocate, then you may need to put multiple peptides. Antimicrobial peptides like KU04AMP01 frequently rely on cooperative mechanisms to insert or translocate. At single-peptide concentrations, the peptide may only adsorb and diffuse on the membrane surface.
 

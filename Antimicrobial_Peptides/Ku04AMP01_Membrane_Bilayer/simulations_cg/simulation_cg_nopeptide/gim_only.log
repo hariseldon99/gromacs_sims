@@ -1,0 +1,190 @@
+The following COBY arguments will be processed:
+COBY(
+    box = [
+        14,
+        14,
+        12,
+    ],
+    membrane = "lipid:DVPE:46 lipid:POPG:19 lipid:POPE:25 lipid:DOPE:8 lipid:TOCL:2 apl:0.61",
+    solvation = "default",
+    itp_input = "file:top_for_COBY.itp",
+    molecule_import = "file:tocl_single.gro moleculetypes:TOCL",
+    out_sys = "gim_only",
+    out_top = "gim_only.top",
+    out_log = "gim_only.log",
+    sn = "gim_only",
+)
+---------------------------- INITIALIZING LOG FILE -----------------------------
+Opening log file
+----------------------------- LOG FILE INITIALIZED -----------------------------
+Running COBY version 1.0.14
+Setting random seed to: 1785500182
+-------------------------- PREPROCESSING DEFINITIONS ---------------------------
+Loading topology file(s)
+    Finished loading topologies. Number of moleculetypes found: 160 
+
+Preprocessing lipid scaffolds
+    Number of lipids preprocessed: 6109 
+
+Preprocessing lipid definitions
+    Number of lipids preprocessed: 1 
+
+Preprocessing ion definitions
+    Number of positive ions preprocessed: 13
+    Number of negative ions preprocessed: 16 
+
+Preprocessing solvent definitions
+    Number of solvents preprocessed: 77
+---------------------- DEFINITIONS PREPROCESSING COMPLETE ----------------------
+                            (Time spent: 1.4975 [s])                            
+
+---------------------------- PREPROCESSING COMMANDS ----------------------------
+Preprocessing membrane requests
+    Starting membrane argument: 1
+    Number of membranes preprocessed: 1
+Preprocessing solvation requests
+    Starting solvation argument: 1
+    Number of solvent commands preprocessed: 1
+------------------------ COMMAND PREPROCESSING COMPLETE ------------------------
+                            (Time spent: 0.014 [s])                             
+
+----------------------- CREATING LEAFLET BOUNDARY BOXES ------------------------
+Starting membrane nr 1
+    Starting upper leaflet
+        Base parameters: x=14.0nm y=14.0nm APL=0.61nm^2
+    Starting lower leaflet
+        Base parameters: x=14.0nm y=14.0nm APL=0.61nm^2
+------------------------ LEAFLET BOUNDARY BOXES CREATED ------------------------
+                            (Time spent: 0.0229 [s])                             
+
+------------------------ CREATING HOLED BOUNDARY BOXES -------------------------
+Starting membrane nr 1
+    Calculating holed boundary box
+        Starting upper leaflet
+        Starting lower leaflet
+------------------------- HOLED BOUNDARY BOXES CREATED -------------------------
+                            (Time spent: 0.0015 [s])                             
+
+--------------------------- CALCULATING LIPID RATIOS ---------------------------
+Starting membrane nr 1
+    Starting upper leaflet
+        Lipid optimization 'lipid_optim' setting: force_fill
+            Forcefully filling leaflet until all grid points have a lipid
+
+            Maximum number of lipids allowed in subleaflet: 321
+            
+        Maximum number of lipids allowed in leaflet: 321
+        Final deviations from expected ratios: Difference in %-values
+            Maximum: 0.206
+            Average: 0.1136
+            Minimum: 0.003
+        Leaflet specific lipid data (Combined subleafs)
+            Name : Final lipids : Final % : Expected % : Starting % : Starting lipids
+            DVPE : 147          : 45.794  : 46.0       : 46.226     : 147            
+            POPE : 80           : 24.922  : 25.0       : 25.157     : 80             
+            POPG : 61           : 19.003  : 19.0       : 18.868     : 60             
+            DOPE : 26           : 8.1     : 8.0        : 7.862      : 25             
+            TOCL : 7            : 2.181   : 2.0        : 1.887      : 6              
+
+    Starting lower leaflet
+        Lipid optimization 'lipid_optim' setting: force_fill
+            Forcefully filling leaflet until all grid points have a lipid
+
+            Maximum number of lipids allowed in subleaflet: 321
+            
+        Maximum number of lipids allowed in leaflet: 321
+        Final deviations from expected ratios: Difference in %-values
+            Maximum: 0.206
+            Average: 0.1136
+            Minimum: 0.003
+        Leaflet specific lipid data (Combined subleafs)
+            Name : Final lipids : Final % : Expected % : Starting % : Starting lipids
+            DVPE : 147          : 45.794  : 46.0       : 46.226     : 147            
+            POPE : 80           : 24.922  : 25.0       : 25.157     : 80             
+            POPG : 61           : 19.003  : 19.0       : 18.868     : 60             
+            DOPE : 26           : 8.1     : 8.0        : 7.862      : 25             
+            TOCL : 7            : 2.181   : 2.0        : 1.887      : 6              
+
+    Membrane-wide lipid data
+            Name : Total lipids : Total %
+            DVPE : 294          : 45.794 
+            POPE : 160          : 24.922 
+            POPG : 122          : 19.003 
+            DOPE : 52           : 8.1    
+            TOCL : 14           : 2.181  
+---------------------- LIPID RATIO CALCULATIONS COMPLETE -----------------------
+                            (Time spent: 0.007 [s])                              
+
+----------------------------- CREATING LIPID GRID ------------------------------
+Starting membrane nr 1
+    Starting upper leaflet
+            Total leaflet optimization time: 3.6967 [s]
+
+    Starting lower leaflet
+            Total leaflet optimization time: 4.1967 [s]
+------------------------------ LIPID GRID CREATED ------------------------------
+                            (Time spent: 8.1251 [s])                             
+
+------------------------------- CREATING LIPIDS --------------------------------
+Starting membrane nr 1
+    Starting upper leaflet
+    Starting lower leaflet
+--------------------------- LIPID CREATION COMPLETE ----------------------------
+                            (Time spent: 0.3717 [s])                             
+
+------------------------------- SOLVATING SYSTEM -------------------------------
+Starting solvation nr 1
+    Calculating box volume: (all values in [nm^3])
+        Bead radius used for volume calculations 'bead_radius': 0.264 [nm]
+        Solvent box volume: 2352.0
+        Excluded volume:    605.637
+            Solute volume:  0.0
+            Lipid volume:   605.637
+            Protein volume: 0.0
+        Free volume:        1746.363
+        Solvent volume:     1753.803
+
+    Solvent box charge information:
+        Solvent box charge before solvent insertion: -150.0
+            Prior solvent beads:  0
+            Lipid beads:          -150.0
+            Protein beads:        0
+        Solvent box charge after solvent insertion:  0.0
+            New solvent beads: 150.0
+                Solvent       (solv): 0
+                Positive ions (pos):  308.0
+                Negative ions (neg):  -158.0
+
+    Calculating the number of available grid points
+        Final number of 3D grid points available for molecule placement: 83501
+        Inserting 15074 solvent molecules into random grid points:
+            Currently at solvent number: 1
+            Currently at solvent number: 15074
+
+Solvent data for whole system
+        Name : Totals : Total % : Molarity(box) : Molarity(free) : Molarity(solvent) : Charge
+        W    : 14608  : 96.909  : 10.313        : 13.89          : 13.831            : 0     
+        NA   : 308    : 2.043   : 0.217         : 0.293          : 0.292             : 1.0   
+        CL   : 158    : 1.048   : 0.112         : 0.15           : 0.15              : -1.0  
+------------------------------ SOLVATION COMPLETE ------------------------------
+                            (Time spent: 0.429 [s])                              
+
+                          +--------------------------+                          
+--------------------------+ FINAL SYSTEM CHARGE: 0.0 +--------------------------
+                          +--------------------------+                          
+
+-------------------------------- WRITING FILES ---------------------------------
+Writing structure files (PDB/GRO)
+    PDB file written: gim_only.pdb
+    GRO file written: gim_only.gro
+    CIF file written: gim_only.cif
+
+Writing topology file (TOP)
+    TOP file written: gim_only.top 
+
+---------------------------- FILE WRITING COMPLETE -----------------------------
+                            (Time spent: 1.2423 [s])                            
+
+My task is complete. Did i do a good job?
+Time spent running COBY: 11.7794 [s]
+Closing log file
