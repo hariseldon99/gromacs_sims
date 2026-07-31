@@ -6,7 +6,7 @@
 #SBATCH --gres=gpu
 #This allocates 1 GPU as a Global Resource (gres). Important for GPU jobs
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=56
+#SBATCH --cpus-per-task=32
 # This allocates the walltime to 10  days. The program will not run for longer.
 #SBATCH --time=240:00:00
 # This sets the quality of service to 'elevated'
@@ -165,7 +165,7 @@ else
 
     # STEP 2: Center the membrane in the box
     # Note: Swap "Membrane" to "MEMB" if your index group mirrors file 2
-    echo -e "Membrane\nSystem" > trjconv_center.in
+    echo "Membrane\nSystem" > trjconv_center.in
     echo "[INFO] Centering the bilayer sheet"
     SINGULARITY bash -c "
         gmx trjconv \

@@ -290,7 +290,7 @@ else
     # 1. The group to center on (e.g., Membrane or POPE_POPG...)
     # 2. The group to output (System)
     # Change "Membrane" below to match your actual index group name if needed
-    echo -e "Membrane\nSystem" > trjconv_center.in
+    echo "Membrane\nSystem" > trjconv_center.in
     echo "[INFO] Centering the bilayer sheet"
     SINGULARITY bash -c "
         gmx trjconv \
