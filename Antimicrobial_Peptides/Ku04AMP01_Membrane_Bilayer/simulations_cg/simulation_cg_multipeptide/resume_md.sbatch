@@ -21,7 +21,7 @@
 #--------------------------------------------------
 
 # Toggle Simulation Extension
-RESUME_MD=false
+RESUME_MD=true
 
 # Checkpoint and Topology settings
 OLD_TPR="md.tpr"

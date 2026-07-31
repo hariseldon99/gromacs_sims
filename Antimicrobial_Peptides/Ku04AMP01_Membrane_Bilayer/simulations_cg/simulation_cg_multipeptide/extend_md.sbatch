@@ -22,7 +22,7 @@ set -euo pipefail
 #--------------------------------------------------
 
 # Toggle Simulation Extension
-EXTEND_MD=true
+EXTEND_MD=false
 
 # Checkpoint and Topology settings
 OLD_TPR="md.tpr"
