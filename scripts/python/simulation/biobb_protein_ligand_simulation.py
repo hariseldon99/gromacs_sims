@@ -56,7 +56,6 @@ from biobb_gromacs.gromacs.make_ndx import make_ndx
 from biobb_gromacs.gromacs.genrestr import genrestr
 
 from biobb_analysis.gromacs.gmx_trjconv_str import gmx_trjconv_str
-from biobb_structure_utils.utils.cat_pdb import cat_pdb
 from biobb_gromacs.gromacs_extra.append_ligand import append_ligand
 
 from biobb_gromacs.gromacs.editconf import editconf
@@ -71,11 +70,9 @@ from gromacs_mdrun_env import mdrun_env
 
 from biobb_analysis.gromacs.gmx_energy import gmx_energy
 
-from biobb_gromacs.gromacs.make_ndx import make_ndx
 
 from biobb_analysis.gromacs.gmx_image import gmx_image
 
-from biobb_analysis.gromacs.gmx_trjconv_str import gmx_trjconv_str
 import shutil
 from tabulate import tabulate
 import time
