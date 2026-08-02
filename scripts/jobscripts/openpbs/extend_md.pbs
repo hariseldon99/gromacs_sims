@@ -20,12 +20,12 @@ set -euo pipefail
 EXTEND_MD=true
 
 # Checkpoint and Topology settings
-OLD_TPR="md.tpr"
-EXT_TPR="md_extend.tpr"
+OLD_TPR="md_extend.tpr"
+EXT_TPR="md_extend_further.tpr"
 CPT_FILE="md.cpt"
 INDEX_FILE="index.ndx"
 DRY_INDEX_FILE="index_dry.ndx"
-EXTEND_TIME=2000000 # extend by time in ps (2 microseconds)
+EXTEND_TIME=5000000 # extend by time in ps (5 microseconds)
 # Singularity container path from OpenPBS environment
 SIF_PATH="/home/arunima/images/gromacs_2024.5.1-GPU_20260718.sif"
 
@@ -42,8 +42,8 @@ NTFY_URL="https://ntfy.sh/$NTFY_TOPIC"
 cd "$PBS_O_WORKDIR"
 
 # Test for traj_centered.in file. If it doesn't exist, the script will exit with an error.
-if [ ! -f "traj_centered.in" ]; then
-    echo "[ERROR] Required file 'traj_centered.in' not found. Please ensure the file exists before running this script."
+if [ ! -f "trjconv_center.in" ]; then
+    echo "[ERROR] Required file 'trjconv_center.in' not found. Please ensure the file exists before running this script."
     exit 1
 fi
 
@@ -96,7 +96,7 @@ start=$(date +%s.%N)
 if [ "$EXTEND_MD" = true ]; then
     echo
     echo "================================================="
-    echo "EXTENDING MD SIMULATION BY ${EXTEND_TIME} ps     "
+    echo "EXTENDING MD SIMULATION TO ${EXTEND_TIME} ps     "
     echo "================================================="
 
     # Validation check for required base files
@@ -107,7 +107,7 @@ if [ "$EXTEND_MD" = true ]; then
     SINGULARITY bash -c "
         gmx convert-tpr \
             -s ${OLD_TPR} \
-            -extend ${EXTEND_TIME} \
+            -until ${EXTEND_TIME} \
             -o ${EXT_TPR}
     "
 
@@ -150,7 +150,7 @@ echo "POST-PROCESSING"
 echo "================================================="
 
 # Clean past post-processed outputs to ensure data consistency
-rm -f traj_prod.xtc traj_whole.xtc traj_centered.xtc traj_nojump.xtc
+rm -f traj_prod.xtc traj_whole.xtc traj_nojump.xtc
 
 xtc_list=$(ls -v md*.xtc 2>/dev/null | tr '\n' ' ')
 
