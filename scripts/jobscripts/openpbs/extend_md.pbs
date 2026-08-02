@@ -1,19 +1,14 @@
 #!/bin/bash
-#----------------------------------------------------------
-# This sets the name of the job
-#SBATCH --job-name=ku04-gim-ext
-#SBATCH --partition=GPU
-#SBATCH --gres=gpu
-#This allocates 1 GPU as a Global Resource (gres). Important for GPU jobs
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
-# This allocates the walltime to 10  days. The program will not run for longer.
-#SBATCH --time=240:00:00
-# This sets the quality of service to 'elevated'
-#SBATCH --qos=elevated
-#SBATCH --mail-type=FAIL,END
-#SBATCH --mail-user=telegram:-1001215703
-#----------------------------------------------------------
+#--------------------------------------------------
+# PBS SETTINGS
+#--------------------------------------------------
+#PBS -N ku04-gim-ext
+#PBS -q workq
+#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn2
+#PBS -o ku04-gim-ext.out
+#PBS -j oe
+#PBS -l walltime=168:00:00
+#--------------------------------------------------
 
 set -euo pipefail
 
@@ -22,7 +17,7 @@ set -euo pipefail
 #--------------------------------------------------
 
 # Toggle Simulation Extension
-EXTEND_MD=false
+EXTEND_MD=true
 
 # Checkpoint and Topology settings
 OLD_TPR="md.tpr"
@@ -30,13 +25,27 @@ EXT_TPR="md_extend.tpr"
 CPT_FILE="md.cpt"
 INDEX_FILE="index.ndx"
 DRY_INDEX_FILE="index_dry.ndx"
-EXTEND_TIME=4000000 # extend by time in ps (4 microseconds)
+EXTEND_TIME=2000000 # extend by time in ps (2 microseconds)
+# Singularity container path from OpenPBS environment
+SIF_PATH="/home/arunima/images/gromacs_2024.5.1-GPU_20260718.sif"
 
-SIF_PATH="${HOME}/SIFDIR/gromacs/gromacs_2024.5.1-GPU_20260718.sif"
+# ---------------------------------------------------------
+# 1. Configuration
+# ---------------------------------------------------------
+NTFY_TOPIC="kuhpchn"
+NTFY_URL="https://ntfy.sh/$NTFY_TOPIC"
 
 #--------------------------------------------------
 # INITIALIZATION
 #--------------------------------------------------
+
+cd "$PBS_O_WORKDIR"
+
+# Test for traj_centered.xtc file. If it doesn't exist, the script will exit with an error.
+if [ ! -f "traj_centered.xtc" ]; then
+    echo "[ERROR] Required file 'traj_centered.xtc' not found. Please ensure the file exists before running this script."
+    exit 1
+fi
 
 LOGFILE="wrapper_extend_$(date +%Y%m%d_%H%M%S).log"
 
@@ -45,17 +54,24 @@ exec > >(stdbuf -oL tee -a "$LOGFILE")
 exec 2>&1
 
 echo "================================================="
-echo "SLURM EXTENSION JOB START"
+echo "PBS EXTENSION JOB START"
 echo "================================================="
 echo "Date        : $(date)"
 echo "Hostname    : $(hostname)"
 echo "Working dir : $(pwd)"
-echo "SLURM_JOBID : ${SLURM_JOB_ID}"
-echo "SLURM_JOBNAME : ${SLURM_JOB_NAME}"
+echo "PBS_JOBID   : ${PBS_JOBID}"
+echo "PBS_JOBNAME : ${PBS_JOBNAME}"
 echo "================================================="
 
+#--------------------------------------------------
+# MODULES & ENVIRONMENT
+#--------------------------------------------------
 
-echo "[INFO] Detected SLURM_NCPUS=${SLURM_CPUS_PER_TASK}"
+module load ohpc
+module load cuda
+
+export PBS_NCPUS=$(wc -l "$PBS_NODEFILE" | awk '{print $1}')
+echo "[INFO] Detected PBS_NCPUS=${PBS_NCPUS}"
 
 #--------------------------------------------------
 # SINGULARITY WRAPPER
@@ -80,7 +96,7 @@ start=$(date +%s.%N)
 if [ "$EXTEND_MD" = true ]; then
     echo
     echo "================================================="
-    echo "EXTENDING MD SIMULATION BY ${EXTEND_TIME} ps (${EXTEND_TIME} microseconds)"
+    echo "EXTENDING MD SIMULATION BY ${EXTEND_TIME} ps     "
     echo "================================================="
 
     # Validation check for required base files
@@ -111,7 +127,7 @@ if [ "$EXTEND_MD" = true ]; then
             -pin on \
             -nb gpu \
             -ntmpi 1 \
-            -ntomp ${SLURM_CPUS_PER_TASK} \
+            -ntomp ${PBS_NCPUS} \
             -gpu_id 0
     "
     echo "[INFO] mdrun extension completed successfully"
@@ -134,7 +150,7 @@ echo "POST-PROCESSING"
 echo "================================================="
 
 # Clean past post-processed outputs to ensure data consistency
-rm -f traj_prod.xtc traj_whole.xtc traj_centered.xtc traj_nojump.xtc traj_dry.xtc
+rm -f traj_prod.xtc traj_whole.xtc traj_centered.xtc traj_nojump.xtc
 
 xtc_list=$(ls -v md*.xtc 2>/dev/null | tr '\n' ' ')
 
@@ -165,7 +181,7 @@ else
 
     # STEP 2: Center the membrane in the box
     # Note: Swap "Membrane" to "MEMB" if your index group mirrors file 2
-    echo "Membrane\nSystem" > trjconv_center.in
+    #echo -e "Membrane\nSystem" > trjconv_center.in
     echo "[INFO] Centering the bilayer sheet"
     SINGULARITY bash -c "
         gmx trjconv \
@@ -205,7 +221,7 @@ else
             < trjconv_dry.in
     "
     # Clean up intermediate input files
-    rm -f trjconv_whole.in trjconv_center.in trjconv_nojump.in trjconv_dry.in
+    rm -f trjconv_whole.in trjconv_nojump.in trjconv_dry.in
 fi
 
 #--------------------------------------------------
@@ -220,3 +236,27 @@ echo "JOB COMPLETE"
 echo "================================================="
 echo "Runtime: ${RUNTIME} sec"
 echo "================================================="
+
+# Capture the exit code of your main compute task
+EXIT_CODE=$?
+
+# ---------------------------------------------------------
+# 4. "Job Completed/Failed" Notification via Head Node
+# ---------------------------------------------------------
+if [ $EXIT_CODE -eq 0 ]; then
+# Success notification
+ssh -tt kuhpchn "curl -s -o /dev/null -d 'Job ID: $PBS_JOBID finished successfully.' \
+    -H 'Title: ✅ Job Complete: $PBS_JOBNAME' \
+    -H 'Tags: white_check_mark, tada' \
+    -H 'Priority: default' \
+    $NTFY_URL"
+else
+# Failure notification
+ssh -tt kuhpchn "curl -s -o /dev/null -d 'Job ID: $PBS_JOBID failed with exit code $EXIT_CODE.' \
+    -H 'Title: ❌ Job Failed: $PBS_JOBNAME' \
+    -H 'Tags: x, warning' \
+    -H 'Priority: high' \
+    $NTFY_URL"
+fi
+
+exit $EXIT_CODE

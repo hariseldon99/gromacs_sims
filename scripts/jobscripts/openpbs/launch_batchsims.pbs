@@ -12,7 +12,11 @@
 #PBS -l walltime=96:00:00 
 #----------------------------------------------------------
 
-# List of simulation directories
+# ---------------------------------------------------------
+# 1. Configuration
+# ---------------------------------------------------------
+NTFY_TOPIC="kuhpchn"
+NTFY_URL="https://ntfy.sh/$NTFY_TOPIC"
 
 export PBS_NCPUS=$(wc -l $PBS_NODEFILE | awk '{print $1}')
 
@@ -65,14 +69,26 @@ echo '---------------------------------------------'
 echo "Runtime: "$RUNTIME" sec"
 echo '---------------------------------------------'
 
-# Define login node
-LOGIN_NODE="kuhpchn"
+# Capture the exit code of your main compute task
+EXIT_CODE=$?
 
-# Define the ntfy.sh URL
-NTFY_URL="https://ntfy.sh/kuhpchn"
+# ---------------------------------------------------------
+# 4. "Job Completed/Failed" Notification via Head Node
+# ---------------------------------------------------------
+if [ $EXIT_CODE -eq 0 ]; then
+# Success notification
+ssh -tt kuhpchn "curl -s -o /dev/null -d 'Job ID: $PBS_JOBID finished successfully.' \
+    -H 'Title: ✅ Job Complete: $PBS_JOBNAME' \
+    -H 'Tags: white_check_mark, tada' \
+    -H 'Priority: default' \
+    $NTFY_URL"
+else
+# Failure notification
+ssh -tt kuhpchn "curl -s -o /dev/null -d 'Job ID: $PBS_JOBID failed with exit code $EXIT_CODE.' \
+    -H 'Title: ❌ Job Failed: $PBS_JOBNAME' \
+    -H 'Tags: x, warning' \
+    -H 'Priority: high' \
+    $NTFY_URL"
+fi
 
-# Define the message payload
-MESSAGE="Job '$PBS_JOBID' finished on kuhpchn in '$RUNTIME' secs. Check output @ '$PBS_O_WORKDIR'"
-
-# SSH into the login node and execute the curl command remotely
-sshpass -f $HOME/.password ssh "$LOGIN_NODE" "curl -X POST -d \"$MESSAGE\" \"$NTFY_URL\""
+exit $EXIT_CODE

@@ -15,13 +15,14 @@
 #SBATCH --mail-user=telegram:-1001215703
 #----------------------------------------------------------
 
+set -euo pipefail
 
 #--------------------------------------------------
 # USER SETTINGS
 #--------------------------------------------------
 
 # Toggle Simulation Extension
-RESUME_MD=true
+EXTEND_MD=false
 
 # Checkpoint and Topology settings
 OLD_TPR="md.tpr"
@@ -37,6 +38,17 @@ SIF_PATH="${HOME}/SIFDIR/gromacs/gromacs_2024.5.1-GPU_20260718.sif"
 # INITIALIZATION
 #--------------------------------------------------
 
+# Test for traj_centered.in file. If it doesn't exist, the script will exit with an error.
+if [ ! -f "traj_centered.in" ]; then
+    echo "[ERROR] Required file 'traj_centered.in' not found. Please ensure the file exists before running this script."
+    exit 1
+fi
+
+LOGFILE="wrapper_extend_$(date +%Y%m%d_%H%M%S).log"
+
+# Persistent unbuffered logging
+exec > >(stdbuf -oL tee -a "$LOGFILE")
+exec 2>&1
 
 
 echo "================================================="
@@ -70,13 +82,28 @@ SINGULARITY() {
 start=$(date +%s.%N)
 
 #--------------------------------------------------
-# RESUME PRODUCTION RUN
+# EXTEND PRODUCTION RUN
 #--------------------------------------------------
-if [ "$RESUME_MD" = true ]; then
+if [ "$EXTEND_MD" = true ]; then
+    echo
     echo "================================================="
-    echo "RESUMING MD SIMULATION                           "
+    echo "EXTENDING MD SIMULATION BY ${EXTEND_TIME} ps     "
     echo "================================================="
 
+    # Validation check for required base files
+    test -f "$OLD_TPR"
+    test -f "$CPT_FILE"
+
+    echo "[INFO] Modifying the run input file to extend time..."
+    SINGULARITY bash -c "
+        gmx convert-tpr \
+            -s ${OLD_TPR} \
+            -extend ${EXTEND_TIME} \
+            -o ${EXT_TPR}
+    "
+
+    test -f "$EXT_TPR"
+    echo "[INFO] Successfully generated extended topology: ${EXT_TPR}"
 
     echo "[INFO] Launching mdrun with GPU offloading configuration..."
     # Configured with explicit GPU offloading parameters required by this cluster partition
@@ -145,7 +172,7 @@ else
 
     # STEP 2: Center the membrane in the box
     # Note: Swap "Membrane" to "MEMB" if your index group mirrors file 2
-    echo "Membrane\nSystem" > trjconv_center.in
+    #echo "Membrane\nSystem" > trjconv_center.in
     echo "[INFO] Centering the bilayer sheet"
     SINGULARITY bash -c "
         gmx trjconv \
@@ -185,7 +212,7 @@ else
             < trjconv_dry.in
     "
     # Clean up intermediate input files
-    rm -f trjconv_whole.in trjconv_center.in trjconv_nojump.in trjconv_dry.in
+    rm -f trjconv_whole.in trjconv_nojump.in trjconv_dry.in
 fi
 
 #--------------------------------------------------

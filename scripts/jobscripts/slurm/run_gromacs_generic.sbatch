@@ -1,16 +1,19 @@
 #!/bin/bash
-#--------------------------------------------------
-# PBS SETTINGS
-#--------------------------------------------------
-#PBS -N gmonly-eqprd
-#PBS -q workq
-#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn2
-#PBS -o gmonly-eqprd.out
-#PBS -j oe
-#PBS -l walltime=240:00:00
-#--------------------------------------------------
-
-set -euo pipefail
+#----------------------------------------------------------
+# This sets the name of the job
+#SBATCH --job-name=ku04-gim
+#SBATCH --partition=GPU
+#SBATCH --gres=gpu
+#This allocates 1 GPU as a Global Resource (gres). Important for GPU jobs
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=56
+# This allocates the walltime to 10  days. The program will not run for longer.
+#SBATCH --time=240:00:00
+# This sets the quality of service to 'elevated'
+#SBATCH --qos=elevated
+#SBATCH --mail-type=FAIL,END
+#SBATCH --mail-user=telegram:-1001215703
+#----------------------------------------------------------
 
 #--------------------------------------------------
 # USER SETTINGS
@@ -25,36 +28,36 @@ RUN_PROD=true #Set to false if only PP is desired
 RESUME_MD=false #Set to true if resuming from chkpt
 
 EM_OUT="em" # Output prefix from energy minimization step
-TOPOL="gim_only" # Topology file prefix
+TOPOL="ku04_gim_multi" # Topology file prefix
 EQUI_MDP="npt" # MDP file prefix for equilibration
 MD_MDP="md" # MDP file prefix for production run
-
+INDEX_FILE="index.ndx" # Index file for trjconv and other operations
+DRY_INDEX_FILE="index_dry.ndx" # Index file for dry trajectory
 
 # Singularity container
-SIF_PATH="/home/arunima/images/gromacs_2024.5.1-GPU_20260718.sif"
-
-
-
-# ---------------------------------------------------------
-# 1. Configuration
-# ---------------------------------------------------------
-NTFY_TOPIC="kuhpchn"
-NTFY_URL="https://ntfy.sh/$NTFY_TOPIC"
-
-# ---------------------------------------------------------
-# 2. "Job Started" Notification via Head Node
-# ---------------------------------------------------------
-# SSH into kuhpchn to execute the curl command. 
-ssh -tt kuhpchn "curl -s -o /dev/null -d 'Job ID: $PBS_JOBID has started on compute node \$(hostname)' \
-    -H 'Title: 🚀 Job Started: $PBS_JOBNAME' \
-    -H 'Tags: rocket, hourglass_flowing_sand' \
-    -H 'Priority: default' \
-    $NTFY_URL"
+SIF_PATH="${HOME}/SIFDIR/gromacs/gromacs_2024.5.1-GPU_20260718.sif"
 
 #--------------------------------------------------
 # INITIALIZATION
 #--------------------------------------------------
-cd "$PBS_O_WORKDIR"
+
+# Test for traj_centered.in file. If it doesn't exist, the script will exit with an error.
+if [ ! -f "traj_centered.in" ]; then
+    echo "[ERROR] Required file 'traj_centered.in' not found. Please ensure the file exists before running this script."
+    exit 1
+fi
+
+# Test for index file. If it doesn't exist, the script will exit with an error.
+if [ ! -f "${INDEX_FILE}" ]; then
+    echo "[ERROR] Required file '${INDEX_FILE}' not found. Please ensure the file exists before running this script."
+    exit 1
+fi
+
+# Test for dry index file. If it doesn't exist, the script will exit with an error.
+if [ ! -f "${DRY_INDEX_FILE}" ]; then
+    echo "[ERROR] Required file '${DRY_INDEX_FILE}' not found. Please ensure the file exists before running this script."
+    exit 1
+fi
 
 LOGFILE="wrapper_$(date +%Y%m%d_%H%M%S).log"
 
@@ -63,25 +66,18 @@ exec > >(stdbuf -oL tee -a "$LOGFILE")
 exec 2>&1
 
 echo "================================================="
-echo "PBS JOB START"
+echo "SLURM JOB START"
 echo "================================================="
 echo "Date        : $(date)"
 echo "Hostname    : $(hostname)"
 echo "Working dir : $(pwd)"
-echo "PBS_JOBID   : ${PBS_JOBID}"
-echo "PBS_JOBNAME : ${PBS_JOBNAME}"
+echo "SLURM_JOBID   : ${SLURM_JOB_ID}"
+echo "SLURM_JOBNAME : ${SLURM_JOB_NAME}"
 echo "================================================="
 
-#--------------------------------------------------
-# MODULES
-#--------------------------------------------------
+export SLURM_NCPUS=$SLURM_CPUS_PER_TASK
 
-module load ohpc
-module load cuda
-
-export PBS_NCPUS=$(wc -l "$PBS_NODEFILE" | awk '{print $1}')
-
-echo "[INFO] Detected PBS_NCPUS=${PBS_NCPUS}"
+echo "[INFO] Detected SLURM_NCPUS=${SLURM_NCPUS}"
 
 #--------------------------------------------------
 # SINGULARITY WRAPPER
@@ -121,7 +117,7 @@ if [ "$RUN_EQUIL" = true ]; then
             -c ${EM_OUT}.gro \
             -r ${EM_OUT}.gro \
             -p ${TOPOL}.top \
-            -n index.ndx \
+            -n ${INDEX_FILE} \
             -o npt.tpr \
             -maxwarn 5
     "
@@ -139,7 +135,7 @@ if [ "$RUN_EQUIL" = true ]; then
             -pin on \
             -nb gpu \
             -ntmpi 1 \
-            -ntomp ${PBS_NCPUS} \
+            -ntomp ${SLURM_NCPUS} \
             -gpu_id 0
     "
 
@@ -192,7 +188,7 @@ if [ "$RESUME_MD" = true ]; then
             -pin on \
             -cpi md.cpt \
             -ntmpi 1 \
-            -ntomp ${PBS_NCPUS} \
+            -ntomp ${SLURM_NCPUS} \
             -nb gpu \
             -gpu_id 0
     "
@@ -211,7 +207,7 @@ else
                 -f ${MD_MDP}.mdp \
                 -c npt.gro \
                 -p ${TOPOL}.top \
-                -n index.ndx \
+                -n ${INDEX_FILE} \
                 -o md.tpr \
                 -t npt.cpt \
                 -maxwarn 2
@@ -230,7 +226,7 @@ else
                 -pin on \
                 -nb gpu \
                 -ntmpi 1 \
-                -ntomp ${PBS_NCPUS} \
+                -ntomp ${SLURM_NCPUS} \
                 -gpu_id 0
         "
         echo "[INFO] mdrun completed for production"
@@ -312,13 +308,13 @@ else
     # 1. The group to center on (e.g., Membrane or POPE_POPG...)
     # 2. The group to output (System)
     # Change "Membrane" below to match your actual index group name if needed
-    # echo "Membrane\nSystem" > trjconv_center.in
+    #echo "Membrane\nSystem" > trjconv_center.in
     echo "[INFO] Centering the bilayer sheet"
     SINGULARITY bash -c "
         gmx trjconv \
             -s md.tpr \
             -f traj_whole.xtc \
-            -n index.ndx \
+            -n ${INDEX_FILE} \
             -center \
             -pbc mol \
             -ur compact \
@@ -343,9 +339,22 @@ else
     "
     test -f traj_nojump.xtc
 
+
+    #--------------------------------------------------
+    # STEP 4: Remove water and ions for dry trajectory
+    #--------------------------------------------------
+    echo "DRY" > trjconv_dry.in
+    echo "[INFO] Running trjconv to remove water and ions"
+    SINGULARITY bash -c "
+        gmx trjconv \
+            -s ${EXT_TPR} \
+            -f traj_nojump.xtc \
+            -n ${DRY_INDEX_FILE} \
+            -o traj_dry.xtc \
+            < trjconv_dry.in
+    "
     # Clean up intermediate files
-    rm -f traj_whole.xtc traj_centered.xtc
-    rm -f trjconv_whole.in trjconv_nojump.in
+    rm -f trjconv_whole.in trjconv_nojump.in trjconv_dry.in
 fi
 
 #--------------------------------------------------
@@ -362,27 +371,3 @@ echo "JOB COMPLETE"
 echo "================================================="
 echo "Runtime: ${RUNTIME} sec"
 echo "================================================="
-
-# Capture the exit code of your main compute task
-EXIT_CODE=$?
-
-# ---------------------------------------------------------
-# 4. "Job Completed/Failed" Notification via Head Node
-# ---------------------------------------------------------
-if [ $EXIT_CODE -eq 0 ]; then
-# Success notification
-ssh -tt kuhpchn "curl -s -o /dev/null -d 'Job ID: $PBS_JOBID finished successfully.' \
-    -H 'Title: ✅ Job Complete: $PBS_JOBNAME' \
-    -H 'Tags: white_check_mark, tada' \
-    -H 'Priority: default' \
-    $NTFY_URL"
-else
-# Failure notification
-ssh -tt kuhpchn "curl -s -o /dev/null -d 'Job ID: $PBS_JOBID failed with exit code $EXIT_CODE.' \
-    -H 'Title: ❌ Job Failed: $PBS_JOBNAME' \
-    -H 'Tags: x, warning' \
-    -H 'Priority: high' \
-    $NTFY_URL"
-fi
-
-exit $EXIT_CODE
