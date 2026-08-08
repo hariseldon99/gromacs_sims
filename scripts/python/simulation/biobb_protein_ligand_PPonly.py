@@ -48,7 +48,7 @@ def molecular_dynamics_pp(complex):
         ["Output Directory", complex['outdir']],
         ["Log File", log_filename],
         ["gppmd_tpr", complex['gppmd_tpr']],
-        ["min_gro", complex['min_gro']],
+       # ["min_gro", complex['min_gro']],
         ["md_gro", complex['md_gro']],
         ["md_xtc", complex['md_xtc']],
         ["complex_ndx", complex['complex_ndx']]
