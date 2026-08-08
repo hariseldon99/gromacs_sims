@@ -48,7 +48,6 @@ def molecular_dynamics_pp(complex):
         ["Output Directory", complex['outdir']],
         ["Log File", log_filename],
         ["gppmd_tpr", complex['gppmd_tpr']],
-       # ["min_gro", complex['min_gro']],
         ["md_gro", complex['md_gro']],
         ["md_xtc", complex['md_xtc']],
         ["complex_ndx", complex['complex_ndx']]
@@ -138,7 +137,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Protein-Ligand Molecular Dynamics PP Setup")
     parser.add_argument("--outdir", type=str, default="./outputs", help="Output directory (default: ./outputs)")
     parser.add_argument("--gppmd_tpr", type=str, required=True, help="Path to the gppmd tpr file")
-    #parser.add_argument("--min_gro", type=str, required=True, help="Path to the minimized gro file")
     parser.add_argument("--md_gro", type=str, required=True, help="Path to the MD gro file")
     parser.add_argument("--md_xtc", type=str, required=True, help="Path to the MD xtc file")
     parser.add_argument("--complex_ndx", type=str, required=True, help="Path to the selection index file")
@@ -148,7 +146,6 @@ if __name__ == '__main__':
     complex = {
         'outdir': args.outdir,
         'gppmd_tpr': args.gppmd_tpr,
-        #"min_gro": args.min_gro,
         "md_gro": args.md_gro,
         "md_xtc": args.md_xtc,
         "complex_ndx": args.complex_ndx,
