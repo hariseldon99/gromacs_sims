@@ -168,4 +168,4 @@ if __name__ == '__main__':
     }
 
 
-    molecular_dynamics_pp(complex, protonated=args.protonated)
+    molecular_dynamics_pp(complex)
