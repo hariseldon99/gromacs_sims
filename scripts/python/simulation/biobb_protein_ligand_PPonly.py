@@ -59,6 +59,12 @@ def molecular_dynamics_pp(complex):
     print(tabulate(complex_table, headers=["Parameter", "Value"], tablefmt="grid"))
     
     
+    # Convert input file paths to absolute paths BEFORE changing directory
+    output_gppmd_tpr = os.path.abspath(complex['gppmd_tpr'])
+    output_md_gro = os.path.abspath(complex['md_gro'])
+    output_md_xtc = os.path.abspath(complex['md_xtc'])
+    output_complex_ndx = os.path.abspath(complex['complex_ndx'])
+
     # Pause for 5 seconds
     time.sleep(5)
     sys.stdout = open(log_filename, "w")
@@ -68,27 +74,8 @@ def molecular_dynamics_pp(complex):
     current_working_directory = os.getcwd()
     os.chdir(outdir)
     
-    # Create prop dict and inputs/outputs
-    output_gppmd_tpr = complex['gppmd_tpr']
-    #output_min_gro = complex['min_gro']
-    output_md_gro = complex['md_gro']
-    output_md_xtc = complex['md_xtc']
-    output_complex_ndx = complex['complex_ndx']
-
-    # Recreate selection indices
-    # Create prop dict and inputs/outputs
-    #prop = {
-    #    'selection': "\"Protein\"|\"Other\"" 
-    #}
-
-    # Create and launch bb
-    #make_ndx(input_structure_path=output_min_gro,
-    #        output_ndx_path=output_complex_ndx,
-    #        properties=prop)
-
-    
-    # Create prop dict and inputs/outputs (my way, which worked better)
-    output_cluster_traj = complex['md_xtc'].removesuffix('.xtc')+'_cluster_traj.xtc'
+    # Create output filenames based on input basenames
+    output_cluster_traj = os.path.basename(complex['md_xtc']).removesuffix('.xtc') + '_cluster_traj.xtc'
     prop = {
         'cluster_selection':  'Protein_Other',
         'output_selection': 'Protein_Other',
@@ -104,7 +91,7 @@ def molecular_dynamics_pp(complex):
             output_traj_path=output_cluster_traj, 
             properties=prop)
 
-    output_center_traj = complex['md_xtc'].removesuffix('.xtc')+'_cluster_center_traj.xtc'
+    output_center_traj = os.path.basename(complex['md_xtc']).removesuffix('.xtc') + '_cluster_center_traj.xtc'
     prop = {
         'center_selection':  'Protein_Other',
         'output_selection': 'Protein_Other',
@@ -123,7 +110,7 @@ def molecular_dynamics_pp(complex):
     # ### Step 2: Generating the output *dry* structure.
     # **Removing water molecules and ions** from the resulting structure
 
-    output_dry_gro = complex['md_gro'].removesuffix('.gro')+'_md_dry.gro'
+    output_dry_gro = os.path.basename(complex['md_gro']).removesuffix('.gro') + '_md_dry.gro'
     prop = {
         'selection':  'Protein_Other'
     }
