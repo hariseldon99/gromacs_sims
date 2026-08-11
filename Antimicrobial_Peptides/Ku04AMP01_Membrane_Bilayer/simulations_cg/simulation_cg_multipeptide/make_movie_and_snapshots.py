@@ -24,7 +24,7 @@ def main():
     frames_dir = os.path.join(output_dir, "frames")
     
     # 1. Run VMD rendering script
-    vmd_cmd = "vmd2 -dispdev text -e render_hpc_viz.tcl"
+    vmd_cmd = "vmd -dispdev text -e render_hpc_viz.tcl"
     print("=== Step 1: Running VMD Headless OptiX GPU Ray Tracing ===")
     run_cmd(vmd_cmd, cwd=work_dir)
     
