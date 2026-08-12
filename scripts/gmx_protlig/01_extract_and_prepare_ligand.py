@@ -59,10 +59,9 @@ parser.add_argument(
 )
 
 parser.add_argument(
-    "--ligand-dir",
-    type=str,
-    default="ligand",
-    help="Output directory for ligand files (default: ligand)",
+    "--full_protonate",
+    action="store_false", 
+    help="Fully protonate the ligand (default: False - protonates only polar hydrogens)",
 )
 
 args = parser.parse_args()
@@ -165,8 +164,12 @@ cmd =  [
         "obabel",
         "-ipdb", raw_pdb,
         "-opdb", "-O", prot_pdb,
-        "--AddPolarH",
-        ],
+        ]
+
+if args.full_protonate:
+    cmd.append("-h")  # Add hydrogens to all atoms
+else:
+    cmd.append("--AddPolarH")  # Protonate only polar hydrogens    
 
 if PH is not None:
     print(f"\n[Step 4] Protonating at pH {PH} with OpenBabel …")
