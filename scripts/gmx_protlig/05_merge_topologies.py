@@ -299,7 +299,7 @@ shutil.copy2(COMPLEX_GRO_SRC, complex_gro)
 print(f"[OK] Complex GRO copied: {complex_gro}")
 
 protein_name = os.path.basename(args.protein_pdb).split(".")[0] if args.protein_pdb else "protein"
-complex_name = f"complex_{RESIDUE_NAME.lower()}"
+complex_name = f"complex_{protein_name.lower()}_{RESIDUE_NAME.lower()}"
 complex_sys = gmx.GmxSys(name=complex_name, coor_file=complex_gro)
 complex_sys.top_file = complex_top
 
