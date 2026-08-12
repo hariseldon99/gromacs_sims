@@ -65,7 +65,9 @@ CA_LOW_STEP = int(1000 * CA_LOW_TIME / DT)
 PROD_TIME   = 100.0       # ns
 PROD_STEPS  = int(1000 * PROD_TIME / DT)
 
-TC_GRPS     = "Protein_ERG Water_and_ions"
+TC_GRPS_CMPLX = os.environ.get("TC_GRPS_CMPLX") or "Protein"
+
+TC_GRPS     = f"{TC_GRPS_CMPLX} Water_and_ions"
 TAU_T       = "0.1 0.1"
 REF_T       = "310 310"
 
