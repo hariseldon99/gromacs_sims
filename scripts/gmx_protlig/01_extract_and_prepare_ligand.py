@@ -39,6 +39,14 @@ parser.add_argument(
     default="UnknownLigand",
     help="Name of the ligand (default: UnknownLigand)",
 )
+
+parser.add_argument(
+    "--ligand-dir",
+    type=str,
+    default="ligand",
+    help="Directory to store ligand files (default: ligand)",
+)
+
 parser.add_argument(
     "--residue-name",
     type=str,
