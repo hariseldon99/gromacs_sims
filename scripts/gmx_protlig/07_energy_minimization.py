@@ -84,7 +84,7 @@ print(f"[INFO] top_file  : {complex_sys.top_file}")
 # ---------------------------------------------------------------------------
 complex_sys.nt     = N_CORES
 complex_sys.ntmpi  = 1
-complex_sys.gpu_id = None if not GPU_FLAG else 0
+complex_sys.gpu_id = None if not GPU_FLAG else '0'
 
 print(f"[INFO] Using {N_CORES} CPU threads for energy minimisation.")
 
