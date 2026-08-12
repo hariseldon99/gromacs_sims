@@ -23,11 +23,12 @@ from gromacs_py import gmx
 parser = argparse.ArgumentParser(
     description="Step 6: Solvate, add ions, and create robust GROMACS index groups."
 )
+
 parser.add_argument(
     "-r", "--residue-name",
     type=str,
     default="UNL",
-    help="3-letter residue name of the ligand (default: UNL)"
+    help="3-letter residue name of the ligand (default: UNL). Needed for indexx group creation."
 )
 parser.add_argument(
     "-c", "--ion-conc",
@@ -126,7 +127,13 @@ print(f"[INFO] Loading checkpoint: {latest}")
 with open(latest, "rb") as fh:
     complex_sys = pickle.load(fh)
 
-SYS_NAME = f"complex_{RESIDUE_NAME.lower()}"
+if complex_sys.name is not None:
+    print(f"[INFO] Loaded system name: {complex_sys.name}")
+    SYS_NAME = complex_sys.name
+else:
+    SYS_NAME = f"complex_{RESIDUE_NAME.lower()}"
+    print(f"[INFO] No system name found in checkpoint. Using default: {SYS_NAME}")
+
 
 print(f"[INFO] Target Residue Name : {RESIDUE_NAME}")
 print(f"[INFO] coor_file            : {complex_sys.coor_file}")
