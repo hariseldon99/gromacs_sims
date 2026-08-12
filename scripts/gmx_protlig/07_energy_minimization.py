@@ -23,21 +23,38 @@ import sys
 import glob
 import pickle
 import datetime
-
+import multiprocessing
 import numpy as np
 import pandas as pd
 import matplotlib
 matplotlib.use("Agg")   # headless
 import matplotlib.pyplot as plt
-
+import argparse
 from gromacs_py import gmx
 
 # ---------------------------------------------------------------------------
 # Parallelization (use all available local cores, no GPU needed for EM)
 # ---------------------------------------------------------------------------
-import multiprocessing
-N_CORES = max(1, multiprocessing.cpu_count())
 
+parser = argparse.ArgumentParser(
+    description="Step 7: Energy minimisation (two-step: without bond constraints, then with)."
+)
+parser.add_argument(
+    "--nt",
+    type=int,
+    default=1,
+    help="Number of threads to use for energy minimisation."
+)
+parser.add_argument(
+    "--gpu",
+    action="store_true",
+    help="Use GPU for energy minimisation (default: False)."
+)
+
+args = parser.parse_args()
+
+N_CORES = args.nt 
+GPU_FLAG = args.gpu
 # ---------------------------------------------------------------------------
 # Parameters
 # ---------------------------------------------------------------------------
@@ -67,7 +84,7 @@ print(f"[INFO] top_file  : {complex_sys.top_file}")
 # ---------------------------------------------------------------------------
 complex_sys.nt     = N_CORES
 complex_sys.ntmpi  = 1
-complex_sys.gpu_id = None   # no GPU for EM; leave blank to use CPU
+complex_sys.gpu_id = None if not GPU_FLAG else 0
 
 print(f"[INFO] Using {N_CORES} CPU threads for energy minimisation.")
 
