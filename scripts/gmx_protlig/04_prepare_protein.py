@@ -54,8 +54,8 @@ parser.add_argument(
     help="Path to protein PDB file",
 )
 parser.add_argument("--prepare_top", 
-                action="store_false", 
-                help="Run pdb2gmx to prepare protein topology")
+                action="store_true", 
+                help="Run pdb2gmx to prepare protein topology. default: False (only adds topology if already prepared by acpype)")
 
 args = parser.parse_args()
 
