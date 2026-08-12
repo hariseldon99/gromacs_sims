@@ -23,7 +23,70 @@
 | 8 | **Transfer to HPC** | — | Copy `simulations/` to cluster |
 | 9 | `09_hpc_submit.sbatch` | HPC | Equilibration + production + post-processing |
 
+
 ---
+
+## Modular Python API & Iterative Batch Processing
+
+The entire workflow can now be invoked **pythonically** from Python scripts or run in **batch mode** for large numbers of protein-ligand complexes.
+
+### 1. High-Level Python Pipeline Object
+
+```python
+from protlig_api import ProteinLigandPipeline
+
+pipeline = ProteinLigandPipeline(
+    protein_pdb="../CUEDC2_corrected.pdb",
+    ligand_pdbqt="../CHEMBL442_ERGOTAMINE_out.pdbqt",
+    ligand_name="ERGOTAMINE",
+    residue_name="ERG",
+    work_dir="simulations/complex_ergotamine",
+)
+
+# Run steps 1 to 7 (local prep & energy minimization)
+results = pipeline.run_all_local_prep(nt_em=4)
+print("Local preparation complete. EM Checkpoint:", results["step7"]["checkpoint_path"])
+```
+
+### 2. Batch Processing for Multiple Complexes
+
+Use `BatchPipelineRunner` with a CSV or JSON manifest file (`manifest_example.csv` / `manifest_example.json`):
+
+```python
+from protlig_api import BatchPipelineRunner
+
+# Load manifest and run up to Step 7 (local prep before HPC submission)
+runner = BatchPipelineRunner(manifest="manifest_example.csv")
+summary = runner.run_batch(up_to_step=7, continue_on_error=True)
+
+# Generates batch_summary.json and batch_summary.csv automatically
+```
+
+### 3. Calling Individual Step Functions
+
+Every step is available as an independent Python function:
+
+```python
+from protlig_api import (
+    step1_extract_and_prepare_ligand,
+    step2_run_acpype,
+    step4_prepare_protein,
+    step5_merge_topologies,
+    step6_solvate_ions_index,
+    step7_energy_minimization,
+    step8_hpc_equi_prod,
+)
+
+step1_res = step1_extract_and_prepare_ligand(
+    input_pdbqt="../CHEMBL442_ERGOTAMINE_out.pdbqt",
+    ligand_name="ERGOTAMINE",
+    residue_name="ERG",
+    work_dir="simulations/system1",
+)
+```
+
+---
+
 
 ## Before You Start
 
