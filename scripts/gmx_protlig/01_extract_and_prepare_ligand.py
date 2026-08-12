@@ -68,8 +68,8 @@ parser.add_argument(
 
 parser.add_argument(
     "--full_protonate",
-    action="store_false", 
-    help="Fully protonate the ligand (default: False - protonates only polar hydrogens)",
+    action="store_true", 
+    help="Fully protonate the ligand (default: Protonates only polar hydrogens)",
 )
 
 args = parser.parse_args()
