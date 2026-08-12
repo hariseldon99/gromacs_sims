@@ -39,8 +39,10 @@ from gromacs_py import gmx
 # ---------------------------------------------------------------------------
 # Parallelisation — on HPC, SLURM sets SLURM_CPUS_PER_TASK
 # ---------------------------------------------------------------------------
-N_CORES = int(os.environ.get("SLURM_CPUS_PER_TASK",
-                              multiprocessing.cpu_count()))
+N_CORES = int(os.environ.get("SLURM_CPUS_PER_TASK") or 
+            os.environ.get("PBS_NCPUS") or 
+            os.environ.get("OMP_NUM_THREADS") or
+            multiprocessing.cpu_count())
 print(f"[INFO] Using {N_CORES} OpenMP threads.")
 
 # ---------------------------------------------------------------------------

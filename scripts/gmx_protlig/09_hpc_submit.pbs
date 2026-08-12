@@ -1,0 +1,103 @@
+#!/bin/bash
+#--------------------------------------------------
+# PBS SETTINGS
+#--------------------------------------------------
+#PBS -N ku04-gim-ext
+#PBS -q workq
+#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn2
+#PBS -o ku04-gim-ext.out
+#PBS -j oe
+#PBS -l walltime=168:00:00
+#--------------------------------------------------
+
+set -euo pipefail
+
+#--------------------------------------------------
+# USER SETTINGS
+#--------------------------------------------------
+
+# Singularity container path from OpenPBS environment
+SIF_HPC="/home/arunima/images/gromacs_2024.5.1-GPU_20260718.sif"
+# Python script to run
+HPC_SCRIPT="08_hpc_equi_prod.py"
+echo "================================================="
+echo "PBS EXTENSION JOB START"
+echo "================================================="
+echo "Date        : $(date)"
+echo "Hostname    : $(hostname)"
+echo "Working dir : $(pwd)"
+echo "PBS_JOBID   : ${PBS_JOBID}"
+echo "PBS_JOBNAME : ${PBS_JOBNAME}"
+echo "================================================="
+
+#--------------------------------------------------
+# MODULES & ENVIRONMENT
+#--------------------------------------------------
+
+module load ohpc
+module load cuda
+
+export PBS_NCPUS=$(wc -l "$PBS_NODEFILE" | awk '{print $1}')
+echo "[INFO] Detected PBS_NCPUS=${PBS_NCPUS}"
+
+# ----------------------------------------------------------
+# SANITY CHECKS
+# ----------------------------------------------------------
+if [ ! -f "$SIF_HPC" ]; then
+    echo "[ERROR] Singularity image not found: $SIF_HPC"
+    exit 1
+fi
+
+if ! ls checkpoint.em_*.pycpt 1>/dev/null 2>&1; then
+    echo "[ERROR] No EM checkpoint found. Run Steps 1-7 locally first."
+    exit 1
+fi
+
+if [ ! -f "complex_solv/index.ndx" ]; then
+    echo "[ERROR] Index file not found: complex_solv/index.ndx"
+    echo "        Run Step 6 to create the index file."
+    exit 1
+fi
+
+if [ ! -f "$HPC_SCRIPT" ]; then
+    echo "[ERROR] HPC script not found: $HPC_SCRIPT"
+    exit 1
+fi
+
+# ----------------------------------------------------------
+# TIMER START
+# ----------------------------------------------------------
+start=$(date +%s.%N)
+
+# ----------------------------------------------------------
+# RUN PYTHON SCRIPT INSIDE SINGULARITY
+# ----------------------------------------------------------
+echo ""
+echo "Starting Singularity container …"
+
+singularity exec \
+    --nv \
+    -B "${PWD}:/host_pwd" \
+    --pwd /host_pwd \
+    "$SIF_HPC" \
+    python3 "$HPC_SCRIPT"
+
+EXIT_CODE=$?
+
+# ----------------------------------------------------------
+# TIMER END
+# ----------------------------------------------------------
+end=$(date +%s.%N)
+RUNTIME=$(echo "$end - $start" | bc -l)
+
+echo ""
+echo "================================================="
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "  JOB COMPLETE (exit 0)"
+else
+    echo "  JOB FAILED (exit ${EXIT_CODE})"
+fi
+echo "  Runtime: ${RUNTIME} s"
+echo "================================================="
+
+exit $EXIT_CODE
