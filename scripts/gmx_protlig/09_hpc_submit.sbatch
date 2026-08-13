@@ -89,6 +89,11 @@ start=$(date +%s.%N)
 echo ""
 echo "Starting Singularity container …"
 
+# Export the OpenMP pinning environment variable before running anything
+export OMP_PROC_BIND=true
+# 2. Singularity Namespace mapping — Guarantees the variable penetrates the container
+export SINGULARITYENV_OMP_PROC_BIND=true
+
 singularity exec \
     --nv \
     -B "${PWD}:/host_pwd" \
