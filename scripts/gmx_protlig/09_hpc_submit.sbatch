@@ -32,6 +32,7 @@
 
 # Singularity image on HPC
 SIF_HPC="${HOME}/SIFDIR/gromacs/gromacs_2024.5.1-GPU_20260718.sif"
+export TC_GRPS_CMPLX="Protein_RIF"  # Change this to match the ligand name in the complex
 
 # Python script to run
 HPC_SCRIPT="08_hpc_equi_prod.py"
@@ -87,6 +88,11 @@ start=$(date +%s.%N)
 # ----------------------------------------------------------
 echo ""
 echo "Starting Singularity container …"
+
+# Export the OpenMP pinning environment variable before running anything
+export OMP_PROC_BIND=true
+# 2. Singularity Namespace mapping — Guarantees the variable penetrates the container
+export SINGULARITYENV_OMP_PROC_BIND=true
 
 singularity exec \
     --nv \

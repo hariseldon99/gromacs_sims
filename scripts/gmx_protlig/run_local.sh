@@ -50,6 +50,7 @@ echo "  CWD   : $(pwd)"
 echo "================================================="
 
 singularity exec \
+    --nv \
     -B "${PWD}:/host_pwd" \
     --pwd /host_pwd \
     "$SIF_LOCAL" \
