@@ -726,12 +726,12 @@ def step8_hpc_equi_prod(
         if prod_tpr and fitted_xtc and os.path.exists(index_file):
             run_command(
                 ["gmx", "trjconv", "-s", prod_tpr, "-f", fitted_xtc, "-n", index_file, "-o", dry_xtc],
-                input_str="Dry\n",
+                input_str=f"{tc_grps_cmplx}\n",
                 check=False
             )
             run_command(
                 ["gmx", "convert-tpr", "-s", prod_tpr, "-n", index_file, "-o", dry_tpr],
-                input_str="Dry\n",
+                input_str=f"{tc_grps_cmplx}\n",
                 check=False
             )
 

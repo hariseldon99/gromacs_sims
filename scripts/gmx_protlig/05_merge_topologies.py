@@ -13,7 +13,7 @@ from protlig_api import step5_merge_topologies
 
 def main():
     parser = argparse.ArgumentParser(description="Merge protein and ligand topologies.")
-    parser.add_argument("--residue-name", type=str, default="ERG", help="3-letter residue name (default: ERG)")
+    parser.add_argument("--residue-name", type=str, default="UNL", help="3-letter residue name (default: UNL)")
     parser.add_argument("--ligand-dir", type=str, default="ligand", help="Ligand directory (default: ligand)")
     parser.add_argument("--protein-top", type=str, default="protein/topol.top", help="Protein topology path")
     parser.add_argument("--protein-pdb", type=str, help="Path to protein PDB file")

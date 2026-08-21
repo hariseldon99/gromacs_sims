@@ -20,8 +20,8 @@ def main():
     parser.add_argument(
         "--ligand-name",
         type=str,
-        default="ERGOTAMINE",
-        help="Name of the ligand (default: ERGOTAMINE)",
+        default="UNKNOWN",
+        help="Name of the ligand (default: UNKNOWN)",
     )
     parser.add_argument(
         "--ligand-dir",
@@ -32,15 +32,15 @@ def main():
     parser.add_argument(
         "--residue-name",
         type=str,
-        default="ERG",
-        help="3-letter GROMACS residue name for the ligand (default: ERG)",
+        default="UNL",
+        help="3-letter GROMACS residue name for the ligand (default: UNL)",
     )
     parser.add_argument(
         "--input-pdbqt",
         type=str,
-        default="../CHEMBL442_ERGOTAMINE_out.pdbqt",
         help="Path to input PDBQT file",
     )
+
     parser.add_argument(
         "--ph",
         type=float,

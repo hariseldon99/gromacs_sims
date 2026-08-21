@@ -13,7 +13,7 @@ from protlig_api import step2_run_acpype
 
 def main():
     parser = argparse.ArgumentParser(description="Run ACPYPE for ligand topology generation.")
-    parser.add_argument("--residue-name", type=str, default="ERG", help="3-letter residue name (default: ERG)")
+    parser.add_argument("--residue-name", type=str, default="UNL", help="3-letter residue name (default: UNL)")
     parser.add_argument("--ligand-dir", type=str, default="ligand", help="Ligand directory (default: ligand)")
     parser.add_argument("--net-charge", type=int, default=0, help="Net charge of ligand (default: 0)")
     parser.add_argument("--charge-method", type=str, default="bcc", help="Charge method (default: bcc)")

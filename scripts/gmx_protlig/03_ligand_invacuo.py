@@ -13,7 +13,7 @@ from protlig_api import step3_ligand_invacuo
 
 def main():
     parser = argparse.ArgumentParser(description="In-vacuo ligand simulation test.")
-    parser.add_argument("--residue-name", type=str, default="ERG", help="3-letter residue name (default: ERG)")
+    parser.add_argument("--residue-name", type=str, default="UNL", help="3-letter residue name (default: UNL)")
     parser.add_argument("--ligand-dir", type=str, default="ligand", help="Ligand directory (default: ligand)")
     parser.add_argument("--invacuo-dir", type=str, default="invacuo", help="Output directory (default: invacuo)")
     parser.add_argument("--ntomp", type=int, default=None, help="Number of OpenMP threads")
