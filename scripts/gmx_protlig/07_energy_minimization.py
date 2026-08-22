@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 """
 Step 7 — Energy minimisation (two-step).
-CLI wrapper around protlig_api.step7_energy_minimization.
+CLI wrapper around gmx_protlig.step7_energy_minimization.
 """
 
 import os
 import sys
 import argparse
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from protlig_api import step7_energy_minimization
+try:
+    from gmx_protlig import step7_energy_minimization
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from gmx_protlig import step7_energy_minimization
 
 def main():
     parser = argparse.ArgumentParser(description="Step 7: Energy minimisation (two-step).")

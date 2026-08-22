@@ -8,7 +8,10 @@ Run inside Singularity:
 """
 
 import logging
-from protlig_api import ProteinLigandPipeline, BatchPipelineRunner, step1_extract_and_prepare_ligand
+try:
+    from gmx_protlig import ProteinLigandPipeline, BatchPipelineRunner, step1_extract_and_prepare_ligand
+except ImportError:
+    from protlig_api import ProteinLigandPipeline, BatchPipelineRunner, step1_extract_and_prepare_ligand
 
 # Configure logging to show progress in terminal
 logging.basicConfig(
@@ -21,11 +24,11 @@ def example_1_single_complex_pipeline():
     """Example 1: Run local preparation for a single complex using Python object API."""
     print("\n--- Example 1: Single Complex Pipeline ---")
     pipeline = ProteinLigandPipeline(
-        protein_pdb="../CUEDC2_corrected.pdb",
-        ligand_pdbqt="../CHEMBL442_ERGOTAMINE_out.pdbqt",
-        ligand_name="ERGOTAMINE",
-        residue_name="ERG",
-        work_dir="simulations/erg_test_run",
+        protein_pdb="protein.pdb",
+        ligand_pdbqt="ligand_docked.pdbqt",
+        ligand_name="Ligand1",
+        residue_name="UNL",
+        work_dir="simulations/complex_1",
     )
     
     # Run steps 1 to 7 (local preparation & EM)
@@ -47,9 +50,9 @@ def example_3_direct_step_functions():
     """Example 3: Call step functions directly for fine-grained script control."""
     print("\n--- Example 3: Direct Step Functions ---")
     # lig_info = step1_extract_and_prepare_ligand(
-    #     input_pdbqt="../CHEMBL442_ERGOTAMINE_out.pdbqt",
-    #     ligand_name="ERGOTAMINE",
-    #     residue_name="ERG",
+    #     input_pdbqt="ligand_docked.pdbqt",
+    #     ligand_name="Ligand1",
+    #     residue_name="UNL",
     #     work_dir="simulations/custom_dir",
     # )
     # print("Protonated ligand PDB created at:", lig_info["protonated_pdb"])

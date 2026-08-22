@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gmx_protlig"
+version = "1.0.0"
+description = "Modular Python package & CLI suite for GROMACS Protein-Ligand MD simulations"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+    { name = "GROMACS Sims Team" }
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Chemistry",
+]
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+]
+
+[project.scripts]
+gmx-protlig = "gmx_protlig.cli:main"
+gmx-protlig-step1 = "gmx_protlig.steps:step1_cli"
+gmx-protlig-step2 = "gmx_protlig.steps:step2_cli"
+gmx-protlig-step3 = "gmx_protlig.steps:step3_cli"
+gmx-protlig-step4 = "gmx_protlig.steps:step4_cli"
+gmx-protlig-step5 = "gmx_protlig.steps:step5_cli"
+gmx-protlig-step6 = "gmx_protlig.steps:step6_cli"
+gmx-protlig-step7 = "gmx_protlig.steps:step7_cli"
+gmx-protlig-step8 = "gmx_protlig.steps:step8_cli"
+gmx-protlig-batch = "gmx_protlig.batch:batch_cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gmx_protlig*", "protlig_api*"]

@@ -2,45 +2,47 @@
 """
 Step 1 — Extract the best-docked pose from a PDBQT file, convert it to PDB
 format, and protonate it at a specified pH with OpenBabel.
-CLI wrapper around protlig_api.step1_extract_and_prepare_ligand.
+CLI wrapper around gmx_protlig.step1_extract_and_prepare_ligand.
 """
 
 import os
 import sys
 import argparse
 
-# Allow importing protlig_api when run from script directory or simulations/
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from protlig_api import step1_extract_and_prepare_ligand
+try:
+    from gmx_protlig import step1_extract_and_prepare_ligand
+except ImportError:
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from gmx_protlig import step1_extract_and_prepare_ligand
 
 def main():
     parser = argparse.ArgumentParser(
         description="Extract and prepare a ligand from docked PDBQT for GROMACS MD."
     )
     parser.add_argument(
-        "--ligand-name",
+        "--ligand-name", "--ligand_name",
         type=str,
         default="UNKNOWN",
         help="Name of the ligand (default: UNKNOWN)",
     )
     parser.add_argument(
-        "--ligand-dir",
+        "--ligand-dir", "--ligand_dir",
         type=str,
         default="ligand",
         help="Directory to store ligand files (default: ligand)",
     )
     parser.add_argument(
-        "--residue-name",
+        "--residue-name", "--residue_name",
         type=str,
         default="UNL",
         help="3-letter GROMACS residue name for the ligand (default: UNL)",
     )
     parser.add_argument(
-        "--input-pdbqt",
+        "--input-pdbqt", "--input_pdbqt",
         type=str,
+        required=True,
         help="Path to input PDBQT file",
     )
-
     parser.add_argument(
         "--ph",
         type=float,
@@ -48,8 +50,8 @@ def main():
         help="pH for protonation",
     )
     parser.add_argument(
-        "--full_protonate",
-        action="store_true", 
+        "--full-protonate", "--full_protonate",
+        action="store_true",
         help="Fully protonate ligand (default: polar H only)",
     )
 

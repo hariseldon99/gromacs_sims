@@ -1,8 +1,11 @@
 """
-gmx_protlig Python Package
+gmx_protlig - Modular Python Package for GROMACS Protein-Ligand MD Simulations
 """
 
-from .gmx_protlig import (
+__version__ = "1.0.0"
+__author__ = "Antigravity / GROMACS MD Team"
+
+from .steps import (
     step1_extract_and_prepare_ligand,
     step2_run_acpype,
     step3_ligand_invacuo,
@@ -11,8 +14,11 @@ from .gmx_protlig import (
     step6_solvate_ions_index,
     step7_energy_minimization,
     step8_hpc_equi_prod,
-    ProteinLigandPipeline,
-    BatchPipelineRunner,
+)
+
+from .pipeline import ProteinLigandPipeline
+from .batch import BatchPipelineRunner
+from .utils import (
     working_directory,
     run_command,
     save_checkpoint,
@@ -28,6 +34,7 @@ from .gmx_protlig import (
 )
 
 __all__ = [
+    "__version__",
     "step1_extract_and_prepare_ligand",
     "step2_run_acpype",
     "step3_ligand_invacuo",

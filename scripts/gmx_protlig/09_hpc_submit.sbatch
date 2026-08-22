@@ -9,7 +9,7 @@
 #SBATCH --mail-type=FAIL,END
 #SBATCH --mail-user=telegram:-1001215703
 # =============================================================================
-# SLURM job script — CUEDC2 + ERGOTAMINE protein-ligand MD
+# SLURM job script — GROMACS Protein-Ligand MD
 # Runs equilibration (5.5 ns total) + production (100 ns) inside Singularity.
 #
 # USAGE: Submit from the simulations/ directory on HPC:
@@ -17,13 +17,9 @@
 #   sbatch 09_hpc_submit.sbatch
 #
 # PREREQUISITES:
-#   - checkpoint.em_YYYYMMDD.pycpt must exist in simulations/
+#   - checkpoint.em_YYYYMMDD_HHMMSS.pycpt must exist in simulations/
 #   - complex_solv/index.ndx must exist
 #   - All input files from Steps 1-7 must be present
-#
-# To adapt for a different ligand, change LIGAND_NAME and ensure:
-#   - The corresponding checkpoint exists
-#   - The complex topology and coordinates reference that ligand
 # =============================================================================
 
 # ----------------------------------------------------------
@@ -32,7 +28,7 @@
 
 # Singularity image on HPC
 SIF_HPC="${HOME}/SIFDIR/gromacs/gromacs_2024.5.1-GPU_20260718.sif"
-export TC_GRPS_CMPLX="Protein_RIF"  # Change this to match the ligand name in the complex
+export TC_GRPS_CMPLX="Protein_UNL"  # Change this to match the ligand residue name in the complex
 
 # Python script to run
 HPC_SCRIPT="08_hpc_equi_prod.py"

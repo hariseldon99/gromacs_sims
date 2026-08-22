@@ -1,0 +1,129 @@
+Metadata-Version: 2.4
+Name: gmx_protlig
+Version: 1.0.0
+Summary: Modular Python package & CLI suite for GROMACS Protein-Ligand MD simulations
+Author: GROMACS Sims Team
+License: MIT
+Classifier: Programming Language :: Python :: 3
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
+Classifier: Topic :: Scientific/Engineering :: Chemistry
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: matplotlib
+Dynamic: requires-python
+
+# `gmx_protlig` — Modular GROMACS Protein-Ligand MD Pipeline
+
+A modular, robust, Pythonic pipeline and CLI suite for automated preparation, simulation, checkpointing, and trajectory processing of Protein-Ligand Molecular Dynamics simulations in GROMACS.
+
+---
+
+## Features
+
+- **End-to-End Pipeline**: From docked `PDBQT` and protein `PDB` to 100 ns production MD and dry trajectory extraction.
+- **Full Checkpointing & Resume Support**: Native serialization of system states at each stage (`prepare_protein`, `merge_topologies`, `solvate`, `em`, `equi`, `prod`).
+- **Path Relocation**: Automatic relocation of checkpoint paths when moving directories across HPC nodes, workstations, or Singularity containers.
+- **Batch Processing**: Parallel/serial batch execution via CSV or JSON manifests with comprehensive reporting.
+- **Dual Python & CLI Interfaces**: Call pythonically from scripts/notebooks or invoke via standalone CLI commands.
+- **Standard Pip Package**: Installable via `pip install .` or `pip install -e .`.
+
+---
+
+## Installation
+
+Inside your Singularity container or host environment:
+
+```bash
+# In editable mode (development)
+pip install -e scripts/gmx_protlig
+
+# Or standard install
+pip install scripts/gmx_protlig
+```
+
+---
+
+## CLI Usage
+
+### Unified Command (`gmx-protlig`)
+
+```bash
+# Display help & subcommands
+gmx-protlig --help
+
+# Run Step 1: Extract & prepare ligand
+gmx-protlig step1 --input-pdbqt ligand_docked.pdbqt --ligand-name ERGOTAMINE --residue-name ERG --ph 7.4
+
+# Run Step 2: ACPYPE topology generation
+gmx-protlig step2 --residue-name ERG --net-charge 0
+
+# Run Step 4: Protein preparation
+gmx-protlig step4 --protein-pdb receptor.pdb --residue-name ERG
+
+# Run Step 5: Merge topologies
+gmx-protlig step5 --residue-name ERG --protein-pdb receptor.pdb
+
+# Run Step 6: Solvation & Custom Index Groups
+gmx-protlig step6 --residue-name ERG --ion-conc 0.15 --box-dist 1.5
+
+# Run Step 7: Energy Minimisation
+gmx-protlig step7 --nt 4
+
+# Run Step 8: Equilibration & Production MD (HPC)
+gmx-protlig step8 --n-cores 32 --gpu-id 0 --prod-time 100.0 --ligand-resname ERG
+
+# Run complete local preparation (Steps 1-7) for a single complex
+gmx-protlig run --protein-pdb receptor.pdb --ligand-pdbqt ligand_out.pdbqt --ligand-name ERGOTAMINE --residue-name ERG --work-dir simulations/erg --nt-em 4
+
+# Run batch processing from manifest
+gmx-protlig batch -m manifest_example.csv --up-to-step 7
+```
+
+Individual step CLI commands (`gmx-protlig-step1` through `gmx-protlig-step8` and `gmx-protlig-batch`) are also installed into your PATH.
+
+---
+
+## Python API Usage
+
+```python
+from gmx_protlig import ProteinLigandPipeline, BatchPipelineRunner
+
+# 1. Single Complex Pipeline
+pipeline = ProteinLigandPipeline(
+    protein_pdb="protein.pdb",
+    ligand_pdbqt="ligand_docked.pdbqt",
+    ligand_name="ERGOTAMINE",
+    residue_name="ERG",
+    work_dir="simulations/erg_run",
+    ph=7.4,
+)
+
+# Run local prep (Steps 1 to 7)
+results = pipeline.run_all_local_prep(nt_em=4)
+print("EM Checkpoint:", results["step7"]["checkpoint_path"])
+
+# Resume from Step 8 on HPC
+pipeline.run_step8(n_cores=32, gpu_id="0", prod_time_ns=100.0)
+
+# 2. Batch Processing
+runner = BatchPipelineRunner(manifest="manifest_example.csv")
+summary = runner.run_batch(up_to_step=7)
+```
+
+---
+
+## Direct Script Wrappers
+
+The standalone numbered scripts remain available for backward compatibility:
+- `01_extract_and_prepare_ligand.py`
+- `02_run_acpype.py` (and `02_run_acpype.sh`)
+- `03_ligand_invacuo.py` (and `03_ligand_invacuo.sh`)
+- `04_prepare_protein.py`
+- `05_merge_topologies.py`
+- `06_solvate_ions_index.py`
+- `07_energy_minimization.py`
+- `08_hpc_equi_prod.py`
+- `09_hpc_submit.pbs` / `09_hpc_submit.sbatch`
