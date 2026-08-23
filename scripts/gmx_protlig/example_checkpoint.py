@@ -9,12 +9,12 @@ Run inside Singularity:
 import os
 from pathlib import Path
 PROD_OUTDIR = "prod"
-LIG = "UNL"
+LIG = "MID"
 PROTLIG_SELECT = f"Protein_{LIG}"
 
 HOME = os.getenv("HOME", ".")
-prod_checkpoint_path = Path("./")
-chkpt_file = Path(prod_checkpoint_path) / "checkpoint.prod_20260821.pycpt"
+prod_checkpoint_path = os.path.join(HOME, "mnt/gdrive/data/GROMACS/cuedc2_mid")
+chkpt_file = os.path.join(prod_checkpoint_path, "checkpoint.prod_20260821.pycpt")
 
 import sys, subprocess
 import logging
