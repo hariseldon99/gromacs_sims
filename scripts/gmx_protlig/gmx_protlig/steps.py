@@ -825,8 +825,36 @@ def step8_hpc_equi_prod(
 
         prod_chkpt = save_checkpoint(complex_sys, "prod")
 
-        logger.info(f"[Step 8] Post-processing trajectory...")
-        # Resolve production files
+        logger.info(f"[Step 8] Post-processing trajectory with gromacs_py...")
+        target_group = f"Protein_{ligand_resname.strip().upper()}"
+
+        # 1. Center trajectory and wrap molecules in box
+        try:
+            logger.info(f"[Step 8] [PP1] Centering trajectory on protein and wrapping molecules...")
+            complex_sys.center_mol_box(traj=True)
+        except Exception as exc:
+            logger.warning(f"[Step 8] gromacs_py center_mol_box failed: {exc}")
+
+        # 2. Fit rotational & translational motion and extract dry complex
+        try:
+            logger.info(f"[Step 8] [PP2] Fitting on Backbone and extracting {target_group}...")
+            complex_sys.convert_trj(
+                select=f"Backbone\n{target_group}",
+                fit="rot+trans",
+                pbc="none",
+            )
+        except Exception as exc:
+            logger.warning(f"[Step 8] gromacs_py convert_trj (Backbone fit) failed: {exc}. Trying fallback fit on Protein...")
+            try:
+                complex_sys.convert_trj(
+                    select=f"Protein\n{target_group}",
+                    fit="rot+trans",
+                    pbc="none",
+                )
+            except Exception as exc2:
+                logger.warning(f"[Step 8] gromacs_py convert_trj fallback failed: {exc2}")
+
+        # 3. Resolve and generate standard dry trajectory (traj_dry.xtc) and dry TPR (traj_dry.tpr)
         prod_tpr = getattr(complex_sys, "tpr", None)
         if not prod_tpr or not os.path.exists(prod_tpr):
             candidates = sorted(glob.glob(os.path.join(prod_outdir, "*.tpr")))
@@ -835,25 +863,43 @@ def step8_hpc_equi_prod(
 
         fitted_xtc = getattr(complex_sys, "xtc", None)
         if not fitted_xtc or not os.path.exists(fitted_xtc):
-            candidates = sorted(glob.glob(os.path.join(prod_outdir, "*_fit.xtc"))) or sorted(glob.glob(os.path.join(prod_outdir, "*.xtc")))
+            candidates = (
+                sorted(glob.glob(os.path.join(prod_outdir, "*_compact_compact.xtc")))
+                or sorted(glob.glob(os.path.join(prod_outdir, "*_compact.xtc")))
+                or sorted(glob.glob(os.path.join(prod_outdir, "*_fit.xtc")))
+                or sorted(glob.glob(os.path.join(prod_outdir, "*.xtc")))
+            )
             if candidates:
                 fitted_xtc = candidates[-1]
 
         dry_xtc = os.path.join(prod_outdir, "traj_dry.xtc")
         dry_tpr = os.path.join(prod_outdir, "traj_dry.tpr")
 
-        if prod_tpr and fitted_xtc and os.path.exists(index_file):
-            target_group = f"Protein_{ligand_resname.upper()}"
-            run_command(
-                ["gmx", "trjconv", "-s", prod_tpr, "-f", fitted_xtc, "-n", index_file, "-o", dry_xtc],
-                input_str=f"Dry\n",
-                check=False
-            )
-            run_command(
-                ["gmx", "convert-tpr", "-s", prod_tpr, "-n", index_file, "-o", dry_tpr],
-                input_str=f"Dry\n",
-                check=False
-            )
+        if prod_tpr and os.path.exists(index_file):
+            candidate_groups = [target_group, "Dry", f"Protein_{ligand_resname}", "Protein_Other", "Protein_LIG"]
+            
+            # Extract dry TPR
+            for grp in candidate_groups:
+                res_tpr = run_command(
+                    ["gmx", "convert-tpr", "-s", prod_tpr, "-n", index_file, "-o", dry_tpr],
+                    input_str=f"{grp}\n",
+                    check=False,
+                )
+                if res_tpr.returncode == 0:
+                    logger.info(f"[Step 8] Created dry TPR ({dry_tpr}) using group '{grp}'")
+                    break
+
+            # Extract / copy dry XTC
+            if fitted_xtc and os.path.exists(fitted_xtc):
+                for grp in candidate_groups:
+                    res_xtc = run_command(
+                        ["gmx", "trjconv", "-s", prod_tpr, "-f", fitted_xtc, "-n", index_file, "-o", dry_xtc],
+                        input_str=f"{grp}\n",
+                        check=False,
+                    )
+                    if res_xtc.returncode == 0:
+                        logger.info(f"[Step 8] Created dry XTC ({dry_xtc}) using group '{grp}'")
+                        break
 
         logger.info(f"[Step 8 Complete] Production finished. Output in {prod_outdir}")
         return {
