@@ -1,0 +1,157 @@
+#!/bin/bash
+#--------------------------------------------------
+# PBS SETTINGS
+#--------------------------------------------------
+#PBS -N cuedc2-erg-new
+#PBS -q workq
+#PBS -l select=1:ncpus=48:mpiprocs=48:host=kuhpcgn1
+#PBS -o cuedc2-erg-new.out
+#PBS -j oe
+#PBS -l walltime=240:00:00
+#--------------------------------------------------
+
+# ======================================================================
+# job script — CUEDC2 + ERGOTAMINE protein-ligand MD
+# Runs equilibration (5.5 ns total) + production (100 ns) inside Singularity.
+#
+# USAGE: Submit from the simulations/ directory on HPC:
+#   cd /path/to/simulations
+#   sbatch 09_hpc_submit.sbatch
+#
+# PREREQUISITES:
+#   - checkpoint.em_YYYYMMDD.pycpt must exist in simulations/
+#   - complex_solv/index.ndx must exist
+#   - All input files from Steps 1-7 must be present
+#
+# To adapt for a different ligand, change LIGAND_NAME and ensure:
+#   - The corresponding checkpoint exists
+#   - The complex topology and coordinates reference that ligand
+# ======================================================================
+
+# ----------------------------------------------------------
+# USER SETTINGS — adjust before submitting
+# ----------------------------------------------------------
+
+# Python script to run
+HPC_SCRIPT="08_hpc_equi_prod.py"
+
+# Set manually
+export PBS_NCPUS=48
+
+# Singularity container
+SIF_PATH="/home/arunima/images/gromacs_2024.5.1-GPU_20260718.sif"
+# ---------------------------------------------------------
+# 1. Configuration
+# ---------------------------------------------------------
+NTFY_TOPIC="kuhpchn"
+NTFY_URL="https://ntfy.sh/$NTFY_TOPIC"
+
+# ----------------------------------------------------------
+# LOGGING
+# ----------------------------------------------------------
+LOGFILE="hpc_run_$(date +%Y%m%d_%H%M%S).log"
+exec > >(stdbuf -oL tee -a "$LOGFILE") 2>&1
+
+echo "================================================="
+echo " JOB START — Simulation"
+echo "================================================="
+echo "  Date      : $(date)"
+echo "  Host      : $(hostname)"
+echo "  WorkDir   : $(pwd)"
+echo "================================================="
+
+# ----------------------------------------------------------
+# SANITY CHECKS
+# ----------------------------------------------------------
+
+if ! ls checkpoint.em_*.pycpt 1>/dev/null 2>&1; then
+    echo "[ERROR] No EM checkpoint found. Run Steps 1-7 locally first."
+    exit 1
+fi
+
+if [ ! -f "complex_solv/index.ndx" ]; then
+    echo "[ERROR] Index file not found: complex_solv/index.ndx"
+    echo "        Run Step 6 to create the index file."
+    exit 1
+fi
+
+if [ ! -f "$HPC_SCRIPT" ]; then
+    echo "[ERROR] HPC script not found: $HPC_SCRIPT"
+    exit 1
+fi
+
+#--------------------------------------------------
+# MODULES
+#--------------------------------------------------
+
+module load ohpc
+module load cuda
+
+export PBS_NCPUS=$(wc -l "$PBS_NODEFILE" | awk '{print $1}')
+
+echo "[INFO] Detected PBS_NCPUS=${PBS_NCPUS}"
+
+#--------------------------------------------------
+# SINGULARITY WRAPPER
+#--------------------------------------------------
+
+SINGULARITY() {
+    singularity exec \
+        --nv \
+        -B "${PWD}:/host_pwd" \
+        --pwd /host_pwd \
+        "$SIF_PATH" "$@"
+}
+
+#--------------------------------------------------
+# INITIALIZATION
+#--------------------------------------------------
+cd "$PBS_O_WORKDIR"
+
+# ----------------------------------------------------------
+# TIMER START
+# ----------------------------------------------------------
+start=$(date +%s.%N)
+
+SINGULARITY python3 "$HPC_SCRIPT"
+
+EXIT_CODE=$?
+
+# ----------------------------------------------------------
+# TIMER END
+# ----------------------------------------------------------
+end=$(date +%s.%N)
+RUNTIME=$(echo "$end - $start" | bc -l)
+
+echo ""
+echo "================================================="
+if [ $EXIT_CODE -eq 0 ]; then
+    echo "  JOB COMPLETE (exit 0)"
+else
+    echo "  JOB FAILED (exit ${EXIT_CODE})"
+fi
+echo "  Runtime: ${RUNTIME} s"
+echo "================================================="
+# Capture the exit code of your main compute task
+EXIT_CODE=$?
+
+# ---------------------------------------------------------
+# "Job Completed/Failed" Notification via Head Node
+# ---------------------------------------------------------
+if [ $EXIT_CODE -eq 0 ]; then
+# Success notification
+ssh -tt kuhpchn "curl -s -o /dev/null -d 'Job ID: $PBS_JOBID finished successfully.' \
+    -H 'Title: ✅ Job Complete: $PBS_JOBNAME' \
+    -H 'Tags: white_check_mark, tada' \
+    -H 'Priority: default' \
+    $NTFY_URL"
+else
+# Failure notification
+ssh -tt kuhpchn "curl -s -o /dev/null -d 'Job ID: $PBS_JOBID failed with exit code $EXIT_CODE.' \
+    -H 'Title: ❌ Job Failed: $PBS_JOBNAME' \
+    -H 'Tags: x, warning' \
+    -H 'Priority: high' \
+    $NTFY_URL"
+fi
+
+exit $EXIT_CODE
