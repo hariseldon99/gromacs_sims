@@ -31,6 +31,9 @@ from .utils import (
     extract_atomtypes_block,
     extract_nonbonded_params_block,
     strip_global_directives,
+    enable_gromacs_py_gpu_hook,
+    disable_gromacs_py_gpu_hook,
+    is_gpu_hook_enabled,
 )
 
 __all__ = [
@@ -57,4 +60,8 @@ __all__ = [
     "extract_atomtypes_block",
     "extract_nonbonded_params_block",
     "strip_global_directives",
+    "enable_gromacs_py_gpu_hook",
+    "disable_gromacs_py_gpu_hook",
+    "is_gpu_hook_enabled",
 ]
+

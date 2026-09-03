@@ -25,6 +25,9 @@ from gmx_protlig.utils import (
     save_checkpoint,
     load_latest_checkpoint,
     relocate_checkpoint_paths,
+    enable_gromacs_py_gpu_hook,
+    disable_gromacs_py_gpu_hook,
+    is_gpu_hook_enabled,
 )
 from gmx_protlig.batch import (
     BatchPipelineRunner,
@@ -270,5 +273,75 @@ ATOM      1  C1  UNL     1       3.000   3.000   3.000  0.00  0.00    +0.000 C
             self.assertEqual(scores[best_model], -9.2)
 
 
+class TestGromacsPyGpuHook(unittest.TestCase):
+    def setUp(self):
+        disable_gromacs_py_gpu_hook()
+
+    def tearDown(self):
+        disable_gromacs_py_gpu_hook()
+
+    def test_hook_toggle(self):
+        self.assertFalse(is_gpu_hook_enabled())
+        ok = enable_gromacs_py_gpu_hook()
+        if not ok:
+            # os_command_py not in current Python environment
+            self.skipTest("os_command_py not available in environment")
+        self.assertTrue(is_gpu_hook_enabled())
+        disable_gromacs_py_gpu_hook()
+        self.assertFalse(is_gpu_hook_enabled())
+
+    def test_hook_em_omits_bonded_and_update(self):
+        ok = enable_gromacs_py_gpu_hook(pin="on", pme="gpu", bonded="gpu", update="gpu")
+        if not ok:
+            self.skipTest("os_command_py not available in environment")
+
+        import os_command_py.os_command as osc
+
+        # EM command with "Init_em"
+        cmd = osc.Command(["/usr/local/bin/gmx", "mdrun", "-s", "Init_em_cuedc2.tpr", "-deffnm", "Init_em_cuedc2"])
+        cmd_str = " ".join(cmd.cmd)
+        self.assertIn("-pin", cmd.cmd)
+        self.assertIn("on", cmd.cmd)
+        self.assertNotIn("-bonded", cmd.cmd)
+        self.assertNotIn("-update", cmd.cmd)
+
+    def test_hook_dynamical_md_includes_full_gpu(self):
+        ok = enable_gromacs_py_gpu_hook(pin="on", pme="gpu", bonded="gpu", update="gpu")
+        if not ok:
+            self.skipTest("os_command_py not available in environment")
+
+        import os_command_py.os_command as osc
+
+        # Production MD command
+        cmd = osc.Command(["/usr/local/bin/gmx", "mdrun", "-s", "prod_cuedc2.tpr", "-deffnm", "prod_cuedc2"])
+        self.assertIn("-pin", cmd.cmd)
+        self.assertIn("-pme", cmd.cmd)
+        self.assertIn("-bonded", cmd.cmd)
+        self.assertIn("-update", cmd.cmd)
+
+    def test_hook_with_steep_mdp_file(self):
+        ok = enable_gromacs_py_gpu_hook()
+        if not ok:
+            self.skipTest("os_command_py not available in environment")
+
+        import os_command_py.os_command as osc
+
+        with tempfile.TemporaryDirectory() as td:
+            prev = os.getcwd()
+            os.chdir(td)
+            try:
+                # Name doesn't contain 'em' or 'mini', but mdp has integrator = steep
+                with open("custom_step.mdp", "w") as f:
+                    f.write("integrator = steep\nnsteps = 1000\n")
+
+                cmd = osc.Command(["/usr/local/bin/gmx", "mdrun", "-s", "custom_step.tpr", "-deffnm", "custom_step"])
+                self.assertNotIn("-bonded", cmd.cmd)
+                self.assertNotIn("-update", cmd.cmd)
+                self.assertIn("-pin", cmd.cmd)
+            finally:
+                os.chdir(prev)
+
+
 if __name__ == "__main__":
     unittest.main()
+

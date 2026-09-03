@@ -313,6 +313,12 @@ def relocate_checkpoint_paths(complex_sys: Any, new_base_dir: str = ".") -> Any:
                     new_path = os.path.join(root, basename)
                     setattr(complex_sys, attr, new_path)
                     logger.info(f"Relocated {attr}: '{val}' -> '{new_path}'")
-                    break
-
     return complex_sys
+
+
+from .gpu import (
+    enable_gromacs_py_gpu_hook,
+    disable_gromacs_py_gpu_hook,
+    is_gpu_hook_enabled,
+)
+
