@@ -34,26 +34,49 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from gromacs_py import gmx
-
-import os_command_py.os_command as osc
-
 # ---------------------------------------------------------------------------
 # Custom mdrun GPU acceleration flags injection
 # ---------------------------------------------------------------------------
-EXTRA_MDRUN_FLAGS = [
-    "-pin", "on",
-    "-pme", "gpu",
-    "-bonded", "gpu",
-    "-update", "gpu",   # Note: requires constraints on GPU; remove if using unsupported options
-]
+import os_command_py.os_command as osc
 
 _orig_Command_init = osc.Command.__init__
 
+def _is_minimization_step(list_cmd):
+    """Detect if an mdrun command is running minimization (non-dynamical)."""
+    for i, arg in enumerate(list_cmd):
+        if arg in ("-s", "-deffnm") and i + 1 < len(list_cmd):
+            target = list_cmd[i + 1].lower()
+            if any(k in target for k in ["em", "mini"]):
+                return True
+            # Inspect generated .mdp file if available in the working directory
+            mdp_file = f"{list_cmd[i + 1]}.mdp"
+            if os.path.isfile(mdp_file):
+                try:
+                    with open(mdp_file, "r") as fh:
+                        for line in fh:
+                            line = line.strip().lower()
+                            if line.startswith("integrator") and any(
+                                em_alg in line for em_alg in ["steep", "cg", "l-bfgs"]
+                            ):
+                                return True
+                except Exception:
+                    pass
+    return False
+
 def _hooked_Command_init(self, list_cmd, *args, **kwargs):
-    # Intercept only gmx mdrun calls
     if len(list_cmd) >= 2 and list_cmd[1] == "mdrun":
-        list_cmd = list(list_cmd) + EXTRA_MDRUN_FLAGS
-        print(f"[gromacs_py GPU Hook] Injected flags into mdrun: {' '.join(EXTRA_MDRUN_FLAGS)}")
+        list_cmd = list(list_cmd)
+        if _is_minimization_step(list_cmd):
+            # Safe flags for EM: CPU bonded & update; non-bonded stays on GPU
+            em_flags = ["-pin", "on"]
+            list_cmd += em_flags
+            print(f"[GPU Hook] Energy Minimization detected: {' '.join(em_flags)}")
+        else:
+            # Full GPU offload for dynamical MD (equi & prod)
+            dyn_flags = ["-pin", "on","-nb", "gpu", "-pme", "gpu", "-bonded", "gpu"]
+            list_cmd += dyn_flags
+            print(f"[GPU Hook] Dynamical MD detected (equi/prod): {' '.join(dyn_flags)}")
+
     _orig_Command_init(self, list_cmd, *args, **kwargs)
 
 osc.Command.__init__ = _hooked_Command_init
