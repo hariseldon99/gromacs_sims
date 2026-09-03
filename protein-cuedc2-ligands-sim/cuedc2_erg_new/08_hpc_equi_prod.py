@@ -36,6 +36,29 @@ import matplotlib.pyplot as plt
 
 from gromacs_py import gmx
 
+import os_command_py.os_command as osc
+
+# ---------------------------------------------------------------------------
+# Custom mdrun GPU acceleration flags injection
+# ---------------------------------------------------------------------------
+EXTRA_MDRUN_FLAGS = [
+    "-pin", "on",
+    "-pme", "gpu",
+    "-bonded", "gpu",
+    "-update", "gpu",   # Note: requires constraints on GPU; remove if using unsupported options
+]
+
+_orig_Command_init = osc.Command.__init__
+
+def _hooked_Command_init(self, list_cmd, *args, **kwargs):
+    # Intercept only gmx mdrun calls
+    if len(list_cmd) >= 2 and list_cmd[1] == "mdrun":
+        list_cmd = list(list_cmd) + EXTRA_MDRUN_FLAGS
+        print(f"[gromacs_py GPU Hook] Injected flags into mdrun: {' '.join(EXTRA_MDRUN_FLAGS)}")
+    _orig_Command_init(self, list_cmd, *args, **kwargs)
+
+osc.Command.__init__ = _hooked_Command_init
+
 # ---------------------------------------------------------------------------
 # Parallelisation — on HPC, SLURM sets SLURM_CPUS_PER_TASK
 # ---------------------------------------------------------------------------
@@ -47,8 +70,8 @@ print(f"[INFO] Using {N_CORES} OpenMP threads.")
 # Simulation parameters
 # ---------------------------------------------------------------------------
 VSITE       = None
-DT          = 0.002       # ps
-DT_HA       = 0.001       # ps for heavy-atom constrained equi
+DT          = 0.001       # ps
+DT_HA       = 0.0005       # ps for heavy-atom constrained equi
 
 # Equilibration times (ns)
 HA_TIME     = 0.5         # ns — heavy atom restraints
