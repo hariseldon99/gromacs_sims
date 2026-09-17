@@ -43,9 +43,18 @@ Stage: build
     MKDSSP=/opt/dssp3/bin/mkdssp
     GMXLIB=/usr/local/share/gromacs/top
     EDITOR=nvim
+    # --- OpenMPI Shared Memory (Fail-Safe Overrides) ---
+    # Prevents OpenMPI from searching for host InfiniBand/OFI cards inside the container
+    OMPI_MCA_btl="vader,self"
+    OMPI_MCA_pml="ob1"
+    OMPI_MCA_plm_rsh_agent="sh"
+
+    # Export the new OpenMPI variables
+    export OMPI_MCA_btl OMPI_MCA_pml OMPI_MCA_plm_rsh_agent
     export TZ DEBIAN_FRONTEND MPLCONFIGDIR MKDSSP GMXLIB EDITOR
     export PATH=/usr/local/bin:$PATH
     export LD_LIBRARY_PATH=/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
+
     
 %runscript
     #!/bin/bash
@@ -109,7 +118,7 @@ Stage: build
                         cmake ninja \
                         cuda-nvcc cuda-cudart-dev cuda-driver-dev cuda-profiler-api cuda-nvtx-dev \
                         libcufft-dev libcublas-dev \
-                        fftw openblas liblapack cython
+                        fftw openblas liblapack cython openmpi
         echo "python 3.12.*" >> /usr/local/conda-meta/pinned
 
         # Step 2: Build GROMACS from source (with Blackwell sm_100 and sm_120 support)
@@ -152,7 +161,8 @@ Stage: build
         rm -rf /tmp/gromacs-${GMX_VERSION}*
 
         # Step 3: Core Numerics and Python stack (Modern NumPy 2.x, SciPy, Pandas)
-        mamba install -y numpy scipy pandas tqdm tabulate numba h5py mpi4py \
+        mamba install -y numpy scipy pandas tqdm tabulate numba h5py  \
+                        mpi4py "mpi=*=openmpi" \
                         "networkx>=3.4.2" "setuptools<82" pip wheel
 
         # Step 4: Biophysics, Force-field parameterization & Postprocessing

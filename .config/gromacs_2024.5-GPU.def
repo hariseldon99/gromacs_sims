@@ -1,6 +1,7 @@
 # filepath: /home/daneel/gitrepos/gromacs_sims/.config/gromacs_2024.5-GPU.def
-# Updates to the original gromacs_2024.5.def to improve martini3 and charmm support for gromacs, 
-# as well as COBY mambrane builder for CG simulations. 
+# GROMACS 2024.5 GPU build (conda nompi_cuda) for NVIDIA CUDA architectures
+# Supporting AMBER/GAFF2, CHARMM36, Martini 3, COBY membrane builder, vermouth,
+# and source-built MDAnalysis/MDTraj trajectory analysis stack on modern NumPy 2.x.
 Bootstrap: docker
 From: ubuntu:24.04
 Stage: build
@@ -12,12 +13,15 @@ Stage: build
     YEAR 2026
 
 %help
-    GROMACS 2024.5 (GPU, conda build, incl amber99sb-ildn, charmm36 and martini3 ff) + ambertools + biobb + analysis stack.
+    GROMACS 2024.5 (GPU, conda nompi_cuda, OpenMP, Python 3.12, NumPy 2.x) + ambertools/GAFF2 + CHARMM36 + Martini3 + COBY + Vermouth + MDAnalysis/MDTraj (source builds) + analysis stack.
     
     Notes: 
-    1. dssp is installed in a separate conda environment (dssp3) due to libboost version conflicts with openbabel. The binary
-    is available at environment variable $MKDSSP, which points to the mkdssp binary.
+    1. dssp is installed in a separate conda environment (/opt/dssp3) due to libboost version conflicts with openbabel. The binary is available at environment variable $MKDSSP, which points to the mkdssp binary.
     2. The martini3 forcefield is installed in /usr/local/share/gromacs/top/martini3.ff, and the refined M3-Lipid-Parameters (2025) are included. The old martini_v3.0.0_phospholipids_v1.itp has been removed, and open-beta-only lipid tail combinations have been extracted to martini_v3.0.0_phospholipids_openbeta_extra.itp.
+    3. CHARMM36 (July 2022) is installed in /usr/local/share/gromacs/top/charmm36-jul2022.ff and small-molecule helper cgenff_charmm2gmx.py is in /usr/local/bin.
+    4. GMXLIB is set to /usr/local/share/gromacs/top for automatic force-field discovery.
+    5. Lean TeX Live (texlive-latex-recommended, cm-super, dvipng) and scienceplots are included for LaTeX-rendered matplotlib plots (text.usetex=True).
+    6. Neovim (nvim) is included as the terminal text editor.
 
     Usage:
     Launch Jupyter:
@@ -26,27 +30,34 @@ Stage: build
         singularity run --nv <image>.sif
     GROMACS:
         singularity run --nv <image>.sif gmx mdrun -s topol.tpr
-    VMD:
-        singularity run --nv <image>.sif vmd2
     Run a command or script:
         singularity run --nv <image>.sif my_script.sh arg1 arg2
+
 %files
-    scripts/extract_openbeta_lipids.py /opt/extract_openbeta_lipids.py
+    scripts/python/structures/extract_openbeta_lipids.py /opt/extract_openbeta_lipids.py
 
 %environment
     TZ=UTC
     DEBIAN_FRONTEND=noninteractive
     MPLCONFIGDIR=$HOME/.matplotlib
     MKDSSP=/opt/dssp3/bin/mkdssp
-    export TZ DEBIAN_FRONTEND MPLCONFIGDIR MKDSSP
+    GMXLIB=/usr/local/share/gromacs/top
+    EDITOR=nvim
+    # --- OpenMPI Shared Memory (Fail-Safe Overrides) ---
+    # Prevents OpenMPI from searching for host InfiniBand/OFI cards inside the container
+    OMPI_MCA_btl="vader,self"
+    OMPI_MCA_pml="ob1"
+    OMPI_MCA_plm_rsh_agent="sh"
+
+    # Export the new OpenMPI variables
+    export OMPI_MCA_btl OMPI_MCA_pml OMPI_MCA_plm_rsh_agent
+    export TZ DEBIAN_FRONTEND MPLCONFIGDIR MKDSSP GMXLIB EDITOR
     export PATH=/usr/local/bin:$PATH
     export LD_LIBRARY_PATH=/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-    
+
 %runscript
     #!/bin/bash
     export MPLCONFIGDIR=$HOME/.matplotlib
-    jupyter labextension list 2>&1 | tee $HOME/.jupyter/extension_check.log
-    grep "not compatible" $HOME/.jupyter/extension_check.log && echo "Extension conflicts detected"
     if [ "$1" = "gmx" ]; then
         shift
         exec gmx "$@"
@@ -67,43 +78,38 @@ Stage: build
         export DEBIAN_FRONTEND=noninteractive
         # Make CUDA version visible to solver before any mamba install
         export CONDA_OVERRIDE_CUDA=11.8
-        # --- FIX: pin setuptools inside pip's PEP 517 *build isolation* envs ---
-        # Several legacy scientific sdists (e.g. pandas==1.5.3, hard-pinned by
-        # gmx_MMPBSA's setup.py, and martini3) still `import pkg_resources` at build time.
-        # pkg_resources was fully removed from setuptools as of 83.0 (deprecated
-        # since 68.0). Pip populates each isolated build env with the newest
-        # available setuptools regardless of what's pinned in the outer env, so
-        # any package without cp312 wheels that needs to build from source will
-        # fail with "ModuleNotFoundError: No module named 'pkg_resources'".
-        # PIP_CONSTRAINT is honored by pip's build-isolation resolver (pip >=23.1)
-        # as well as normal installs, so setting it once here covers both.
+
+        # --- FIX: pin setuptools inside pip's PEP 517 build isolation envs ---
+        # Several legacy scientific sdists still import pkg_resources at build time.
+        # Setting PIP_CONSTRAINT ensures isolated build envs also respect this pin.
         echo "setuptools<81" > /tmp/build-constraints.txt
         export PIP_CONSTRAINT=/tmp/build-constraints.txt
 
+        # Essential OS packages, Neovim (nvim), and Lean TeX Live for matplotlib LaTeX rendering (text.usetex=True)
+        # Avoids the bloated texlive-latex-extra (~1.5 GB) by installing only recommended packages
         apt-get update
         apt-get install -y --no-install-recommends \
-                build-essential wget ca-certificates git dos2unix zsh \
-                dvipng texlive-latex-extra texlive-fonts-recommended cm-super \
-                libxrender1 libxext6 libsm6 libice6 neovim  
+                build-essential gcc g++ gfortran \
+                wget ca-certificates git dos2unix ninja-build neovim \
+                libxrender1 libxext6 libsm6 libice6 \
+                dvipng texlive-latex-base texlive-latex-recommended texlive-fonts-recommended cm-super
+        apt-get clean
+        rm -rf /var/lib/apt/lists/*
 
         # Miniforge (conda) install — pinned to a specific release for reproducibility
-        MINIFORGE_VERSION="26.3.2-3"
-        MINIFORGE_SHA256="848194851a98903134187fbb4ab50efe87b003e0c0f808f97644b7524a62bf2c"
+        MINIFORGE_VERSION="26.5.3-0"
         cd /tmp
         wget -q "https://github.com/conda-forge/miniforge/releases/download/${MINIFORGE_VERSION}/Miniforge3-${MINIFORGE_VERSION}-Linux-x86_64.sh" \
             -O Miniforge3-Linux-x86_64.sh
-        echo "${MINIFORGE_SHA256}  Miniforge3-Linux-x86_64.sh" | sha256sum -c -
         bash Miniforge3-Linux-x86_64.sh -b -f -p /usr/local
-        rm Miniforge3-Linux-x86_64.sh
+        rm -f Miniforge3-Linux-x86_64.sh
         export PATH=/usr/local/bin:$PATH
         export LD_LIBRARY_PATH=/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-        # Channels & solver
-        # Claude suggestion: remove defaults channel to avoid transitive dependency conflicts
-        # conda config --system --add channels defaults
+
+        # Channels & solver configuration
         conda config --system --add channels conda-forge
         conda config --system --add channels bioconda
         conda config --system --add channels salilab
-        # Claude suggestion: simplify solver and avoid transitive dependency conflicts: strict channel priority
         conda config --system --set channel_priority strict
         conda install -y mamba
 
@@ -113,100 +119,66 @@ Stage: build
         mamba install -y \
                 python=3.12 \
                 cudatoolkit=11.8 \
+                openmpi \
                 gromacs==2024.5=nompi_cuda_h5cb645a_0
-        # Pin down this specific version of gromacs        
+        # Pin down this specific version of gromacs
         echo "gromacs ==2024.5=nompi_cuda_h5cb645a_0" >> /usr/local/conda-meta/pinned
-        # Step 2: Scientific + MD + viz stack (solver is now anchored to py3.12+cuda11.8)
-        # Group A: numerics/core (light, few exotic transitive deps)
-        mamba install -y  numpy scipy pandas tqdm 
-        mamba install -y  mpi4py scienceplots ipympl 
-        mamba install -y  h5py "networkx>=3.4.2" "setuptools<82" pip tabulate numba 
-        mamba install -y  dask dask-mpi scikit-learn
+        echo "python 3.12.*" >> /usr/local/conda-meta/pinned
 
-        # Group B: heavy chemistry/biophysics packages — historically the slowest,
-        # most transitive-dependency-heavy solves in this stack (ambertools
-        # especially is notorious for long solve times even on its own)
-        # Check out prody: https://www.bahargroup.org/prody/
-        # Check out alchemlyb: https://alchemlyb.readthedocs.io/en/stable/
-        # Check out pdbfixer: https://github.com/pandegroup/pdbfixer
-        # Check out lipyphilic: https://lipyphilic.readthedocs.io/en/latest/
-        # Check out py3dmol: https://william-dawson.github.io/using-py3dmol.html
-        mamba install -y  ambertools acpype openbabel rdkit 
-        mamba install -y  mdanalysis mdtraj simpletraj 
-        mamba install -y  parmed biopython prody alchemlyb pymbar pdbfixer lipyphilic pmda 
-        mamba install -y  nglview=3.*  py3dmol
+        # Step 2: Core Numerics and Python stack (Modern NumPy 2.x, SciPy, Pandas)
+        mamba install -y numpy scipy pandas tqdm tabulate numba h5py \
+                        mpi4py "mpi=*=openmpi" \
+                        "networkx>=3.4.2" "setuptools<82" pip wheel
 
-        # Group C: Jupyter/viz stack (mostly independent of Group B)
-        mamba install -y  seaborn plotly jupyter jupyterlab=4.5.* \
-                jupyter_server>=2.14 nbconvert jupyterlab-spellchecker \
-                jupyterlab-git jupyterlab-lsp matplotlib-base pdb2pqr
+        # Step 3: Biophysics, Force-field parameterization & Postprocessing
+        # AmberTools / GAFF2 / CHARMM / PDB prep & free energy
+        mamba install -y ambertools acpype openbabel rdkit \
+                        parmed biopython prody alchemlyb pymbar pdbfixer lipyphilic \
+                        nglview=3.* py3dmol pdb2pqr
 
-        # DSSP 3.0.0 requires libboost=1.73.0, incompatible with libboost=1.86.0
-        # pulled in by openbabel elsewhere in the main env — kept in its own
-        # isolated named environment. --override-channels pins channel order
-        # exactly (salilab -> anaconda -> conda-forge), avoiding ambiguity from
-        # merging with the system .condarc's channel list under strict priority.
+        # Step 4: Jupyter / Viz stack (with scienceplots & LaTeX support)
+        mamba install -y seaborn matplotlib-base plotly scienceplots jupyter jupyterlab=4.5.* "jupyter_server>=2.14" nbconvert ipympl
+
+        # Step 5: Isolated DSSP 3.0.0 environment
         mamba create -y -p /opt/dssp3 --override-channels \
             --channel-priority flexible \
             -c salilab \
             -c anaconda \
             -c conda-forge \
                 dssp=3.0.0 libboost=1.73.0
-        # Verify that the isolated DSSP installation is functional.
         echo "Verifying DSSP installation..."
         /opt/dssp3/bin/mkdssp --version
         ldd /opt/dssp3/bin/mkdssp | grep -q 'libboost_thread'
 
-        # Extra tools (some already provided inside ambertools; duplicates tolerated)
+        # Step 6: Source-based installation for MDAnalysis and MDTraj
+        # Built with native NumPy 2.x C API support for maximum performance and latest GROMACS compatibility
+        echo "Building MDAnalysis and MDTraj from source..."
         pip install --no-cache-dir \
-                amberutils \
-                gromacs_py \
-                importmonkey \
-                ipyparallel \
-                jupyterlab-execute-time \
-                jupyterlab-code-formatter \
-                biobb-common biobb-chemistry biobb-io biobb-model \
-                biobb-structure-checking biobb-structure-utils biobb-analysis biobb-gromacs
-        
-        # gmx_MMPBSA installed separately with --no-deps: its setup.py hard-pins
-        # numpy==1.26.4/pandas==1.5.3/matplotlib==3.7.3/scipy==1.14.1/mpi4py==4.0.1
-        # for the maintainers' own reproducibility, not because those exact
-        # versions are required at runtime. pandas==1.5.3 in particular has no
-        # cp312 wheel and would otherwise force an sdist build (see PIP_CONSTRAINT
-        # fix above). The mamba stack in Step 2 already satisfies every real
-        # runtime dependency (numpy, pandas, matplotlib, seaborn, scipy, mpi4py,
-        # parmed, tqdm), so --no-deps skips the problematic re-resolution entirely.
+            git+https://github.com/MDAnalysis/mdanalysis.git#subdirectory=package \
+            git+https://github.com/mdtraj/mdtraj.git
+        # PMDA (Parallel MDAnalysis)
+        pip install --no-cache-dir --no-deps pmda
+
+        # Step 7: GROMACS python wrapper & gmx_MMPBSA (no-deps to avoid re-resolution)
+        pip install --no-cache-dir gromacs_py amberutils
         pip install --no-cache-dir --no-deps gmx_MMPBSA
 
-        # Enable nglview extension (JupyterLab 4 auto-detects, commented unless needed)
-        # jupyter-nbextension enable nglview --py --sys-prefix || true
-
-        # CHARMM36 update (replace old charmm36-jul2017.ff if present in gromacs template)
+        # Step 8: CHARMM36 force field setup
         wget -q "https://mackerell.umaryland.edu/download.php?filename=CHARMM_ff_params_files/charmm36-jul2022.ff.tgz" -O /tmp/charmm36.tgz
-
         tar -xzf /tmp/charmm36.tgz -C /tmp
-        # Also place a clean copy in share/top for GMXLIB usage
         mkdir -p /usr/local/share/gromacs/top
         cp -r /tmp/charmm36-jul2022.ff /usr/local/share/gromacs/top/
-        # MacKerell lab tarballs often use CRLF — fix in-place so GROMACS can parse forcefield.doc
         find /usr/local/share/gromacs/top/charmm36-jul2022.ff -type f | xargs dos2unix
-        # Guarantee forcefield.doc exists with a one-line description (required by pdb2gmx).
-        # Must end with a newline — GROMACS line-reader skips unterminated lines.
         printf 'CHARMM36m all-atom force field (July 2022)\n' \
             > /usr/local/share/gromacs/top/charmm36-jul2022.ff/forcefield.doc
-        rm -rf /tmp/charmm36* 
-        # Get the cgenff script for generating parameters for small molecules
+        rm -rf /tmp/charmm36*
+        # cgenff script for small molecule parameter generation
         wget https://raw.githubusercontent.com/Lemkul-Lab/cgenff_charmm2gmx/refs/heads/main/cgenff_charmm2gmx.py -O /usr/local/bin/cgenff_charmm2gmx.py
         chmod +x /usr/local/bin/cgenff_charmm2gmx.py
 
-        # ============================================================================
-        # Martini 3 force field
-        # ============================================================================
-        # Download Martini 3 force field repository and install forcefield files for GROMACS
+        # Step 9: Martini 3 force field & Membrane builder (COBY, vermouth, prolint, cg2at)
         git clone --depth 1 https://github.com/marrink-lab/martini-forcefields /tmp/martini3 || true
-        # Create destination in conda GROMACS top directory and copy force field files
         mkdir -p /usr/local/share/gromacs/top/martini3.ff
-        # try common locations inside the repo (be permissive)
         if [ -d /tmp/martini3/martini_forcefields ]; then
                 cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files/* /usr/local/share/gromacs/top/martini3.ff/
                 cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files_contributed/* /usr/local/share/gromacs/top/martini3.ff/
@@ -214,31 +186,16 @@ Stage: build
                 cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files/* /usr/local/share/gromacs/top/martini3.ff/ || true
                 cp -r /tmp/martini3/martini_forcefields/regular/v3.0.0/gmx_files_contributed/* /usr/local/share/gromacs/top/martini3.ff/ || true
         fi
-        # Extract open-beta-only lipid tail combinations (not carried into the 2025
-        # refined M3-Lipid-Parameters release) from the old monolithic phospholipids
-        # bundle, before that bundle gets replaced.
         python3 /opt/extract_openbeta_lipids.py
-        # Refined Martini 3 lipidome (supersedes the old bundled phospholipids_v1.itp,
-        # now safe to remove since its unique content was extracted above)
         rm -f /usr/local/share/gromacs/top/martini3.ff/martini_v3.0.0_phospholipids_v1.itp
-        # Get Newer Lipid Parameters (M3-Lipid-Parameters) from the Martini Force Field Initiative repo
         git clone --depth 1 https://github.com/Martini-Force-Field-Initiative/M3-Lipid-Parameters /tmp/m3lipids || true
         cp /tmp/m3lipids/ITPs/*.itp /usr/local/share/gromacs/top/martini3.ff/
-        rm -rf /tmp/m3lipids
-        # Install martinize2/vermouth and COBY for coarse graining (pip only — not on conda-forge)
-        # Check out prolint: https://prolint2.readthedocs.io/en/latest/
-        # Checkout cg2at (backmapping): https://cgmartini.nl/docs/tutorials/Martini3/cg2at/
-        pip install --no-cache-dir vermouth COBY prolint cg2at
-        # Cleanup temporary clones
-        rm -rf /tmp/martini3 
-        # Log the versions of vermouth and COBY
-        echo "Verifying vermouth and COBY installation..."
-        vermouth_version=$(python3 -c "import vermouth; print(vermouth.__version__)")
-        COBY_version=$(python3 -c "import COBY; print(COBY.__version__)")
-        echo "vermouth version: $vermouth_version"
-        echo "COBY version: $COBY_version"
+        rm -rf /tmp/m3lipids /tmp/martini3
 
-        # GROMACS version sanity check 
+        # Install COBY, vermouth (martinize2), prolint, cg2at for membrane simulations & backmapping
+        pip install --no-cache-dir vermouth COBY prolint cg2at
+
+        # Step 10: Sanity checks & Capability verification
         echo "=== Verifying GROMACS installation ==="
         PKG_VERSION=$(mamba list gromacs | awk '$1=="gromacs"{print $2}')
         echo "Verified GROMACS ${PKG_VERSION}"
@@ -247,13 +204,46 @@ Stage: build
         GMX_VERSION=$(echo "$GMX_INFO" | awk -F': *' '/^GROMACS version:/ {print $2}')
         GPU_SUPPORT=$(echo "$GMX_INFO" | awk -F': *' '/^GPU support:/ {print $2}')
         OPENMP_SUPPORT=$(echo "$GMX_INFO" | awk -F': *' '/^OpenMP support:/ {print $2}')
+        MPI_LIBRARY=$(echo "$GMX_INFO" | awk -F': *' '/^MPI library:/ {print $2}')
         echo "Version:         $GMX_VERSION"
         echo "GPU support:     $GPU_SUPPORT"
         echo "OpenMP support:  $OPENMP_SUPPORT"
+        echo "MPI library:     $MPI_LIBRARY"
 
-        # Clean
-        mamba clean -ay
-        find /usr/local -name "__pycache__" -type d -exec rm -rf {} +
+        echo "=== Verifying Python MD Analysis, Viz & Forcefield Stack ==="
+        python3 -c "
+import MDAnalysis as mda
+import mdtraj as md
+import pmda
+import vermouth
+import COBY
+import acpype
+import openbabel
+import rdkit
+import parmed
+import alchemlyb
+import pymbar
+import lipyphilic
+import prolint
+import cg2at
+import gromacs_py
+import GMXMMPBSA
+import scienceplots
+import matplotlib
+import numpy as np
+print('All core simulation, trajectory, membrane, viz, and analysis packages imported successfully!')
+print(f'NumPy version:      {np.__version__}')
+print(f'MDAnalysis version: {mda.__version__}')
+print(f'mdtraj version:     {md.__version__}')
+print(f'COBY version:       {COBY.__version__}')
+print(f'vermouth version:   {vermouth.__version__}')
+"
+
+        # Final cleanup for a lean container footprint (avoid wiping Singularity internal /tmp mounts)
+        mamba clean -afy
+        find /usr/local -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null || true
+        rm -rf /tmp/charmm36* /tmp/martini3* /tmp/m3lipids* /tmp/build-constraints.txt /tmp/Miniforge3* 2>/dev/null || true
+        rm -rf /root/.cache/* /root/.jupyter 2>/dev/null || true
         mkdir -p /root/.jupyter
-        
-        echo "DONE: GROMACS with OpenMP, GPU + {AMBER99SB-ILDN, CHARMM36-july2022, Martini3}-forcefields + bio stack."
+
+        echo "DONE: GROMACS 2024.5 with OpenMP, GPU + Neovim + LaTeX/Scienceplots + {AMBER/GAFF2, CHARMM36-jul2022, Martini3}-forcefields + COBY + vermouth + source MD stack."

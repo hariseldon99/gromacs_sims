@@ -45,7 +45,9 @@ from .utils import (
     save_checkpoint,
     load_latest_checkpoint,
     relocate_checkpoint_paths,
+    enable_gromacs_py_gpu_hook,
 )
+
 
 logger = logging.getLogger("gmx_protlig.steps")
 
@@ -662,6 +664,8 @@ def step7_energy_minimization(
     maxwarn: int = 5,
     checkpoint_in: Optional[Any] = None,
     work_dir: str = ".",
+    pin: str = "on",
+    enable_gpu_hook: bool = True,
 ) -> Dict[str, Any]:
     """
     Step 7: Energy minimisation (two-step).
@@ -683,7 +687,11 @@ def step7_energy_minimization(
         complex_sys.ntmpi = 1
         complex_sys.gpu_id = "0" if gpu else None
 
+        if gpu and enable_gpu_hook:
+            enable_gromacs_py_gpu_hook(pin=pin)
+
         logger.info(f"[Step 7] Running two-step energy minimisation with {nt} CPU threads...")
+
         complex_sys.em_2_steps(
             out_folder=em_outdir,
             no_constr_nsteps=em_steps,
@@ -746,6 +754,11 @@ def step8_hpc_equi_prod(
     maxwarn: int = 10,
     checkpoint_in: Optional[Any] = None,
     work_dir: str = ".",
+    pin: str = "on",
+    gpu_pme: str = "gpu",
+    gpu_bonded: str = "gpu",
+    gpu_update: str = "gpu",
+    enable_gpu_hook: bool = True,
 ) -> Dict[str, Any]:
     """
     Step 8: Equilibration and production MD with post-processing.
@@ -781,7 +794,16 @@ def step8_hpc_equi_prod(
         complex_sys.ntmpi = 1
         complex_sys.gpu_id = str(gpu_id) if gpu_id is not None else None
 
+        if enable_gpu_hook and gpu_id is not None:
+            enable_gromacs_py_gpu_hook(
+                pin=pin,
+                pme=gpu_pme,
+                bonded=gpu_bonded,
+                update=gpu_update,
+            )
+
         dt = 0.002
+
         dt_ha = 0.001
         ha_step = int(1000 * 0.5 / dt_ha)
         ca_step = int(1000 * 1.0 / dt)

@@ -165,6 +165,11 @@ class ProteinLigandPipeline:
         n_cores: Optional[int] = None,
         gpu_id: str = "0",
         checkpoint_in: Optional[Any] = None,
+        pin: str = "on",
+        gpu_pme: str = "gpu",
+        gpu_bonded: str = "gpu",
+        gpu_update: str = "gpu",
+        enable_gpu_hook: bool = True,
     ) -> Dict[str, Any]:
         """Step 8: Equilibration and production MD."""
         logger.info(f"Pipeline [{self.ligand_name}]: Starting Step 8...")
@@ -178,6 +183,11 @@ class ProteinLigandPipeline:
             prod_time_ns=self.prod_time_ns,
             checkpoint_in=checkpoint_in,
             work_dir=self.work_dir,
+            pin=pin,
+            gpu_pme=gpu_pme,
+            gpu_bonded=gpu_bonded,
+            gpu_update=gpu_update,
+            enable_gpu_hook=enable_gpu_hook,
         )
         self.results["step8"] = res
         return res
@@ -214,6 +224,11 @@ class ProteinLigandPipeline:
         charge_method: str = "bcc",
         n_cores_md: Optional[int] = None,
         gpu_id_md: str = "0",
+        pin_md: str = "on",
+        gpu_pme_md: str = "gpu",
+        gpu_bonded_md: str = "gpu",
+        gpu_update_md: str = "gpu",
+        enable_gpu_hook: bool = True,
     ) -> Dict[str, Any]:
         """
         Run entire pipeline (steps 1 through 8).
@@ -225,8 +240,17 @@ class ProteinLigandPipeline:
             net_charge=net_charge,
             charge_method=charge_method,
         )
-        self.run_step8(n_cores=n_cores_md, gpu_id=gpu_id_md)
+        self.run_step8(
+            n_cores=n_cores_md,
+            gpu_id=gpu_id_md,
+            pin=pin_md,
+            gpu_pme=gpu_pme_md,
+            gpu_bonded=gpu_bonded_md,
+            gpu_update=gpu_update_md,
+            enable_gpu_hook=enable_gpu_hook,
+        )
         return self.results
+
 
     def resume_from_step(
         self,
