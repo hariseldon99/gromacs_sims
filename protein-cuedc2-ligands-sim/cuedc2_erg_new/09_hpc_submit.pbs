@@ -4,7 +4,7 @@
 #--------------------------------------------------
 #PBS -N cuedc2-erg-new
 #PBS -q workq
-#PBS -l select=1:ncpus=32:mpiprocs=32:host=kuhpcgn1
+#PBS -l select=1:ncpus=8:mpiprocs=8:host=kuhpcgn2
 #PBS -o cuedc2-erg-new.out
 #PBS -j oe
 #PBS -l walltime=500:00:00
@@ -33,8 +33,9 @@
 # ----------------------------------------------------------
 
 # Python script to run
-HPC_SCRIPT="08_hpc_equi_prod.py"
-
+#HPC_SCRIPT="08_hpc_equi_prod.py"
+HPC_SCRIPT="prod_resume.py"
+TC_GRPS_CMPLX="PROTEIN_ERG"
 
 # Singularity container
 SIF_PATH="/home/arunima/images/gromacs_2024.5.1-GPU_20260718.sif"

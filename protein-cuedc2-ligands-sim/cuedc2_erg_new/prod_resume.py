@@ -82,7 +82,7 @@ def _hooked_Command_init(self, list_cmd, *args, **kwargs):
 osc.Command.__init__ = _hooked_Command_init
 
 # ---------------------------------------------------------------------------
-# Parallelisation — on HPC, SLURM sets SLURM_CPUS_PER_TASK
+# Parallelisation — on HPC, PBS gets PBS_NCPUS
 # ---------------------------------------------------------------------------
 N_CORES = int(os.environ.get("SLURM_CPUS_PER_TASK") or 
             os.environ.get("PBS_NCPUS") or 
@@ -93,20 +93,8 @@ print(f"[INFO] Using {N_CORES} OpenMP threads.")
 # ---------------------------------------------------------------------------
 # Simulation parameters
 # ---------------------------------------------------------------------------
+DT          = 0.001       # ps
 VSITE       = None
-DT          = 0.002       # ps
-DT_HA       = 0.001       # ps for heavy-atom constrained equi
-
-# Equilibration times (ns)
-HA_TIME     = 0.5         # ns — heavy atom restraints
-CA_TIME     = 1.0         # ns — Cα restraints
-CA_LOW_TIME = 4.0         # ns — low Cα restraints
-
-HA_STEP     = int(1000 * HA_TIME     / DT_HA)
-CA_STEP     = int(1000 * CA_TIME     / DT)
-CA_LOW_STEP = int(1000 * CA_LOW_TIME / DT)
-
-# Production (100 ns)
 PROD_TIME   = 100.0       # ns
 PROD_STEPS  = int(1000 * PROD_TIME / DT)
 
