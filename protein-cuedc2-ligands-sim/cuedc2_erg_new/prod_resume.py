@@ -73,7 +73,7 @@ def _hooked_Command_init(self, list_cmd, *args, **kwargs):
             print(f"[GPU Hook] Energy Minimization detected: {' '.join(em_flags)}")
         else:
             # Full GPU offload for dynamical MD (equi & prod)
-            dyn_flags = ["-pin", "on","-nb", "gpu", "-pme", "gpu", "-bonded", "gpu"]
+            dyn_flags = ["-pin", "on", "-nb", "gpu", "-pme", "gpu", "-bonded", "gpu"]
             list_cmd += dyn_flags
             print(f"[GPU Hook] Dynamical MD detected (equi/prod): {' '.join(dyn_flags)}")
 
@@ -88,6 +88,7 @@ N_CORES = int(os.environ.get("SLURM_CPUS_PER_TASK") or
             os.environ.get("PBS_NCPUS") or 
             os.environ.get("OMP_NUM_THREADS") or
             multiprocessing.cpu_count())
+
 print(f"[INFO] Using {N_CORES} OpenMP threads.")
 
 # ---------------------------------------------------------------------------
